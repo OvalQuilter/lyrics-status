@@ -1,7 +1,11 @@
 # Lyrics' sender
 This script created to provide more interactive in users' profiles!
+# Warning!
+***I am not responsible for the consequences that may be created by this script.
+This script is provided 'as is' and you use it at your own risk.***
 # How to use
 ###### Before all - you need to install TamperMonkey in your browser. You can get it [here](https://www.tampermonkey.net).
+###### [Video]https://www.youtube.com/watch?v=LnBnm_tZlyU) how to get your token.
 Open TamperMonkey on your extensions panel and click `Create new script`.
 
 Clear all code that appeared in text area and paste code below:
@@ -28,3 +32,6 @@ xhr.onreadystatechange = function () {
 
 xhr.send();
 ```
+After all this done, open `File` section and click `Save`.
+
+Now you gotta go to `open.spotify.com`, press `Escape`, paste your token and enjoy!
