@@ -1,9 +1,9 @@
 # Lyrics' sender
 This script created to provide more interactive in users' profiles!
 # Warning!
-***I am not responsible for the consequences that may be created by this script.
+***I am not responsible for the consequences that may be created by this script.***
 
-This script is provided 'as is' and you use it at your own risk.***
+***This script is provided 'as is' and you use it at your own risk.***
 # How to use
 ###### Before all - you need to install TamperMonkey in your browser. You can get it [here](https://www.tampermonkey.net).
 ###### [Video](https://www.youtube.com/watch?v=LnBnm_tZlyU) how to get your token.
