@@ -210,7 +210,7 @@ function init() {
     playbackStateUpdater = setInterval(function() {
         let getPlaybackState = new XMLHttpRequest();
 
-        getPlaybackState.open("GET", "https://api.spotify.com/v1/me/player/currently-playing");
+        getPlaybackState.open("GET", "https://api.spotify.com/v1/me/player/currently-playing?market=ES");
 
         getPlaybackState.setRequestHeader("Content-Type", "application/json");
         getPlaybackState.setRequestHeader("Authorization", `Bearer ${accessToken}`);
