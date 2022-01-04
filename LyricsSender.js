@@ -210,13 +210,15 @@ function init() {
     playbackStateUpdater = setInterval(function() {
         let getPlaybackState = new XMLHttpRequest();
 
-        getPlaybackState.open("GET", "https://api.spotify.com/v1/me/player");
+        getPlaybackState.open("GET", "https://api.spotify.com/v1/me/player/currently-playing");
 
         getPlaybackState.setRequestHeader("Content-Type", "application/json");
         getPlaybackState.setRequestHeader("Authorization", `Bearer ${accessToken}`);
 
         getPlaybackState.onreadystatechange = async function() {
             if(getPlaybackState.readyState === 4) {
+		    
+		    console.log(getPlaybackState.response);
 
                 switch(getPlaybackState.status) {
                     case 204:
