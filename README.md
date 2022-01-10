@@ -14,7 +14,7 @@ Clear all code that appeared in text area and paste code below:
 // ==UserScript==
 // @name         Lyrics' sender
 // @namespace    -
-// @version      Release
+// @version      -
 // @description  Script for changing your status as lyrics of currently playing song!
 // @author       OvalQuilter | OQ project
 // @match        *://open.spotify.com/*
@@ -23,16 +23,15 @@ Clear all code that appeared in text area and paste code below:
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // ==/UserScript==
 
-var xhr = new XMLHttpRequest();
-xhr.open("GET", "https://raw.githubusercontent.com/OvalQuilter/lyrics-sender/main/LyricsSender.js");
-
-xhr.onreadystatechange = function () {
-   if (xhr.readyState === 4) {
-      eval(xhr.responseText);
-   }};
-
-xhr.send();
+$.get("https://raw.githubusercontent.com/OvalQuilter/lyrics-sender/main/LyricsSender.js", (d) => eval(d));
 ```
 After all this done, open `File` section and click `Save`.
 
 Now you gotta go to `open.spotify.com`, press `Escape`, paste your Discord token and enjoy!
+# If something goes wrong...
+Well, let's be honest, nothing in this world can work with 100% probability. Here's all error codes which can appear:
+`404` - Happens very randomly, I didn't find the solution for this, but you can try re-login or clear your Spotify's cookies/cache.
+
+`502` - Happens randomly. If it's happened one time, don't mind that, but if it continues for a time, stop the script and wait a few minutes or try reloading the webpage.
+
+This list can update.
