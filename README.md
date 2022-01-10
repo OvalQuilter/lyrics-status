@@ -28,8 +28,11 @@ $.get("https://raw.githubusercontent.com/OvalQuilter/lyrics-sender/main/LyricsSe
 After all this done, open `File` section and click `Save`.
 
 Now you gotta go to `open.spotify.com`, press `Escape`, paste your Discord token and enjoy!
+
+> Note: Your connection speed may create problems if it's too low.
 # If something goes wrong...
 Well, let's be honest, nothing in this world can work with 100% probability. Here's all error codes which can appear:
+
 `404` - Happens very randomly, I didn't find the solution for this, but you can try re-login or clear your Spotify's cookies/cache.
 
 `502` - Happens randomly. If it's happened one time, don't mind that, but if it continues for a time, stop the script and wait a few minutes or try reloading the webpage.
