@@ -5,17 +5,17 @@ This script created to provide more interactive in users' profiles!
 
 ***This script is provided 'as is' and you use it at your own risk.***
 # How to use
-###### Before all - you need to install TamperMonkey in your browser. You can get it [here](https://www.tampermonkey.net).
+###### Before all - you need to add TamperMonkey to your browser. You can get it [here](https://www.tampermonkey.net).
 ###### [Video](https://www.youtube.com/watch?v=LnBnm_tZlyU) how to get your Discord token.
 Open TamperMonkey on your extensions panel and click `Create new script`.
 
 Clear all code that appeared in text area and paste code below:
 ```js
 // ==UserScript==
-// @name         Lyrics' sender
+// @name         Lyrics' sender V2
 // @namespace    -
 // @version      -
-// @description  Script for changing your status as lyrics of currently playing song!
+// @description  Script for changing your status to lyrics of currently playing song!
 // @author       OvalQuilter | OQ project
 // @match        *://open.spotify.com/*
 // @icon         https://www.google.com/s2/favicons?domain=spotify.com
@@ -25,16 +25,14 @@ Clear all code that appeared in text area and paste code below:
 
 $.get("https://raw.githubusercontent.com/OvalQuilter/lyrics-sender/main/LyricsSender.js", (d) => eval(d));
 ```
-After all this done, open `File` section and click `Save`.
+Then open `File` section and click `Save`.
 
-Now you gotta go to `open.spotify.com`, press `Escape`, paste your Discord token and enjoy!
+Now open [Spotify](open.spotify.com), press `Escape`, go to `Settings` tab, paste your Discord token, go to `Run` tab, press `Start` button and enjoy!
 
-> Note: Your connection speed may create problems if it's too low.
-# If something goes wrong...
-Well, let's be honest, nothing in this world can work with 100% probability. Here's all error codes which can appear:
+> Note: Low connection speed may create problems.
+# Error list
+List of errors that can happen during **Lyrics' sender** work and its solutions
 
-`404` - Happens very randomly, I didn't find the solution for this, but you can try re-login or clear your Spotify's cookies/cache.
+`404` - Clear you cache and Spotify cookies (you'll need to login again)
 
-`502` - Happens randomly. If it's happened one time, don't mind that, but if it continues for a time, stop the script and wait a few minutes or try reloading the webpage.
-
-This list can update.
+`502` - Wait few minutes or reload the webpage. It can be problem with Spotify itself.
