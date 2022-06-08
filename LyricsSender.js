@@ -36,7 +36,7 @@ $(`
             </div>
             <div>
                 <span>Preview:</span>
-                <span id="status-preview">[2:17] Song playbackState.lyrics - La-la-la</span>
+                <span id="status-preview">[2:17] Song lyrics - La-la-la</span>
             </div>
         </div>
         <div class="settings-tab-sub">
