@@ -703,7 +703,7 @@ if(settings.autorun) {
     updatePlaybackState().always(async () => {
 
         if(errorCount >= 10) {
-            addLog("Lyrics' sender was been stopped due to errors.", "warning");
+            addLog("Lyrics' sender has been stopped due to errors.", "warning");
             stopLog = true;
             stopped = true;
 
