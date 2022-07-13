@@ -1,6 +1,7 @@
 # Lyrics' sender
 ### How it works
 Script changes your status to current lyric of song you listening in Spotify.
+
 ![Work preview](https://user-images.githubusercontent.com/69106951/178853744-db356ac8-93cb-4c2a-acd2-7fb4329163c9.gif)
 # Warning!
 ***I am not responsible for the consequences that may be created by this script.***
