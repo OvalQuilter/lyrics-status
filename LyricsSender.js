@@ -656,7 +656,7 @@ function updatePlaybackState() {
 }
 function changeStatus(ms) {
     return new Promise((res, rej) => {
-        if(playbackState.ended() || !playbackState.hasLyrics || !playbackState.isPlaying) res();
+        if(playbackState.ended() || !playbackState.hasLyrics || !playbackState.isPlaying) return res();
 
         playbackState.trackProgress += ms;
 
