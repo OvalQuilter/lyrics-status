@@ -20,7 +20,7 @@ $(`
                 <button id="check-token" class="button1">Check</button>
             </div>
             <div>
-                <label for="autorun">Autorun:</label>
+                <label for="autorun">Autorun</label>
                 <input type="checkbox" id="autorun">
             </div>
         </div>
