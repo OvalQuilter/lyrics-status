@@ -38,6 +38,6 @@ Now open [Spotify](open.spotify.com), press `Escape`, go to `Settings` tab, past
 # Error list
 List of errors that can happen during **Lyrics' sender** work and its solutions
 
-`404` - Clear you cache and Spotify cookies (you'll need to login again)
+`404` - Clear your cache and Spotify cookies (you'll need to login again)
 
 `502` - Wait few minutes or reload the webpage. It can be problem with Spotify itself.
