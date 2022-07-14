@@ -23,7 +23,7 @@ Clear all code that appeared in text area and paste code below:
 // @description  Script for changing your status to lyrics of currently playing song!
 // @author       OvalQuilter | OQ project
 // @match        *://open.spotify.com/*
-// @icon         https://www.google.com/s2/favicons?domain=spotify.com
+// @icon         https://raw.githubusercontent.com/OvalQuilter/lyrics-sender/main/Logo.png
 // @grant        none
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // ==/UserScript==
