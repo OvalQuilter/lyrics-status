@@ -724,7 +724,6 @@ if(settings.autorun) {
         if(stopLog) {
             stopLog = false;
             addLog("Lyrics' sender stopped...");
-            changeStatusRequest(settings.token, "");
         }
         if(stopped) {
             ms += 150;
@@ -732,7 +731,7 @@ if(settings.autorun) {
             return;
         }
         changeStatus(ms);
-        ms = 150;
+        ms += 150;
     }, 150);
 })();
 // Init
