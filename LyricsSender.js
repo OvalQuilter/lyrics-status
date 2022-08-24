@@ -658,7 +658,7 @@ function changeStatus(ms) {
     return new Promise((res, rej) => {
         if(playbackState.ended() || !playbackState.hasLyrics || !playbackState.isPlaying) return res();
 
-        playbackState.trackProgress += ms;
+        //playbackState.trackProgress += ms;
 
         const offset = +settings.timings.sendTimeOffset;
 
