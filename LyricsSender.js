@@ -649,8 +649,8 @@ function updatePlaybackState() {
                 playbackState.isPlaying = d.is_playing;
             },
             401: () => { refreshAccessToken(); },
-            404: () => { addLog("Got unexpected error! For more details please read <a href=\"https://github.com/OvalQuilter/lyrics-sender#if-something-goes-wrong\">this</a>. <strong>Error code: 502</strong>", "error"); stopLog = true; stopped = true; errorCount++ },
-            502: () => { addLog("Got unexpected error! For more details please read <a href=\"https://github.com/OvalQuilter/lyrics-sender#if-something-goes-wrong\">this</a>. <strong>Error code: 502</strong", "error"); stopLog = true; stopped = true; errorCount++ }
+            404: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-sender#error-list\">this</a>. <strong class=\"error\">Error code: 404</strong>", "error"); stopLog = true; stopped = true; errorCount++ },
+            502: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-sender#error-list\">this</a>. <strong class=\"error\">Error code: 502</strong>", "error"); stopLog = true; stopped = true; errorCount++ }
         }
     });
 }
