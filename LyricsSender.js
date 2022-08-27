@@ -488,7 +488,7 @@ opacityRangeSlider.on("input", () => {
 
 function addLog(text, t) {
     t = t == "error" ? "Error" : t == "warning" ? "Warning" : "Log";
-    $("<span/>", { class: t.toLowerCase() }).text(`[${t}]: ${text}`).appendTo(logWindow)[0].scrollIntoView(false);
+    $("<span/>", { class: t.toLowerCase() }).html(`[${t}]: ${text}`).appendTo(logWindow)[0].scrollIntoView(false);
 
     if(logWindow.children().length >= 30) $(logWindow[0].firstChild).remove();
 }
