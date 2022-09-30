@@ -12,44 +12,58 @@ $(`
         </div>
     </div>
     <div id="settings-tab" class="hid">
-        <div class="settings-tab-sub">
-            <span>General</span>
-            <div>
+        <div class="settings">
+            <span class="settings-name">General</span>
+            <div class="option">
                 <label for="user-token">Token:</label>
                 <input type="text" id="user-token" class="text-input1">
                 <button id="check-token" class="button1">Check</button>
             </div>
-            <div>
-                <label for="autorun">Autorun</label>
+            <div class="option">
+                <label for="autorun">Autorun:</label>
                 <input type="checkbox" id="autorun">
             </div>
         </div>
-        <div class="settings-tab-sub">
-            <span>Status view</span>
-            <div>
+        <div class="settings">
+            <span class="settings-name">Status view</span>
+            <div class="option">
                 <label for="enable-timestamp">Enable timestamp</label>
                 <input type="checkbox" id="enable-timestamp" checked>
             </div>
-            <div>
+            <div class="option">
                 <label for="enable-label">Enable label</label>
                 <input type="checkbox" id="enable-label" checked>
             </div>
-            <div>
-                <span>Preview:</span>
+            <div class="option">
+                <span class="fw-500">Preview:</span>
                 <span id="status-preview">[2:17] Song lyrics - La-la-la</span>
             </div>
+            <div class="option">
+                <label for="enable-advanced-swt">Advanced settings</label>
+                <input type="checkbox" id="enable-advanced-swt">
+            </div>
+            <div id="advanced-swt" class="sub-settings hid">
+                <div class="option">
+                    <label for="custom-status">
+                        Custom status
+                        <img id="custom-status-help" class="clickable question-mark1" src="https://www.pngall.com/wp-content/uploads/5/Help-Question-Mark-PNG-Free-Download.png" height="15">
+                        :
+                    </label>
+                    <textarea rows="3" cols="40" id="custom-status" class="text-input2"></textarea>
+                </div>
+            </div>
         </div>
-        <div class="settings-tab-sub">
-            <span>Timings</span>
-            <div>
+        <div class="settings">
+            <span class="settings-name">Timings</span>
+            <div class="option">
                 <label for="send-time-offset">Send time offset:</label>
                 <input type="text" id="send-time-offset" class="text-input1" maxlength="4" value="500">
                 <img id="send-time-offset-help" class="clickable question-mark1" src="https://www.pngall.com/wp-content/uploads/5/Help-Question-Mark-PNG-Free-Download.png" height="15">
             </div>
         </div>
-        <div class="settings-tab-sub">
-            <span>Menu style</span>
-            <div>
+        <div class="settings">
+            <span class="settings-name">Menu style</span>
+            <div class="option">
                 <label for="opacity-range-slider">Opacity</label>
                 <input id="opacity-range-slider" class="range-slider1" type="range" min="50" max="100" value="90">
             </div>
@@ -83,7 +97,7 @@ $(`
             top: 1px;
             position: relative;
         }
-        #menu-UI:not(:hover) *::-webkit-scrollbar {
+        #menu-UI:not(:hover)::-webkit-scrollbar {
             display: none;
         }
         #menu-UI *::-webkit-scrollbar {
@@ -186,6 +200,9 @@ $(`
             padding: 0 20px 0 20px;
             background: rgba(55, 55, 55, var(--alpha));
         }
+        #custom-status {
+            overflow: hidden auto;
+        }
         #send-time-offset {
             width: 40px;
         }
@@ -210,6 +227,9 @@ $(`
             transform: translate(-50%, -50%) scale(0) !important;
             opacity: 0;
         }
+        .cur-tab {
+            background: rgba(110, 111, 111, var(--alpha)) !important;
+        }
         .error {
             color: rgba(234, 0, 0, var(--alpha)) !important;
         }
@@ -218,6 +238,9 @@ $(`
         }
         .log {
             color: rgba(150, 150, 200, var(--alpha)) !important;
+        }
+        .green {
+            color: rgba(150, 200, 150, var(--alpha)) !important;
         }
         .button1 {
             width: 90px;
@@ -240,6 +263,20 @@ $(`
             text-align: center;
         }
         .text-input1:focus {
+            outline: none;
+        }
+        .text-input2 {
+            border: solid 1px gray;
+            border-radius: 2px;
+            background: rgba(58, 58, 58, var(--alpha));
+            -webkit-transition: background .2s ease-in-out, color .2s ease-in-out;
+            -moz-transition: background .2s ease-in-out, color .2s ease-in-out;
+            transition: background .2s ease-in-out, color .2s ease-in-out;
+            text-align: left;
+            line-height: 15px;
+            resize: none;
+        }
+        .text-input2:focus {
             outline: none;
         }
         .range-slider1 {
@@ -278,18 +315,15 @@ $(`
         .range-slider1::-moz-range-thumb:hover {
             background: rgba(100, 100, 100, var(--alpha));
         }
-        .settings-tab-sub > div {
-            margin: 3px 0 0 10px;
-        }
-        .settings-tab-sub > span:first-child {
+        .settings-name {
             font-size: 21px;
             font-weight: 700;
         }
-        .settings-tab-sub:nth-child(2) > :nth-child(4) {
-            margin-left: 5px;
+        .option {
+            margin: 3px 0 0 10px;
         }
-        .settings-tab-sub:nth-child(2) > :nth-child(4) > :first-child {
-            font-weight: 500;
+        .sub-settings {
+            margin: 3px 0 0 10px;
         }
         .clickable {
             cursor: pointer;
@@ -297,12 +331,19 @@ $(`
         .question-mark1 {
             bottom: 5px;
             right: 1px;
+            margin-right: -3px;
             filter: invert(39%) sepia(0%) saturate(0%) hue-rotate(339deg) brightness(94%) contrast(90%);
             position: relative;
         }
         input:disabled {
             color: rgba(184, 184, 184, var(--alpha)) !important;
             background: rgba(48, 48, 48, var(--alpha));
+        }
+        .fw-500 {
+            font-weight: 500;
+        }
+        .fw-700 {
+            font-weight: 700;
         }
         .modal {
             min-width: 300px;
@@ -365,6 +406,7 @@ $(`
     </style>
 </div>
 `).appendTo(document.body);
+// HTML and CSS
 
 let menu                    = $("#menu-UI"),
     runTabButton            = $("#run-tab-button"),
@@ -380,16 +422,25 @@ let menu                    = $("#menu-UI"),
     enableTimestampCheckbox = $("#enable-timestamp"),
     enableLabelCheckbox     = $("#enable-label"),
     statusPreview           = $("#status-preview"),
+    advancedSWT             = $("#advanced-swt"),
+    enableAdvancedSWT       = $("#enable-advanced-swt"),
+    customStatusHelp        = $("#custom-status-help"),
+    customStatus            = $("#custom-status"),
     sendTimeOffset          = $("#send-time-offset"),
     sendTimeOffsetHelp      = $("#send-time-offset-help"),
     opacityRangeSlider      = $("#opacity-range-slider");
 // Elements
+
 let settings = {
     token: null,
     autorun: false,
     view: {
         timestamp: true,
-        label: true
+        label: true,
+        advanced: {
+            enabled: false,
+            customStatus: "[{timestamp}] Song lyrics - {lyrics}"
+        }
     },
     timings: {
         sendTimeOffset: 500
@@ -399,12 +450,15 @@ let settings = {
     }
 }
 // Settings
+
 let stopped       = true,
     startLog      = false,
     stopLog       = false,
     accessToken   = null,
     errorCount    = 0,
     playbackState = {
+        trackName: null,
+        trackAuthor: null,
         trackId: null,
         oldTrackId: null,
         trackDuration: 0,
@@ -419,8 +473,18 @@ let stopped       = true,
 // Misc, in-session variables
 
 $(document).keyup((e) => e.key === "Escape" ? menu.toggleClass("act-anim").toggleClass("hid-anim") : false);
-runTabButton.click(() => runTab.removeClass("hid").addClass("act") && settingsTab.removeClass("act").addClass("hid"));
-settingsTabButton.click(() => settingsTab.removeClass("hid").addClass("act") && runTab.removeClass("act").addClass("hid"));
+runTabButton.click(() => {
+    runTab.removeClass("hid").addClass("act");
+    settingsTab.removeClass("act").addClass("hid");
+    runTabButton.addClass("cur-tab");
+    settingsTabButton.removeClass("cur-tab");
+});
+settingsTabButton.click(() => {
+    settingsTab.removeClass("hid").addClass("act");
+    runTab.removeClass("act").addClass("hid");
+    settingsTabButton.addClass("cur-tab");
+    runTabButton.removeClass("cur-tab");
+});
 startButton.click(() => { if(stopped) { startLog = true; } stopped = false; });
 stopButton.click(() => { if(!stopped) { stopLog = true; } stopped = true; });
 userTokenInput.change(() => {
@@ -452,6 +516,28 @@ enableLabelCheckbox.click(() => {
     saveSettings();
 
     statusPreview.text(getStatusString("La-la-la", 137000));
+});
+enableAdvancedSWT.click(() => {
+    let state = enableAdvancedSWT.prop("checked");
+
+    settings.view.advanced.enabled = state;
+    saveSettings();
+
+    advancedSWT
+        .toggleClass("hid")
+        .toggleClass("act");
+    enableTimestampCheckbox.prop("disabled", state);
+    enableLabelCheckbox.prop("disabled", state);
+});
+customStatusHelp.click(() => {
+    modal("Help", "<strong>Custom status</strong> option allows you to customise your status as you want.\nTo display text such as lyrics or timestamp you need to put it in {} brackets: <strong>[{timestamp}] Song lyrics - {lyrics}</strong><br>There's also other variables you can add to your status: <strong>{song_name}</strong> for displaying song name and <strong>{song_author}</strong> for displaying author name.<br>You can add <strong>upper</strong> or <strong>lower</strong> attribute to variable to make it upper/lower case: <strong>{song_name_upper}</strong>. This won't work for timestamp.<br><br><strong>Note: Lyrics' sender will automatically crop your status if it's too long. Discord not allowing statuses with length over 128 symbols.</strong>");
+});
+customStatus.on("input", (e) => {
+    e.preventDefault();
+    let value = customStatus.val();
+
+    settings.view.advanced.customStatus = value;
+    saveSettings();
 });
 sendTimeOffset.on("input", (e) => {
     e.preventDefault();
@@ -485,7 +571,6 @@ opacityRangeSlider.on("input", () => {
 });
 // Events
 
-
 function addLog(text, t) {
     t = t == "error" ? "Error" : t == "warning" ? "Warning" : "Log";
     $("<span/>", { class: t.toLowerCase() }).html(`[${t}]: ${text}`).appendTo(logWindow)[0].scrollIntoView(false);
@@ -497,6 +582,31 @@ function formatSeconds(s){
 }
 function getStatusString(lyrics, time) {
     return `${settings.view.timestamp ? `[${formatSeconds((time / 1000).toFixed(0))}] ` : ""}${settings.view.label ? "Song lyrics - " : ""}${lyrics}`
+}
+function parseStatusString(status, data) {
+    if(typeof data !== "object") return;
+
+    if(data.lyrics) {
+        status = status
+            .replace("{lyrics}", data.lyrics)
+            .replace("{lyrics_upper}", data.lyrics.toUpperCase())
+            .replace("{lyrics_lower}", data.lyrics.toLowerCase());
+    }
+    if(data.time) status = status.replace("{timestamp}", formatSeconds((data.time / 1000).toFixed()));
+    if(data.songName) {
+        status = status
+            .replace("{song_name}", data.songName)
+            .replace("{song_name_upper}", data.songName.toUpperCase())
+            .replace("{song_name_lower}", data.songName.toLowerCase());
+    }
+    if(data.songAuthor) {
+        status = status
+            .replace("{song_author}", data.songAuthor)
+            .replace("{song_author_upper}", data.songAuthor.toUpperCase())
+            .replace("{song_author_lower}", data.songAuthor.toLowerCase());
+    }
+
+    return status.slice(0, 128);
 }
 function sleep(ms) {
     return new Promise((res, rej) => setTimeout(res, ms));
@@ -549,13 +659,21 @@ function changeStatusRequest(token, text) {
     });
 }
 function loadSettings() {
-    let settingsString = localStorage.getItem("LyricsSender_settings");
-    settings = settingsString ? JSON.parse(settingsString) : settings;
+    let settingsLoaded = localStorage.getItem("LyricsSender_settings");
+    settingsLoaded = settingsLoaded ? JSON.parse(settingsLoaded) : settings;
+
+    if(!settingsLoaded.advanced) {
+        settingsLoaded.advanced = settings.advanced;
+    }
+
+    settings = settingsLoaded;
 
     userTokenInput.val(settings.token);
     autorunCheckbox.prop("checked", settings.autorun);
     enableTimestampCheckbox.prop("checked", settings.view.timestamp);
     enableLabelCheckbox.prop("checked", settings.view.label);
+    settings.view.advanced.enabled ? enableAdvancedSWT.click() : null;
+    customStatus.html(settings.view.advanced.customStatus);
     statusPreview.text(getStatusString("La-la-la", 137000));
     sendTimeOffset.val(settings.timings.sendTimeOffset);
     opacityRangeSlider.val(settings.style.opacity * 100);
@@ -598,6 +716,8 @@ function updatePlaybackState() {
         statusCode: {
             200: d => {
                 if(playbackState.trackId !== d.item.id) {
+                    playbackState.trackName = d.item.name;
+                    playbackState.trackAuthor = d.item.artists[0].name;
                     playbackState.oldTrackId = playbackState.trackId;
                     playbackState.trackId = d.item.id;
                     playbackState.trackDuration = d.item.duration_ms;
@@ -644,21 +764,18 @@ function updatePlaybackState() {
                         }
                     });
                 }
-
                 playbackState.trackProgress = d.progress_ms;
                 playbackState.isPlaying = d.is_playing;
             },
             401: () => { refreshAccessToken(); },
-            404: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-sender#error-list\">this</a>. <strong class=\"error\">Error code: 404</strong>", "error"); stopLog = true; stopped = true; errorCount++ },
-            502: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-sender#error-list\">this</a>. <strong class=\"error\">Error code: 502</strong>", "error"); stopLog = true; stopped = true; errorCount++ }
+            404: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-sender#error-list\" target=\"_blank\">this</a>. <strong class=\"error\">Error code: 502</strong>", "error"); stopLog = true; stopped = true; errorCount++ },
+            502: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-sender#error-list\" target=\"_blank\">this</a>. <strong class=\"error\">Error code: 502</strong>", "error"); stopLog = true; stopped = true; errorCount++ }
         }
     });
 }
-function changeStatus(ms) {
+function changeStatus() {
     return new Promise((res, rej) => {
         if(playbackState.ended() || !playbackState.hasLyrics || !playbackState.isPlaying) return res();
-
-        //playbackState.trackProgress += ms;
 
         const offset = +settings.timings.sendTimeOffset;
 
@@ -676,9 +793,18 @@ function changeStatus(ms) {
 
                 playbackState.currentLyric = lyric;
 
-                changeStatusRequest(settings.token, getStatusString(lyric.words, playbackState.trackProgress));
-
-                //settings.timings.sendTimeOffset.auto ? averageOffset = (averageOffset + requestTime) / 2: averageOffset = +settings.timings.sendTimeOffset.value;
+                if(settings.view.advanced.enabled) {
+                    let data = {
+                        lyrics: lyric.words,
+                        time: playbackState.trackProgress,
+                        songName: playbackState.trackName,
+                        songAuthor: playbackState.trackAuthor
+                    }
+                    console.log(lyric.words);
+                    changeStatusRequest(settings.token, parseStatusString(settings.view.advanced.customStatus, data));
+                } else {
+                    changeStatusRequest(settings.token, getStatusString(lyric.words, playbackState.trackProgress));
+                }
 
 
                 res();
@@ -701,9 +827,8 @@ if(settings.autorun) {
 (async function playbackStateUpdater() {
     let start = Date.now();
     updatePlaybackState().always(async () => {
-
         if(errorCount >= 10) {
-            addLog("Lyrics' sender has been stopped due to errors.", "warning");
+            addLog("Lyrics' sender was been stopped due to errors.", "warning");
             stopLog = true;
             stopped = true;
 
@@ -711,7 +836,9 @@ if(settings.autorun) {
 
             return;
         }
+
         await sleep(1500 - (Date.now() - start));
+
         playbackStateUpdater();
     });
 })();
@@ -726,12 +853,13 @@ if(settings.autorun) {
             addLog("Lyrics' sender stopped...");
         }
         if(stopped) {
-            ms += 150;
+            playbackState.trackProgress += 150;
 
             return;
         }
-        changeStatus(ms);
-        ms += 150;
+
+        changeStatus();
+        playbackState.trackProgress += 150;
     }, 150);
 })();
 // Init
