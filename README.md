@@ -17,11 +17,11 @@ Open the TamperMonkey menu on your extensions panel and press `Create a new scri
 Delete all the code that is already in the editor and paste in the following code:
 ```js
 // ==UserScript==
-// @name         Lyrics' sender V2
+// @name         Lyrics Sender V2.1
 // @namespace    -
 // @version      -
-// @description  Script for changing your status to lyrics of currently playing song!
-// @author       OvalQuilter | OQ project
+// @description  Synchronizes your Discord status with the lyrics of any song you are listening to on Spotify!
+// @author       OvalQuilter, Twelve#1337
 // @match        *://open.spotify.com/*
 // @icon         https://raw.githubusercontent.com/OvalQuilter/lyrics-sender/main/Logo.png
 // @grant        none
