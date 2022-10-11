@@ -11,7 +11,7 @@ The script has GUI menu with numerous options to configurate your status.
 ***This script is provided 'as is.' USE AT YOUR OWN RISK.***
 # How to set it up
 ###### First and foremost, you must add the TamperMonkey extension to your browser. You can find it [here](https://www.tampermonkey.net).
-###### [Video](https://www.youtube.com/watch?v=LnBnm_tZlyU) Tutorial showing how to get your Discord token.
+###### [Video](https://www.youtube.com/watch?v=LnBnm_tZlyU) tutorial showing how to get your Discord token.
 Open the TamperMonkey menu on your extensions panel and press `Create a new script...`.
 
 Clear all code that appeared in text area and paste code below:
