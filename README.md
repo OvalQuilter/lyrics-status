@@ -14,7 +14,7 @@ The script has GUI menu with numerous options to configurate your status.
 ###### [Video](https://www.youtube.com/watch?v=LnBnm_tZlyU) tutorial showing how to get your Discord token.
 Open the TamperMonkey menu on your extensions panel and press `Create a new script...`.
 
-Clear all code that appeared in text area and paste code below:
+Delete all the code that is already in the editor and paste in the following code:
 ```js
 // ==UserScript==
 // @name         Lyrics' sender V2
