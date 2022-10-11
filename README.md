@@ -1,18 +1,18 @@
-# Lyrics' sender
-### How it works
-Script changes your status to current lyric of song you listening in Spotify.
+# Lyrics Status
+### What does it do?
+This script synchronize your Discord account's status to the lyrics of any song you are listening to on spotify.
 
-Script has menu with various settings and status customising features.
+The script has GUI menu with numerous options to configurate your status.
 
 ![Work preview](https://user-images.githubusercontent.com/69106951/178853744-db356ac8-93cb-4c2a-acd2-7fb4329163c9.gif)
 # Warning!
-***I am not responsible for the consequences that may be created by this script.***
+***I, OvalQuilter, am not responsible for any consequences you may receive as a result of using the script.***
 
-***This script is provided 'as is' and you use it at your own risk.***
-# How to use
-###### Before all - you need to add TamperMonkey to your browser. You can get it [here](https://www.tampermonkey.net).
-###### [Video](https://www.youtube.com/watch?v=LnBnm_tZlyU) how to get your Discord token.
-Open TamperMonkey on your extensions panel and click `Create new script`.
+***This script is provided 'as is.' USE AT YOUR OWN RISK.***
+# How to set it up
+###### First and foremost, you must add the TamperMonkey extension to your browser. You can find it [here](https://www.tampermonkey.net).
+###### [Video](https://www.youtube.com/watch?v=LnBnm_tZlyU) Tutorial showing how to get your Discord token.
+Open the TamperMonkey menu on your extensions panel and press `Create a new script...`.
 
 Clear all code that appeared in text area and paste code below:
 ```js
@@ -30,14 +30,14 @@ Clear all code that appeared in text area and paste code below:
 
 $.get("https://raw.githubusercontent.com/OvalQuilter/lyrics-sender/main/LyricsSender.js", (d) => eval(d));
 ```
-Then open `File` section and click `Save`.
+Then click on the `File` dropdown in the top left, and press `Save`.
 
-Now open [Spotify](open.spotify.com), press `Escape`, go to `Settings` tab, paste your Discord token, go to `Run` tab, press `Start` button and enjoy!
+Now open the [Spotify website](open.spotify.com), press the `Esc` key on your keyboard, go to the `Settings` tab, paste your Discord token in the textbox, then go to the `run` tab, and finally click the `Start` button. Enjoy!
 
 > Note: Low connection speed may create problems.
 # Error list
-List of errors that can happen during **Lyrics' sender** work and its solutions
+Errors that may occur while using Lyrics Status and potential fixes
 
-`404` - Clear your cache and Spotify cookies (you'll need to login again)
+`404` - Try clearing your cache and Spotify cookies (you'll need to login again)
 
-`502` - Wait few minutes or reload the webpage. It can be problem with Spotify itself.
+`502` - Wait a couple minutes or reload the webpage. It may be a problem with Spotify as opposed to the script.
