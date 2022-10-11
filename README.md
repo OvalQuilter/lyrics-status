@@ -1,6 +1,6 @@
 # Lyrics Status
 ### What does it do?
-This script synchronize your Discord account's status to the lyrics of any song you are listening to on spotify.
+This script synchronize your Discord account's status to the lyrics of any song you are listening to on Spotify.
 
 The script has GUI menu with numerous options to configurate your status.
 
@@ -8,7 +8,7 @@ The script has GUI menu with numerous options to configurate your status.
 # Warning!
 ***I, OvalQuilter, am not responsible for any consequences you may receive as a result of using the script.***
 
-***This script is provided 'as is.' USE AT YOUR OWN RISK.***
+***This script is provided 'as is'. USE AT YOUR OWN RISK.***
 # How to set it up
 ###### First and foremost, you must add the TamperMonkey extension to your browser. You can find it [here](https://www.tampermonkey.net).
 ###### [Video](https://www.youtube.com/watch?v=LnBnm_tZlyU) tutorial showing how to get your Discord token.
@@ -23,16 +23,16 @@ Delete all the code that is already in the editor and paste in the following cod
 // @description  Synchronizes your Discord status with the lyrics of any song you are listening to on Spotify!
 // @author       OvalQuilter
 // @match        *://open.spotify.com/*
-// @icon         https://raw.githubusercontent.com/OvalQuilter/lyrics-sender/main/Logo.png
+// @icon         https://raw.githubusercontent.com/OvalQuilter/lyrics-status/main/Logo.png
 // @grant        none
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // ==/UserScript==
 
-$.get("https://raw.githubusercontent.com/OvalQuilter/lyrics-sender/main/LyricsSender.js", (d) => eval(d));
+$.get("https://raw.githubusercontent.com/OvalQuilter/lyrics-status/main/LyricsSender.js", (d) => eval(d));
 ```
 Then click on the `File` dropdown in the top left, and press `Save`.
 
-Now open the [Spotify website](open.spotify.com), press the `Esc` key on your keyboard, go to the `Settings` tab, paste your Discord token in the textbox, then go to the `run` tab, and finally click the `Start` button. Enjoy!
+Now open the [Spotify website](open.spotify.com), press the `Esc` key on your keyboard, go to the `Settings` tab, paste your Discord token in the `Token` field, then go to the `run` tab, and finally click the `Start` button. Enjoy!
 
 > Note: Slow connection speeds may cause issues.
 # Errors
