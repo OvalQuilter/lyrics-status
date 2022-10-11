@@ -36,7 +36,7 @@ $(`
             </div>
             <div class="option">
                 <span class="fw-500">Preview:</span>
-                <span id="status-preview">[2:17] Song lyrics - La-la-la</span>
+                <span id="status-preview">[2:17] Song lyrics - Hey, hey, hey!</span>
             </div>
             <div class="option">
                 <label for="enable-advanced-swt">Advanced settings</label>
@@ -68,7 +68,7 @@ $(`
                 <input id="opacity-range-slider" class="range-slider1" type="range" min="50" max="100" value="90">
             </div>
         </div>
-        <div id="version">Version 2.0.0</div>
+        <div id="version">Version 2.1.1</div>
     </div>
 </div>
     <style>
@@ -137,7 +137,6 @@ $(`
             border-top-left-radius: 5px;
             border-top-right-radius: 5px;
             box-shadow: 0px 1px 0px rgba(31, 31, 31, var(--alpha));
-
         }
         #settings-tab {
             margin-left: 5px;
@@ -509,13 +508,13 @@ enableTimestampCheckbox.click(() => {
     settings.view.timestamp = enableTimestampCheckbox.prop("checked");
     saveSettings();
 
-    statusPreview.text(getStatusString("La-la-la", 137000));
+    statusPreview.text(getStatusString("Hey, hey, hey!", 137000));
 });
 enableLabelCheckbox.click(() => {
     settings.view.label = enableLabelCheckbox.prop("checked");
     saveSettings();
 
-    statusPreview.text(getStatusString("La-la-la", 137000));
+    statusPreview.text(getStatusString("Hey, hey, hey!", 137000));
 });
 enableAdvancedSWT.click(() => {
     let state = enableAdvancedSWT.prop("checked");
@@ -530,7 +529,7 @@ enableAdvancedSWT.click(() => {
     enableLabelCheckbox.prop("disabled", state);
 });
 customStatusHelp.click(() => {
-    modal("Help", "<strong>Custom status</strong> option allows you to customise your status as you want.\nTo display text such as lyrics or timestamp you need to put it in {} brackets: <strong>[{timestamp}] Song lyrics - {lyrics}</strong><br>There's also other variables you can add to your status: <strong>{song_name}</strong> for displaying song name and <strong>{song_author}</strong> for displaying author name.<br>You can add <strong>upper</strong> or <strong>lower</strong> attribute to variable to make it upper/lower case: <strong>{song_name_upper}</strong>. This won't work for timestamp.<br><br><strong>Note: Lyrics' sender will automatically crop your status if it's too long. Discord not allowing statuses with length over 128 symbols.</strong>");
+    modal("Help", "<strong>Custom status</strong> option allows you to customise your status as you want.\nTo display text such as lyrics or timestamp you need to put it in {} brackets: <strong>[{timestamp}] Song lyrics - {lyrics}</strong><br>There's also other variables you can add to your status: <strong>{song_name}</strong> for displaying song name and <strong>{song_author}</strong> for displaying author name.<br>You can add <strong>upper</strong> or <strong>lower</strong> attribute to variable to make it upper/lower case: <strong>{song_name_upper}</strong>. This won't work for timestamp.<br><br><strong>Note: Lyrics Status will automatically crop your status if it's too long. Discord not allowing statuses with length over 128 symbols.</strong>");
 });
 customStatus.on("input", (e) => {
     e.preventDefault();
@@ -581,7 +580,14 @@ function formatSeconds(s){
     return (s - (s %= 60)) / 60 + (9 < s ? ':' : ':0' ) + s;
 }
 function getStatusString(lyrics, time) {
-    return `${settings.view.timestamp ? `[${formatSeconds((time / 1000).toFixed(0))}] ` : ""}${settings.view.label ? "Song lyrics - " : ""}${lyrics}`
+
+//The '♩' symbol in your status looks very ugly, this makes it appear as the much more attractive music notes emoji instead.
+    if (lyrics === "♪") {
+        return `${settings.view.timestamp ? `[${formatSeconds((time / 1000).toFixed(0))}] ` : ""}${settings.view.label ? "Song lyrics - " : ""}${"🎶"}`
+
+    } else {
+        return `${settings.view.timestamp ? `[${formatSeconds((time / 1000).toFixed(0))}] ` : ""}${settings.view.label ? "Song lyrics - " : ""}${lyrics}`
+    }
 }
 function parseStatusString(status, data) {
     if(typeof data !== "object") return;
@@ -590,15 +596,31 @@ function parseStatusString(status, data) {
         status = status
             .replace("{lyrics}", data.lyrics)
             .replace("{lyrics_upper}", data.lyrics.toUpperCase())
-            .replace("{lyrics_lower}", data.lyrics.toLowerCase());
+            .replace("{lyrics_lower}", data.lyrics.toLowerCase())
+            .replace("{lyrics_lower_letters_only}", data.lyrics.replaceAll(',','').replaceAll("'","").replaceAll('.','').replaceAll('"','').toLowerCase())
+            .replace("{lyrics_upper_letters_only}", data.lyrics.replaceAll(',','').replaceAll("'","").replaceAll('.','').replaceAll('"','').toUpperCase())
+            .replace("{lyrics_letters_only}", data.lyrics.replaceAll(',','').replaceAll("'","").replaceAll('.','').replaceAll('"','').replaceAll('!', ''));
     }
     if(data.time) status = status.replace("{timestamp}", formatSeconds((data.time / 1000).toFixed()));
-    if(data.songName) {
+
+    if(data.songName && data.songName.indexOf(' - ') !== -1) {
         status = status
+            .replace("{song_name}", data.songName)
+            .replace("{song_name_upper}", data.songName.toUpperCase())
+            .replace("{song_name_lower}", data.songName.toLowerCase())
+            .replace("{song_name_lower_no_remaster}", data.songName.slice(0, data.songName.lastIndexOf(' - ')).toLowerCase())
+            .replace("{song_name_upper_no_remaster}", data.songName.slice(0, data.songName.lastIndexOf(' - ')).toUpperCase())
+            .replace("{song_name_no_remaster}", data.songName.slice(0, data.songName.lastIndexOf(' - ')));
+    } else if(data.songName) {
+        status = status
+            .replace("{song_name_lower_no_remaster}", data.songName.toLowerCase())
+            .replace("{song_name_upper_no_remaster}", data.songName.toUpperCase())
+            .replace("{song_name_no_remaster}", data.songName)
             .replace("{song_name}", data.songName)
             .replace("{song_name_upper}", data.songName.toUpperCase())
             .replace("{song_name_lower}", data.songName.toLowerCase());
     }
+
     if(data.songAuthor) {
         status = status
             .replace("{song_author}", data.songAuthor)
@@ -628,8 +650,9 @@ function checkToken(token) {
         }
     });
 
-    return success;
+   return success;
 }
+
 function changeStatusRequest(token, text) {
     let start = Date.now();
 
@@ -674,7 +697,7 @@ function loadSettings() {
     enableLabelCheckbox.prop("checked", settings.view.label);
     settings.view.advanced.enabled ? enableAdvancedSWT.click() : null;
     customStatus.html(settings.view.advanced.customStatus);
-    statusPreview.text(getStatusString("La-la-la", 137000));
+    statusPreview.text(getStatusString("Hey, hey, hey!", 137000));
     sendTimeOffset.val(settings.timings.sendTimeOffset);
     opacityRangeSlider.val(settings.style.opacity * 100);
 
@@ -768,8 +791,8 @@ function updatePlaybackState() {
                 playbackState.isPlaying = d.is_playing;
             },
             401: () => { refreshAccessToken(); },
-            404: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-sender#error-list\" target=\"_blank\">this</a>. <strong class=\"error\">Error code: 502</strong>", "error"); stopLog = true; stopped = true; errorCount++ },
-            502: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-sender#error-list\" target=\"_blank\">this</a>. <strong class=\"error\">Error code: 502</strong>", "error"); stopLog = true; stopped = true; errorCount++ }
+            404: () => { addLog("Got unexpected error!", "error"); stopLog = true; stopped = true; errorCount++ },
+            502: () => { addLog("Got unexpected error!", "error"); stopLog = true; stopped = true; errorCount++ }
         }
     });
 }
@@ -827,7 +850,7 @@ if(settings.autorun) {
     let start = Date.now();
     updatePlaybackState().always(async () => {
         if(errorCount >= 10) {
-            addLog("Lyrics' sender was been stopped due to errors.", "warning");
+            addLog("Lyrics Status was been stopped due to errors.", "warning");
             stopLog = true;
             stopped = true;
 
@@ -845,11 +868,11 @@ if(settings.autorun) {
     setInterval(() => {
         if(startLog) {
             startLog = false;
-            addLog("Lyrics' sender started...");
+            addLog("Lyrics Status started...");
         }
         if(stopLog) {
             stopLog = false;
-            addLog("Lyrics' sender stopped...");
+            addLog("Lyrics Status stopped...");
         }
         if(stopped) {
             playbackState.trackProgress += 150;
