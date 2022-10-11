@@ -21,7 +21,7 @@ Delete all the code that is already in the editor and paste in the following cod
 // @namespace    -
 // @version      -
 // @description  Synchronizes your Discord status with the lyrics of any song you are listening to on Spotify!
-// @author       OvalQuilter, Twelve#1337
+// @author       OvalQuilter
 // @match        *://open.spotify.com/*
 // @icon         https://raw.githubusercontent.com/OvalQuilter/lyrics-sender/main/Logo.png
 // @grant        none
