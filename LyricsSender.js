@@ -68,7 +68,7 @@ $(`
                 <input id="opacity-range-slider" class="range-slider1" type="range" min="50" max="100" value="90">
             </div>
         </div>
-        <div id="version">Version 2.0.0</div>
+        <div id="version">Version 2.1.0</div>
     </div>
 </div>
     <style>
