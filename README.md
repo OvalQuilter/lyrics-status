@@ -34,7 +34,7 @@ Then click on the `File` dropdown in the top left, and press `Save`.
 
 Now open the [Spotify website](open.spotify.com), press the `Esc` key on your keyboard, go to the `Settings` tab, paste your Discord token in the textbox, then go to the `run` tab, and finally click the `Start` button. Enjoy!
 
-> Note: Low connection speed may create problems.
+> Note: Slow connection speeds may cause issues.
 # Error list
 Errors that may occur while using Lyrics Status and potential fixes
 
