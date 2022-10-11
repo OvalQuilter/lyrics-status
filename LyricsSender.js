@@ -530,7 +530,7 @@ enableAdvancedSWT.click(() => {
     enableLabelCheckbox.prop("disabled", state);
 });
 customStatusHelp.click(() => {
-    modal("Help", "<strong>Custom status</strong> option allows you to customise your status as you want.\nTo display text such as lyrics or timestamp you need to put it in {} brackets: <strong>[{timestamp}] Song lyrics - {lyrics}</strong><br>There's also other variables you can add to your status: <strong>{song_name}</strong> for displaying song name and <strong>{song_author}</strong> for displaying author name.<br>You can add <strong>upper</strong> or <strong>lower</strong> attribute to variable to make it upper/lower case: <strong>{song_name_upper}</strong>. This won't work for timestamp.<br><br><strong>Note: Lyrics status will automatically crop your status if it's too long. Discord not allowing statuses with length over 128 symbols.</strong>");
+    modal("Help", "<strong>Custom status</strong> option allows you to customise your status as you want.\nTo display text such as lyrics or timestamp you need to put it in {} brackets: <strong>[{timestamp}] Song lyrics - {lyrics}</strong><br>There's also other variables you can add to your status: <strong>{song_name}</strong> for displaying song name and <strong>{song_author}</strong> for displaying author name.<br>You can add <strong>upper</strong> or <strong>lower</strong> attribute to variable to make it upper/lower case: <strong>{song_name_upper}</strong>. This won't work for timestamp.<br><br><strong>Note: Lyrics Status will automatically crop your status if it's too long. Discord not allowing statuses with length over 128 symbols.</strong>");
 });
 customStatus.on("input", (e) => {
     e.preventDefault();
@@ -827,7 +827,7 @@ if(settings.autorun) {
     let start = Date.now();
     updatePlaybackState().always(async () => {
         if(errorCount >= 10) {
-            addLog("Lyrics status was been stopped due to errors.", "warning");
+            addLog("Lyrics Status was been stopped due to errors.", "warning");
             stopLog = true;
             stopped = true;
 
@@ -845,11 +845,11 @@ if(settings.autorun) {
     setInterval(() => {
         if(startLog) {
             startLog = false;
-            addLog("Lyrics status started...");
+            addLog("Lyrics Status started...");
         }
         if(stopLog) {
             stopLog = false;
-            addLog("Lyrics status stopped...");
+            addLog("Lyrics Status stopped...");
         }
         if(stopped) {
             playbackState.trackProgress += 150;
