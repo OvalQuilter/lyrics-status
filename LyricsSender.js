@@ -530,7 +530,7 @@ enableAdvancedSWT.click(() => {
     enableLabelCheckbox.prop("disabled", state);
 });
 customStatusHelp.click(() => {
-    modal("Help", "<strong>Custom status</strong> option allows you to customise your status as you want.\nTo display text such as lyrics or timestamp you need to put it in {} brackets: <strong>[{timestamp}] Song lyrics - {lyrics}</strong><br>There's also other variables you can add to your status: <strong>{song_name}</strong> for displaying song name and <strong>{song_author}</strong> for displaying author name.<br>You can add <strong>upper</strong> or <strong>lower</strong> attribute to variable to make it upper/lower case: <strong>{song_name_upper}</strong>. This won't work for timestamp.<br><br><strong>Note: Lyrics' sender will automatically crop your status if it's too long. Discord not allowing statuses with length over 128 symbols.</strong>");
+    modal("Help", "<strong>Custom status</strong> option allows you to customise your status as you want.\nTo display text such as lyrics or timestamp you need to put it in {} brackets: <strong>[{timestamp}] Song lyrics - {lyrics}</strong><br>There's also other variables you can add to your status: <strong>{song_name}</strong> for displaying song name and <strong>{song_author}</strong> for displaying author name.<br>You can add <strong>upper</strong> or <strong>lower</strong> attribute to variable to make it upper/lower case: <strong>{song_name_upper}</strong>. This won't work for timestamp.<br><br><strong>Note: Lyrics status will automatically crop your status if it's too long. Discord not allowing statuses with length over 128 symbols.</strong>");
 });
 customStatus.on("input", (e) => {
     e.preventDefault();
@@ -768,8 +768,8 @@ function updatePlaybackState() {
                 playbackState.isPlaying = d.is_playing;
             },
             401: () => { refreshAccessToken(); },
-            404: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-sender#error-list\" target=\"_blank\">this</a>. <strong class=\"error\">Error code: 502</strong>", "error"); stopLog = true; stopped = true; errorCount++ },
-            502: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-sender#error-list\" target=\"_blank\">this</a>. <strong class=\"error\">Error code: 502</strong>", "error"); stopLog = true; stopped = true; errorCount++ }
+            404: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-status#error-list\" target=\"_blank\">this</a>. <strong class=\"error\">Error code: 502</strong>", "error"); stopLog = true; stopped = true; errorCount++ },
+            502: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-status#error-list\" target=\"_blank\">this</a>. <strong class=\"error\">Error code: 502</strong>", "error"); stopLog = true; stopped = true; errorCount++ }
         }
     });
 }
@@ -827,7 +827,7 @@ if(settings.autorun) {
     let start = Date.now();
     updatePlaybackState().always(async () => {
         if(errorCount >= 10) {
-            addLog("Lyrics' sender was been stopped due to errors.", "warning");
+            addLog("Lyrics status was been stopped due to errors.", "warning");
             stopLog = true;
             stopped = true;
 
@@ -845,11 +845,11 @@ if(settings.autorun) {
     setInterval(() => {
         if(startLog) {
             startLog = false;
-            addLog("Lyrics' sender started...");
+            addLog("Lyrics status started...");
         }
         if(stopLog) {
             stopLog = false;
-            addLog("Lyrics' sender stopped...");
+            addLog("Lyrics status stopped...");
         }
         if(stopped) {
             playbackState.trackProgress += 150;
