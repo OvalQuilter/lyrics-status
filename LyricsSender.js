@@ -800,7 +800,6 @@ function changeStatus() {
                         songName: playbackState.trackName,
                         songAuthor: playbackState.trackAuthor
                     }
-                    console.log(lyric.words);
                     changeStatusRequest(settings.token, parseStatusString(settings.view.advanced.customStatus, data));
                 } else {
                     changeStatusRequest(settings.token, getStatusString(lyric.words, playbackState.trackProgress));
