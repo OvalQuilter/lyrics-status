@@ -17,7 +17,7 @@ Open the TamperMonkey menu on your extensions panel and press `Create a new scri
 Delete all the code that is already in the editor and paste in the following code:
 ```js
 // ==UserScript==
-// @name         Lyrics Status V2.1
+// @name         Lyrics Status V2.1.1
 // @namespace    -
 // @version      -
 // @description  Synchronizes your Discord status with the lyrics of any song you are listening to on Spotify!
