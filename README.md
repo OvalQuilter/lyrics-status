@@ -32,7 +32,7 @@ $.get("https://raw.githubusercontent.com/OvalQuilter/lyrics-status/main/LyricsSt
 ```
 Then click on the `File` dropdown in the top left, and press `Save`.
 
-Now open the [Spotify website](open.spotify.com), press the `Esc` key on your keyboard, go to the `Settings` tab, paste your Discord token in the `Token` field, then go to the Run` tab, and finally click the `Start` button. Enjoy!
+Now open the [Spotify website](https://open.spotify.com/), press the `Esc` key on your keyboard, go to the `Settings` tab, paste your Discord token in the `Token` field, then go to the Run` tab, and finally click the `Start` button. Enjoy!
 
 > Note: Slow connection speed may cause issues.
 # Errors
