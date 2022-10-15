@@ -28,7 +28,7 @@ Delete all the code that is already in the editor and paste in the following cod
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // ==/UserScript==
 
-$.get("https://raw.githubusercontent.com/OvalQuilter/lyrics-status/main/LyricsSender.js", (d) => eval(d));
+$.get("https://raw.githubusercontent.com/OvalQuilter/lyrics-status/main/LyricsStatus.js", (d) => eval(d));
 ```
 Then click on the `File` dropdown in the top left, and press `Save`.
 
