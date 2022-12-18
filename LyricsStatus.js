@@ -1,3 +1,14 @@
+// ==UserScript==
+// @name         Lyrics Status V2
+// @namespace    -
+// @version      -
+// @description  Script for changing your status as lyrics of currently playing song!
+// @author       OvalQuilter | OQ project
+// @match        *://open.spotify.com/*
+// @icon         https://raw.githubusercontent.com/OvalQuilter/lyrics-status/main/Logo.png
+// @grant        none
+// @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js
+// ==/UserScript==
 $(`
 <div id="menu-UI" class="hid-anim">
     <div id="menu-tabs">
@@ -46,6 +57,14 @@ $(`
                 </div>
                 <div id="advanced-swt" class="sub-settings hid">
                     <div class="option">
+                        <label for="custom-emoji">
+                            Custom emoji
+                            <img id="custom-emoji-help" class="clickable question-mark1" src="https://www.pngall.com/wp-content/uploads/5/Help-Question-Mark-PNG-Free-Download.png" height="15">
+                            :
+                        </label>
+                        <input style="width: 30px;" maxlength="1" id="custom-emoji" class="text-input1">
+                    </div>
+                    <div class="option">
                         <label for="custom-status">
                             Custom status
                             <img id="custom-status-help" class="clickable question-mark1" src="https://www.pngall.com/wp-content/uploads/5/Help-Question-Mark-PNG-Free-Download.png" height="15">
@@ -81,7 +100,7 @@ $(`
                     <input id="opacity-range-slider" class="range-slider1" type="range" min="50" max="100" value="90">
                 </div>
             </div>
-            <div id="version">Version 2.1.1</div>
+            <div id="version">Version 2.1.2</div>
         </div>
         <div id="debug-tab" class="tab-content hid">
             <div class="option">
@@ -472,6 +491,8 @@ let menu                    = $("#menu-UI"),
     statusPreview           = $("#status-preview"),
     advancedSWT             = $("#advanced-swt"),
     enableAdvancedSWT       = $("#enable-advanced-swt"),
+    customEmojiHelp         = $("#custom-emoji-help"),
+    customEmoji             = $("#custom-emoji"),
     customStatusHelp        = $("#custom-status-help"),
     customStatus            = $("#custom-status"),
     sendTimeOffset          = $("#send-time-offset"),
@@ -495,6 +516,7 @@ let settings = {
         label: true,
         advanced: {
             enabled: false,
+            customEmoji: "🎶",
             customStatus: "[{timestamp}] Song lyrics - {lyrics}"
         }
     },
@@ -600,6 +622,19 @@ enableAdvancedSWT.click(() => {
         .toggleClass("act");
     enableTimestampCheckbox.prop("disabled", state);
     enableLabelCheckbox.prop("disabled", state);
+});
+customEmojiHelp.click(() => {
+    modal("Help", `
+    <strong>Custom emoji</strong> option allows you to add an emoji before your status.<br>
+    Use a unicode emoji. You can get it <a style="color: rgba(154, 154, 154, var(--alpha));" href="https://ru.piliapp.com/emoji/list/">here</a>.
+    `);
+});
+customEmoji.on("input", (e) => {
+    e.preventDefault();
+    let value = customEmoji.val();
+
+    settings.view.advanced.customEmoji = value;
+    saveSettings();
 });
 customStatusHelp.click(() => {
     modal("Help", `
@@ -740,7 +775,7 @@ function checkToken(token) {
 
     return success;
 }
-function changeStatusRequest(token, text) {
+function changeStatusRequest(token, text, emoji) {
     let start = Date.now();
 
     $.ajax({
@@ -755,8 +790,8 @@ function changeStatusRequest(token, text) {
             "custom_status": {
                 "text": text,
                 "emoji_id": null,
-                "emoji_name": null,
-                "expires_at": null
+                "emoji_name": emoji,
+                "expires_at": new Date(Date.now() + 60000).toISOString()
             }
         }),
         statusCode: {
@@ -801,6 +836,7 @@ function loadSettings() {
         enableTimestampCheckbox.prop("checked", settings.view.timestamp);
         enableLabelCheckbox.prop("checked", settings.view.label);
         settings.view.advanced.enabled ? enableAdvancedSWT.click() : null;
+        customEmoji.val(settings.view.advanced.customEmoji);
         customStatus.html(settings.view.advanced.customStatus);
         statusPreview.text(getStatusString("La-la-la", 137000));
         sendTimeOffset.val(settings.timings.sendTimeOffset);
@@ -968,9 +1004,9 @@ function changeStatus() {
                         songName: playbackState.trackName,
                         songAuthor: playbackState.trackAuthor
                     }
-                    changeStatusRequest(settings.token, parseStatusString(settings.view.advanced.customStatus, data));
+                    changeStatusRequest(settings.token, parseStatusString(settings.view.advanced.customStatus, data), settings.view.advanced.customEmoji);
                 } else {
-                    changeStatusRequest(settings.token, getStatusString(lyrics.words, playbackState.trackProgress));
+                    changeStatusRequest(settings.token, getStatusString(lyrics.words, playbackState.trackProgress), "🎶");
                 }
 
 
