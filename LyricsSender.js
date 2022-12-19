@@ -62,7 +62,7 @@ $(`
                             <img id="custom-emoji-help" class="clickable question-mark1" src="https://www.pngall.com/wp-content/uploads/5/Help-Question-Mark-PNG-Free-Download.png" height="15">
                             :
                         </label>
-                        <input style="width: 30px;" maxlength="1" id="custom-emoji" class="text-input1">
+                        <input style="width: 30px;" maxlength="4" id="custom-emoji" class="text-input1">
                     </div>
                     <div class="option">
                         <label for="custom-status">
@@ -196,7 +196,6 @@ $(`
             border-top-left-radius: 5px;
             border-top-right-radius: 5px;
             box-shadow: 0px 1px 0px rgba(31, 31, 31, var(--alpha));
-
         }
         #settings-tab {
             margin-left: 5px;
@@ -407,7 +406,6 @@ $(`
             filter: invert(39%) sepia(0%) saturate(0%) hue-rotate(339deg) brightness(94%) contrast(90%);
             position: relative;
         }
-
         .fw-500 {
             font-weight: 500;
         }
@@ -626,7 +624,7 @@ enableAdvancedSWT.click(() => {
 customEmojiHelp.click(() => {
     modal("Help", `
     <strong>Custom emoji</strong> option allows you to add an emoji before your status.<br>
-    Use a unicode emoji. You can get it <a style="color: rgba(154, 154, 154, var(--alpha));" href="https://ru.piliapp.com/emoji/list/">here</a>.
+    Use a unicode emoji. You can get it <a style="color: rgba(154, 154, 154, var(--alpha));" href="https://www.piliapp.com/emoji/list/">here</a>.
     `);
 });
 customEmoji.on("input", (e) => {
