@@ -49,7 +49,7 @@ $(`
                 </div>
                 <div class="option">
                     <span class="fw-500">Preview:</span>
-                    <span id="status-prewiew" class="b-area">[2:17] Song lyrics - La-la-la</span>
+                    <span id="status-preview" class="b-area">[2:17] Song lyrics - La-la-la</span>
                 </div>
                 <div class="option">
                     <label for="enable-advanced-swt">Advanced settings</label>
