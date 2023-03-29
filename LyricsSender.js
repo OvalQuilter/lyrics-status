@@ -196,6 +196,7 @@ $(`
             border-top-left-radius: 5px;
             border-top-right-radius: 5px;
             box-shadow: 0px 1px 0px rgba(31, 31, 31, var(--alpha));
+
         }
         #settings-tab {
             margin-left: 5px;
@@ -406,6 +407,7 @@ $(`
             filter: invert(39%) sepia(0%) saturate(0%) hue-rotate(339deg) brightness(94%) contrast(90%);
             position: relative;
         }
+
         .fw-500 {
             font-weight: 500;
         }
@@ -945,8 +947,8 @@ function updatePlaybackState() {
                 playbackState.isPlaying = d.is_playing;
             },
             401: () => { refreshAccessToken(); },
-            404: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-status#error-list\" target=\"_blank\">this</a>. <strong class=\"error\">Error code: 502</strong>", "error"); stopLog = true; stopped = true; errorCount++ },
-            502: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-status#error-list\" target=\"_blank\">this</a>. <strong class=\"error\">Error code: 502</strong>", "error"); stopLog = true; stopped = true; errorCount++ }
+            404: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-status#error-list\" target=\"_blank\">this</a>. <strong class=\"error\">Error code: 404</strong>", "error"); errorCount++ },
+            502: () => { addLog("Got unexpected error! For more details please read <a style=\"color: #ff0000;\" href=\"https://github.com/OvalQuilter/lyrics-status#error-list\" target=\"_blank\">this</a>. <strong class=\"error\">Error code: 502</strong>", "error"); errorCount++ }
         }
     });
 }
