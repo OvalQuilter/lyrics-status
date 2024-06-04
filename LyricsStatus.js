@@ -954,7 +954,7 @@ function updatePlaybackState() {
 
                                 const dLyrics = d.lyrics;
 
-                                if(dLyrics.showUpsell) addLog("You probably don't have Spotify Premium subscription. Spotify made lyrics available only for Premium users, the script won't work.<br>If you think this is a mistake please open issue on GitHub.", "error");
+                                if(dLyrics.showUpsell) return addLog("You probably don't have Spotify Premium subscription. Spotify made lyrics available only for Premium users, the script won't work.<br>If you think this is a mistake please open issue on GitHub.", "error");
 
                                 loadLyrics(dLyrics);
 
