@@ -2,7 +2,7 @@
 // @name         Lyrics Status V2
 // @namespace    -
 // @version      -
-// @description  Script for changing your status as lyrics of currently playing song!
+// @description  Script for changing your status to lyrics of currently playing song!
 // @author       OvalQuilter | OQ project
 // @match        *://open.spotify.com/*
 // @icon         https://raw.githubusercontent.com/OvalQuilter/lyrics-status/main/Logo.png
@@ -126,6 +126,9 @@ $(`
             <div class="option">
                 <span>Last playback update took:</span>
                 <span id="debug-playback" class="b-area">Fetching...</span>
+            </div>
+            <div class="option">
+                <button id="copy-debug-info" class="button1">Copy debug info</button>
             </div>
         </div>
     </div>
@@ -267,6 +270,16 @@ $(`
         }
         #autooffset:focus {
             background: rgba(124, 124, 124, var(--alpha));
+        }
+        #copy-debug-info {
+            width: 130px;
+            height: 30px;
+            background: rgba(105, 105, 105, var(--alpha));
+            padding-top: 1px;
+            font-size: 16px;
+        }
+        #copy-debug-info:hover {
+            background: rgba(115, 115, 115, var(--alpha));
         }
         #version {
             width: 400px;
@@ -505,7 +518,8 @@ let menu                    = $("#menu-UI"),
     debugRequest2           = $("#debug-request-2"),
     debugRequest10          = $("#debug-request-10"),
     debugRequest30          = $("#debug-request-30"),
-    debugPlayback           = $("#debug-playback");
+    debugPlayback           = $("#debug-playback"),
+    copyDebugInfoButton     = $("#copy-debug-info");
 // Elements
 
 let settings = {
@@ -543,13 +557,14 @@ let stopped       = true,
         trackDuration: 0,
         trackProgress: 0,
         lyrics: [],
+        lyricsFullRes: {},
         currentLyrics: null,
         hasLyrics: false,
         ended: () => playbackState.trackProgress >= playbackState.trackDuration,
         isPlaying: false
     },
     requestsHistory = [],
-    ms            = 0;
+    ms              = 0;
 // Misc, in-session variables
 
 $(document).keyup((e) => e.key === "Escape" ? menu.toggleClass("act-anim").toggleClass("hid-anim") : false);
@@ -706,6 +721,9 @@ opacityRangeSlider.on("input", () => {
 
     settings.style.opacity = value;
     saveSettings();
+});
+copyDebugInfoButton.click(() => {
+    navigator.clipboard.writeText("`" + JSON.stringify(playbackState) + "`");
 });
 // Events
 
@@ -873,6 +891,25 @@ function modal(title, description, styles = {}) {
         e.parentNode.parentNode === modalWindow[0] ? $(e).click(() => { modalWindow.remove(); }) : null;
     }
 }
+function loadLyrics(lyrics) {
+    if(lyrics.syncType == "UNSYNCED") {
+        let timePerLyric = Math.round(playbackState.trackDuration / lyrics.lines.length);
+        lyrics.lines.reduce((p, c, i, a) => {
+            playbackState.lyrics.push({
+                time: p,
+                words: c.words
+            });
+            return p + timePerLyric;
+        }, timePerLyric);
+    } else {
+        for (let line of lyrics.lines) {
+            playbackState.lyrics.push({
+                time: +line.startTimeMs,
+                words: line.words,
+            });
+        }
+    }
+}
 function updatePlaybackState() {
     let start = Date.now();
 
@@ -904,32 +941,22 @@ function updatePlaybackState() {
                     playbackState.lyrics = [];
 
                     $.ajax({
-                        url: `https://spclient.wg.spotify.com/lyrics/v1/track/${playbackState.trackId}`,
+                        url: `https://spclient.wg.spotify.com/color-lyrics/v2/track/${playbackState.trackId}?format=json`,
                         method: "GET",
                         dataType: "json",
                         headers: {
                             "Content-Type": "application/json",
-                            "Authorization": `Bearer ${accessToken}`
+                            "Authorization": `Bearer ${accessToken}`,
                         },
                         statusCode: {
                             200: d => {
-                                if(d.lines[0].time == undefined) {
-                                    let timePerLyric = Math.round(playbackState.trackDuration / d.lines.length);
-                                    d.lines.reduce((p, c, i, a) => {
-                                        playbackState.lyrics.push({
-                                            time: p,
-                                            words: c.words[0].string
-                                        });
-                                        return p + timePerLyric;
-                                    }, timePerLyric);
-                                } else {
-                                    for (let line of d.lines) {
-                                        playbackState.lyrics.push({
-                                            time: line.time,
-                                            words: line.words[0].string,
-                                        });
-                                    }
-                                }
+                                playbackState.lyricsFullRes = d;
+
+                                const dLyrics = d.lyrics;
+
+                                if(dLyrics.showUpsell) addLog("You probably don't have Spotify Premium subscription. Spotify made lyrics available only for Premium users, the script won't work.<br>If you think this is a mistake please open issue on GitHub.", "error");
+
+                                loadLyrics(dLyrics);
 
                                 playbackState.hasLyrics = true;
 
@@ -1033,7 +1060,7 @@ if(settings.autorun) {
     let start = Date.now();
     updatePlaybackState().always(async () => {
         if(errorCount >= 10) {
-            addLog("Lyrics Status was been stopped due to errors.", "warning");
+            addLog("Lyrics Status has been stopped due to errors.", "warning");
             stopLog = true;
             stopped = true;
 
