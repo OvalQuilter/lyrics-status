@@ -2,7 +2,7 @@
 // @name         Lyrics Status V2
 // @namespace    -
 // @version      -
-// @description  Script for changing your status to lyrics of currently playing song!
+// @description  Script for changing your status as lyrics of currently playing song!
 // @author       OvalQuilter | OQ project
 // @match        *://open.spotify.com/*
 // @icon         https://raw.githubusercontent.com/OvalQuilter/lyrics-status/main/Logo.png
@@ -564,7 +564,8 @@ let stopped       = true,
         isPlaying: false
     },
     requestsHistory = [],
-    ms              = 0;
+    ms              = 0,
+    consoleLogs     = [];
 // Misc, in-session variables
 
 $(document).keyup((e) => e.key === "Escape" ? menu.toggleClass("act-anim").toggleClass("hid-anim") : false);
@@ -723,12 +724,21 @@ opacityRangeSlider.on("input", () => {
     saveSettings();
 });
 copyDebugInfoButton.click(() => {
-    navigator.clipboard.writeText("`" + JSON.stringify(playbackState) + "`");
+    navigator.clipboard.writeText("`" + JSON.stringify({
+        playbackState,
+        consoleLogs
+    }) + "`");
 });
 // Events
 
 function addLog(text, t) {
     t = t ? t[0].toUpperCase() + t.slice(1, t.length) : "Log";
+
+    consoleLogs.push({
+        message: text,
+        reason: t
+    });
+
     $("<span/>", { class: t === "Warning" ? "orange" : t === "Error" ? "red" : "blue"}).html(`[${t}]: ${text}`).appendTo(logWindow)[0].scrollIntoView(false);
 
     if(logWindow.children().length >= 30) $(logWindow[0].firstChild).remove();
@@ -940,36 +950,47 @@ function updatePlaybackState() {
 
                     playbackState.lyrics = [];
 
-                    $.ajax({
-                        url: `https://spclient.wg.spotify.com/color-lyrics/v2/track/${playbackState.trackId}?format=json`,
-                        method: "GET",
-                        dataType: "json",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "Authorization": `Bearer ${accessToken}`,
+                    fetch(`https://spclient.wg.spotify.com/color-lyrics/v2/track/${playbackState.trackId}?format=json&vocalRemoval=false&market=from_token`, {
+                        "headers": {
+                            "accept": "application/json",
+                            "accept-language": "ru",
+                            "app-platform": "WebPlayer",
+                            "authorization": "Bearer " + accessToken,
+                            "spotify-app-version": "1.2.40.176.g6d58cb73"
                         },
-                        statusCode: {
-                            200: d => {
-                                playbackState.lyricsFullRes = d;
+                        "referrer": "https://open.spotify.com/",
+                        "referrerPolicy": "strict-origin-when-cross-origin",
+                        "body": null,
+                        "method": "GET",
+                        "credentials": "include"
+                    })
+                    .then(async (response) => {
+                        let d;
+                        try {
+                            d = await response.json();
+                        } catch(e) {}
+                        // ^^^ json() will break if request failed
 
-                                const dLyrics = d.lyrics;
+                        if (response.status == 200) {
+                            playbackState.lyricsFullRes = d;
 
-                                if(dLyrics.showUpsell) return addLog("You probably don't have Spotify Premium subscription. Spotify made lyrics available only for Premium users, the script won't work.<br>If you think this is a mistake please open issue on GitHub.", "error");
+                            const dLyrics = d.lyrics;
 
-                                loadLyrics(dLyrics);
+                            if(dLyrics.showUpsell) return addLog("You probably don't have Spotify Premium subscription. Spotify made lyrics available only for Premium users, the script won't work.<br>If you think this is a mistake please open issue on GitHub.", "error");
 
-                                playbackState.hasLyrics = true;
+                            loadLyrics(dLyrics);
 
-                            },
-                            404: () => {
-                                playbackState.hasLyrics = false;
+                            playbackState.hasLyrics = true;
+                        }
+                        if (response.status == 404) {
+                            playbackState.hasLyrics = false;
 
-                                addLog(`Spotify doesn't have lyrics for this song (${playbackState.trackName}). Status won't change.`, "warning");
-                                changeStatusRequest(settings.token, "");
-                            }
+                            addLog(`Spotify doesn't have lyrics for this song (${playbackState.trackName}). Status won't change.`, "warning");
+                            changeStatusRequest(settings.token, "");
                         }
                     });
                 }
+
                 playbackState.trackProgress = d.progress_ms;
                 playbackState.isPlaying = d.is_playing;
             },
