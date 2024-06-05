@@ -1,3 +1,5 @@
+### NOTE: Spotify made lyrics available only for Premium users, this script won't work if you don't have Premium!
+
 # Lyrics Status
 ### What does it do?
 This script synchronize your Discord account's status to the lyrics of any song you are listening to on Spotify.
@@ -17,7 +19,7 @@ Open the TamperMonkey menu on your extensions panel and press `Create a new scri
 Delete all the code that is already in the editor and paste in the following code:
 ```js
 // ==UserScript==
-// @name         Lyrics Status V2.1.2
+// @name         Lyrics Status
 // @namespace    -
 // @version      -
 // @description  Synchronizes your Discord status with the lyrics of any song you are listening to on Spotify!
@@ -38,6 +40,6 @@ Now open the [Spotify website](https://open.spotify.com/), press the `Esc` key o
 # Errors
 Some errors that may occur while using Lyrics Status and potential fixes
 
-`404` - Try clearing your cache and Spotify cookies (you'll need to login again)
+`404` - Means there are no lyrics for the current song. Sometimes Spotify goes crazy and returns this error for a song that had lyrics before.
 
 `502` - Wait a couple minutes or reload the webpage. It may be a problem with Spotify as opposed to the script.
