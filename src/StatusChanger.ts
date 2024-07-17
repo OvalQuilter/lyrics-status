@@ -36,6 +36,8 @@ export class StatusChanger {
 
         if (!lyrics) return
 
+        const currentLine = playbackState.currentLine
+        const songProgress = playbackState.songProgress
         const lines = lyrics.lines
         const offset = Settings.timings.offset
 
@@ -43,17 +45,18 @@ export class StatusChanger {
             const line = lines[i]
             const nextLine = lines[i + 1]
 
-            if (line.time < (playbackState.songProgress + offset)) {
+            if (line.time < (songProgress + offset)) {
                 if (!line.text) continue
-                if (nextLine && nextLine.time < (playbackState.songProgress + offset)) continue
-                if (line === playbackState.currentLine) break
+                if (nextLine && nextLine.time < (songProgress + offset)) continue
+                if (currentLine && line.time < currentLine.time) break
+                if (line === currentLine) break
 
                 playbackState.currentLine = line
 
                 if (Settings.view.advanced.enabled) {
-                    this.changeStatusRequest(this.parseStatusString(Settings.view.advanced.customStatus), Settings.token, Settings.view.advanced.customEmoji)
+                    this.changeStatusRequest(this.parseStatusString(Settings.view.advanced.customStatus), Settings.credentials.token, Settings.view.advanced.customEmoji)
                 } else {
-                    this.changeStatusRequest(this.getStatusString(line), Settings.token, "🎶")
+                    this.changeStatusRequest(this.getStatusString(line), Settings.credentials.token, "🎶")
                 }
 
                 break
@@ -62,11 +65,11 @@ export class StatusChanger {
     }
 
     public formatSeconds(s: number): string {
-        return (s - (s %= 60)) / 60 + (9 < s ? ':' : ':0' ) + s;
+        return (s - (s %= 60)) / 60 + (9 < s ? ':' : ':0' ) + s
     }
 
     public getStatusString(line: LyricsLine): string {
-        return `${Settings.view.timestamp ? `[${this.formatSeconds(+(line.time / 1000).toFixed(0))}] ` : ""}${Settings.view.label ? "Song lyrics - " : ""}${line.text.replace("♪", "🎶")}`;
+        return `${Settings.view.timestamp ? `[${this.formatSeconds(+(line.time / 1000).toFixed(0))}] ` : ""}${Settings.view.label ? "Song lyrics - " : ""}${line.text.replace("♪", "🎶")}`.slice(0, 128)
     }
 
     public parseStatusString(status: string): string {
@@ -83,7 +86,7 @@ export class StatusChanger {
                 .replace("{lyrics_upper_letters_only}", line.text.toUpperCase().replace(/['",\.]/gi, ""))
                 .replace("{lyrics_lower_letters_only}", line.text.toLowerCase().replace(/['",\.]/gi, ""))
                 .replace("♪", "🎶")
-                .replace("{timestamp}", this.formatSeconds(+(this.playbackState.currentLine.time / 1000).toFixed()))
+                .replace("{timestamp}", this.formatSeconds(+(line.time / 1000).toFixed()))
                 .replace("{song_name}", songName)
                 .replace("{song_name_upper}", songName.toUpperCase())
                 .replace("{song_name_lower}", songName.toLowerCase())

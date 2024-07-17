@@ -18,8 +18,8 @@ const playbackStateUpdater = new PlaybackStateUpdater(playbackState, lyricsFetch
 
 const statusChanger = new StatusChanger(playbackState)
 
-SpotifyAccessToken.refresh()
 Settings.load()
+SpotifyAccessToken.refresh()
 
 setInterval(() => {
     playbackStateUpdater.update()

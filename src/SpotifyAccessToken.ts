@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs"
-import { Debug } from "./Debug"
+import { Settings } from "./Settings"
 
 interface AccessTokenResponse {
     accessToken: string
@@ -7,8 +6,6 @@ interface AccessTokenResponse {
 
 export class SpotifyAccessToken {
     public static token: string = ""
-
-    public static readonly cookie: string = this.getCookie()
 
     public static async refresh(): Promise<void> {
 
@@ -24,7 +21,7 @@ export class SpotifyAccessToken {
                 "sec-fetch-mode": "cors",
                 "sec-fetch-site": "same-origin",
                 "x-requested-with": "XMLHttpRequest",
-                "cookie": this.cookie,
+                "cookie": Settings.credentials.cookies,
                 "Referer": "https://open.spotify.com/",
                 "Referrer-Policy": "strict-origin-when-cross-origin"
             },
@@ -35,20 +32,6 @@ export class SpotifyAccessToken {
         const json = await request.json() as AccessTokenResponse
 
         this.token = json.accessToken
-    }
-
-    public static getCookie(): string {
-        let cookie: string | undefined
-
-        try {
-            cookie = readFileSync("./cookie.txt").toString()
-        } catch(e) {
-            Debug.write("An error occurred while trying to read cookies from file. Error: " + (e as Error).stack)
-
-            return process.exit(1)
-        }
-
-        return cookie
     }
 }
 

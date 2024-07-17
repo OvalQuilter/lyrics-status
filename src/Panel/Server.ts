@@ -23,7 +23,7 @@ export function startServer(): void {
             const settings = JSON.parse(data.toString())
             // Not typed but it's necessary
 
-            Settings.token = settings.token
+            Settings.credentials = settings.credentials
             Settings.view = settings.view
             Settings.timings = settings.timings
 
@@ -31,7 +31,7 @@ export function startServer(): void {
         })
 
         const settings = JSON.stringify({
-            token: Settings.token,
+            credentials: Settings.credentials,
             view: Settings.view,
             timings: Settings.timings
         })

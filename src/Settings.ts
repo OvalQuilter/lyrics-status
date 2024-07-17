@@ -2,7 +2,10 @@ import { readFileSync, writeFileSync } from "node:fs"
 import { Debug } from "./Debug"
 
 export class Settings {
-    public static token: string
+    public static credentials = {
+        token: "",
+        cookies: ""
+    }
 
     public static view = {
         timestamp: true,
@@ -21,7 +24,7 @@ export class Settings {
 
     public static save(): void {
         writeFileSync("./settings.json", JSON.stringify({
-            token: this.token,
+            credentials: this.credentials,
             view: this.view,
             timings: this.timings
         }))
@@ -37,9 +40,9 @@ export class Settings {
         }
 
         if (settings) {
-            this.token = settings.token
-            this.view = settings.view
-            this.timings = settings.timings
+            this.credentials = settings.credentials || this.credentials
+            this.view = settings.view || this.view
+            this.timings = settings.timings || this.timings
         }
     }
 }
