@@ -12,6 +12,10 @@ $(`
                     <input type="text" id="user-token" class="text-input1">
                     <button id="check-token" class="button1">Check</button>
                 </div>
+                <div class="option">
+                    <label for="spotify-cookies">Cookies:</label>
+                    <textarea rows="3" cols="40" id="spotify-cookies" class="text-input2"></textarea>
+                </div>
             </div>
             <div class="settings">
                 <span class="settings-name">Status view</span>
@@ -434,6 +438,7 @@ $(`
 let menu                    = $("#menu-UI"),
     userTokenInput          = $("#user-token"),
     checkTokenButton        = $("#check-token"),
+    cookiesInput            = $("#spotify-cookies"),
     enableTimestampCheckbox = $("#enable-timestamp"),
     enableLabelCheckbox     = $("#enable-label"),
     statusPreview           = $("#status-preview"),
@@ -450,7 +455,10 @@ let menu                    = $("#menu-UI"),
 // Elements
 
 let settings = {
-    token: null,
+    credentials: {
+        token: "",
+        cookies: ""
+    },
     view: {
         timestamp: true,
         label: true,
@@ -497,18 +505,22 @@ $(".tab-button").each((i, tab) => {
     });
 });
 userTokenInput.change(() => {
-    settings.token = userTokenInput.val();
+    settings.credentials.token = userTokenInput.val();
     saveSettings();
 });
 checkTokenButton.click(() => {
     checkTokenButton.text("Checking...");
 
-    let valid = checkToken(settings.token);
+    let valid = checkToken(settings.credentials.token);
 
     checkTokenButton.text("Check");
 
     if(!valid) return modal("Token check", "Token is invalid.", { descriptionTextColor: "rgba(200, 0, 0, var(--alpha))" });
     modal("Token check", "Token is valid.", { descriptionTextColor: "rgba(0, 200, 0, var(--alpha))" });
+});
+cookiesInput.change(() => {
+    settings.credentials.cookies = cookiesInput.val();
+    saveSettings();
 });
 enableTimestampCheckbox.click(() => {
     settings.view.timestamp = enableTimestampCheckbox.prop("checked");
@@ -641,7 +653,8 @@ function loadSettings(settingsToLoad) {
     settings = $.extend(true, settings, settingsToLoad);
 
     try {
-        userTokenInput.val(settings.token);
+        userTokenInput.val(settings.credentials.token);
+        cookiesInput.val(settings.credentials.cookies);
         enableTimestampCheckbox.prop("checked", settings.view.timestamp);
         enableLabelCheckbox.prop("checked", settings.view.label);
         settings.view.advanced.enabled ? enableAdvancedSWT.click() : null;

@@ -6,7 +6,7 @@ const Debug_1 = require("./Debug");
 class Settings {
     static save() {
         (0, node_fs_1.writeFileSync)("./settings.json", JSON.stringify({
-            token: this.token,
+            credentials: this.credentials,
             view: this.view,
             timings: this.timings
         }));
@@ -20,13 +20,17 @@ class Settings {
             Debug_1.Debug.write("An error occurred while trying to read settings from file. Using defaults. Error: " + e.stack);
         }
         if (settings) {
-            this.token = settings.token;
-            this.view = settings.view;
-            this.timings = settings.timings;
+            this.credentials = settings.credentials || this.credentials;
+            this.view = settings.view || this.view;
+            this.timings = settings.timings || this.timings;
         }
     }
 }
 exports.Settings = Settings;
+Settings.credentials = {
+    token: "",
+    cookies: ""
+};
 Settings.view = {
     timestamp: true,
     label: true,

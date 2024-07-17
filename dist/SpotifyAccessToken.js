@@ -8,11 +8,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SpotifyAccessToken = void 0;
-const node_fs_1 = require("node:fs");
-const Debug_1 = require("./Debug");
+const Settings_1 = require("./Settings");
 class SpotifyAccessToken {
     static refresh() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -28,7 +26,7 @@ class SpotifyAccessToken {
                     "sec-fetch-mode": "cors",
                     "sec-fetch-site": "same-origin",
                     "x-requested-with": "XMLHttpRequest",
-                    "cookie": this.cookie,
+                    "cookie": Settings_1.Settings.credentials.cookies,
                     "Referer": "https://open.spotify.com/",
                     "Referrer-Policy": "strict-origin-when-cross-origin"
                 },
@@ -39,19 +37,6 @@ class SpotifyAccessToken {
             this.token = json.accessToken;
         });
     }
-    static getCookie() {
-        let cookie;
-        try {
-            cookie = (0, node_fs_1.readFileSync)("./cookie.txt").toString();
-        }
-        catch (e) {
-            Debug_1.Debug.write("An error occurred while trying to read cookies from file. Error: " + e.stack);
-            return process.exit(1);
-        }
-        return cookie;
-    }
 }
 exports.SpotifyAccessToken = SpotifyAccessToken;
-_a = SpotifyAccessToken;
 SpotifyAccessToken.token = "";
-SpotifyAccessToken.cookie = _a.getCookie();

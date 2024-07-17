@@ -24,13 +24,13 @@ function startServer() {
         ws.on("message", (data) => {
             const settings = JSON.parse(data.toString());
             // Not typed but it's necessary
-            Settings_1.Settings.token = settings.token;
+            Settings_1.Settings.credentials = settings.credentials;
             Settings_1.Settings.view = settings.view;
             Settings_1.Settings.timings = settings.timings;
             Settings_1.Settings.save();
         });
         const settings = JSON.stringify({
-            token: Settings_1.Settings.token,
+            credentials: Settings_1.Settings.credentials,
             view: Settings_1.Settings.view,
             timings: Settings_1.Settings.timings
         });

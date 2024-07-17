@@ -16,8 +16,8 @@ lyricsFetcher.addSource(new QQMusicSource_1.QQMusicSource());
 const playbackState = new PlaybackState_1.PlaybackState();
 const playbackStateUpdater = new PlaybackStateUpdater_1.PlaybackStateUpdater(playbackState, lyricsFetcher);
 const statusChanger = new StatusChanger_1.StatusChanger(playbackState);
-SpotifyAccessToken_1.SpotifyAccessToken.refresh();
 Settings_1.Settings.load();
+SpotifyAccessToken_1.SpotifyAccessToken.refresh();
 setInterval(() => {
     playbackStateUpdater.update();
     //console.log(playbackState)
