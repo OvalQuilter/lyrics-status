@@ -42,8 +42,6 @@ class StatusChanger {
                     continue;
                 if (nextLine && nextLine.time < (songProgress + offset))
                     continue;
-                if (currentLine && line.time < currentLine.time)
-                    break;
                 if (line === currentLine)
                     break;
                 playbackState.currentLine = line;

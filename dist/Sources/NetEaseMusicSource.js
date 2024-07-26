@@ -11,18 +11,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NetEaseMusicSource = void 0;
 const BaseSource_1 = require("./BaseSource");
-const he_1 = require("he");
 class NetEaseMusicSource extends BaseSource_1.BaseSource {
     request(url) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return yield fetch(url, {
-                method: "POST",
-                headers: {
-                    "Referer": "https://music.163.com",
-                    "Cookie": "appver=2.0.2",
-                    "X-Real-IP": "202.96.0.0"
-                }
-            });
+        return fetch(url, {
+            method: "POST",
+            headers: {
+                "Referer": "https://music.163.com",
+                "Cookie": "appver=2.0.2",
+                "X-Real-IP": "202.96.0.0"
+            }
         });
     }
     getSongId(name, artist) {
@@ -51,21 +48,25 @@ class NetEaseMusicSource extends BaseSource_1.BaseSource {
             lines: []
         };
         const regexp = /\[(\d\d):((\d\d)\.(\d\d?\d?))]/;
-        for (const line of lines) {
+        for (let line of lines) {
             if (!line)
                 continue;
-            const match = line.match(regexp);
-            if (!(match && match[1] && match[3] && match[4]))
-                continue;
-            const m = +match[1];
-            const s = +match[3];
-            const ms = +match[4];
-            const text = line.replace(regexp, "");
-            result.lines.push({
-                time: (60 * m + s) * 1000 + ms,
-                text: (0, he_1.decode)(text)
-            });
+            const timestamps = [];
+            for (let match = line.match(regexp); match; match = line.match(regexp)) {
+                const m = +match[1];
+                const s = +match[3];
+                const ms = +match[4];
+                line = line.replace(regexp, "");
+                timestamps.push((60 * m + s) * 1000 + ms);
+            }
+            for (const timestamp of timestamps) {
+                result.lines.push({
+                    time: timestamp,
+                    text: line
+                });
+            }
         }
+        result.lines.sort((a, b) => a.time - b.time);
         return result;
     }
     getAppName() {

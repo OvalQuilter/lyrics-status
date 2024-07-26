@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const LyricsFetcher_1 = require("./LyricsFetcher");
+const SpotifySource_1 = require("./Sources/SpotifySource");
 const NetEaseMusicSource_1 = require("./Sources/NetEaseMusicSource");
 const QQMusicSource_1 = require("./Sources/QQMusicSource");
 const PlaybackStateUpdater_1 = require("./PlaybackStateUpdater");
@@ -11,6 +12,7 @@ const Debug_1 = require("./Debug");
 const Server_1 = require("./Panel/Server");
 const Settings_1 = require("./Settings");
 const lyricsFetcher = new LyricsFetcher_1.LyricsFetcher();
+lyricsFetcher.addSource(new SpotifySource_1.SpotifySource());
 lyricsFetcher.addSource(new NetEaseMusicSource_1.NetEaseMusicSource());
 lyricsFetcher.addSource(new QQMusicSource_1.QQMusicSource());
 const playbackState = new PlaybackState_1.PlaybackState();
@@ -23,16 +25,19 @@ setInterval(() => {
     //console.log(playbackState)
     //console.log(statusChanger, playbackStateUpdater, SpotifyAccessToken)
 }, 1500);
+let now = Date.now();
 setInterval(() => {
     statusChanger.changeStatus();
-    playbackState.songProgress += 100;
+    playbackState.songProgress += Date.now() - now;
     console.clear();
     console.log(`
     Song: ${playbackState.songName || "Not listening"}
     Author: ${playbackState.songAuthor || "Not listening"}
-    Lyrics: ${(playbackState.currentLine && playbackState.currentLine.text) || "Not available"}
+    Song progress: ${playbackState.songProgress}
+    Current lyrics: ${(playbackState.currentLine && playbackState.currentLine.text) || "Not available"}
     Lyrics fetched from: ${lyricsFetcher.lastFetchedFrom}
     `);
+    now = Date.now();
 }, 100);
 (0, Server_1.startServer)();
 process.on("uncaughtException", (e) => {
