@@ -16,8 +16,8 @@ interface LyricsResponse {
 }
 
 export class NetEaseMusicSource extends BaseSource {
-    public async request(url: string): Promise<Response> {
-        return await fetch(url, {
+    public request(url: string): Promise<Response> {
+        return fetch(url, {
             method: "POST",
             headers: {
                 "Referer": "https://music.163.com",
@@ -57,24 +57,30 @@ export class NetEaseMusicSource extends BaseSource {
 
         const regexp = /\[(\d\d):((\d\d)\.(\d\d?\d?))]/
 
-        for (const line of lines) {
+        for (let line of lines) {
             if (!line) continue
 
-            const match = line.match(regexp)
+            const timestamps: number[] = []
 
-            if (!(match && match[1] && match[3] && match[4])) continue
+            for (let match = line.match(regexp); match; match = line.match(regexp)) {
+                const m = +match[1]
+                const s = +match[3]
+                const ms = +match[4]
 
-            const m = +match[1]
-            const s = +match[3]
-            const ms = +match[4]
+                line = line.replace(regexp, "")
 
-            const text = line.replace(regexp, "")
+                timestamps.push((60 * m + s) * 1000 + ms)
+            }
 
-            result.lines.push({
-                time: (60 * m + s) * 1000 + ms,
-                text: decode(text)
-            })
+            for (const timestamp of timestamps) {
+                result.lines.push({
+                    time: timestamp,
+                    text: line
+                })
+            }
         }
+
+        result.lines.sort((a, b) => a.time - b.time)
 
         return result
     }
