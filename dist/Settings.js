@@ -41,6 +41,7 @@ Settings.view = {
     }
 };
 Settings.timings = {
-    offset: 500,
-    enableAutooffset: true
+    sendTimeOffset: 500,
+    enableAutooffset: true,
+    autooffset: 3
 };
