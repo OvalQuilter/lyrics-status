@@ -62,14 +62,13 @@ $(`
                     <img id="send-time-offset-help" class="clickable question-mark1" src="https://www.pngall.com/wp-content/uploads/5/Help-Question-Mark-PNG-Free-Download.png" height="15">
                 </div>
                 <div class="option">
-                    <label for="autooffset">Autooffset (experimental):</label>
-                    <select id="autooffset">
-                        <option value="off" selected>Off</option>
-                        <option value="mode1">Last request</option>
-                        <option value="mode2">Average of 2 requests</option>
-                        <option value="mode3">Average of 10 requests</option>
-                        <option value="mode4">Average of 30 requests</option>
-                    </select>
+                    <label for="enable-autooffset">Enable Autooffset:</label>
+                    <input type="checkbox" id="enable-autooffset">
+                </div>
+                <div class="option">
+                    <span>Autooffset: Average of</span>
+                    <input style="width: 30px;" id="autooffset" class="text-input1" type="text" maxlength="2">
+                    <span>requests</span>
                     <img id="autooffset-help" class="clickable question-mark1" src="https://www.pngall.com/wp-content/uploads/5/Help-Question-Mark-PNG-Free-Download.png" height="15" style="left: 1px;">
                 </div>
             </div>
@@ -450,6 +449,7 @@ let menu                    = $("#menu-UI"),
     customStatus            = $("#custom-status"),
     sendTimeOffset          = $("#send-time-offset"),
     sendTimeOffsetHelp      = $("#send-time-offset-help"),
+    enableAutooffset        = $("#enable-autooffset"),
     autooffset              = $("#autooffset"),
     autooffsetHelp          = $("#autooffset-help");
 // Elements
@@ -470,7 +470,8 @@ let settings = {
     },
     timings: {
         sendTimeOffset: 500,
-        autooffset: "off"
+        enableAutooffset: true,
+        autooffset: 3
     },
 }
 // Settings
@@ -578,7 +579,7 @@ customStatus.on("input", (e) => {
 });
 sendTimeOffset.on("input", (e) => {
     e.preventDefault();
-    let value = sendTimeOffset.val();
+    let value = +sendTimeOffset.val();
 
     if(isNaN(value)) {
         sendTimeOffset.css("color", "rgba(200, 0, 0, var(--alpha))");
@@ -594,29 +595,34 @@ sendTimeOffset.on("input", (e) => {
     saveSettings();
 });
 sendTimeOffsetHelp.click(() => modal("Help", `
-This parameter defines the offset for time before the status changes (in milliseconds).<br>
-Default value is <strong>500</strong>. It is not recommended to change this parameter without a reason.<br><br>
-<strong>Note: Value bigger than 2000 will be ignored.</strong>
+Offset makes status changes appear before the lyrics have changed to make them look more synchronized.<br>
+You can change it to your preference.<br>
+If you don't have Spotify Premium you can set it to -200 because NetEase Music and QQMusic lyrics can appear faster than the actual song's words, but still it may be song-dependent.<br>
+The offset time is defined in milliseconds. The default value is 500.
 `));
-autooffset.change(() => {
-    let value = autooffset.val();
+enableAutooffset.click(() => {
+    let state = enableAutooffset.prop("checked");
 
-    if(value === "off") {
-        sendTimeOffset.prop("disabled", false);
+    settings.timings.enableAutooffset = state;
+    saveSettings();
+})
+autooffset.on("input", (e) => {
+    e.preventDefault();
+    let value = +autooffset.val();
+
+    if(isNaN(value)) {
+        autooffset.css("color", "rgba(200, 0, 0, var(--alpha))");
+
+        return;
     } else {
-        sendTimeOffset.prop("disabled", true);
+        autooffset.css("color", "inherit");
     }
 
     settings.timings.autooffset = value;
     saveSettings();
 });
 autooffsetHelp.click(() => modal("Help", `
-This option uses time that requests took to change status to set their offset.<br>
-It may help you if you have low connection speed.<br>
-If you have stable (not depends on fast or no) connection speed you can use any of these modes.<br>
-If you have 'jumpy' connection speed it is not recommended to use <strong>Average of 30 requests</strong> mode.<br>
-You can test each mode and see what's more suitable for you.<br><br>
-<strong>Note: This function is experimental and may be removed/changed in the future.</strong>
+Autooffset basically speaks for itself. Calculates average value depending on the time of status change + 100 ms (before Discord shows it).
 `));
 // Events
 
@@ -662,8 +668,8 @@ function loadSettings(settingsToLoad) {
         customStatus.html(settings.view.advanced.customStatus);
         statusPreview.text(getStatusString("La-la-la", 137000));
         sendTimeOffset.val(settings.timings.sendTimeOffset);
-        $(`#autooffset option[value='${settings.timings.autooffset}']`).prop("selected", true);
-        autooffset.val() !== "off" ? sendTimeOffset.prop("disabled", true) : null;
+        enableAutooffset.prop("checked", settings.timings.enableAutooffset);
+        autooffset.val(settings.timings.autooffset);
 
         settingsLoaded = true
     } catch(e) {
