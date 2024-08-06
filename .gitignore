@@ -2,4 +2,6 @@
 /node_modules/
 /settings.json
 /package-lock.json
-/.idea
+/.idea/
+/src/backup/
+/log.txt
