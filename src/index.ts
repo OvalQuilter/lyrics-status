@@ -10,6 +10,9 @@ import { Debug } from "./Debug"
 import { startServer } from "./Panel/Server"
 import { Settings } from "./Settings"
 
+Settings.load()
+SpotifyAccessToken.refresh()
+
 const lyricsFetcher = new LyricsFetcher()
 lyricsFetcher.addSource(new SpotifySource())
 lyricsFetcher.addSource(new NetEaseMusicSource())
@@ -19,9 +22,6 @@ const playbackState = new PlaybackState()
 const playbackStateUpdater = new PlaybackStateUpdater(playbackState, lyricsFetcher)
 
 const statusChanger = new StatusChanger(playbackState)
-
-Settings.load()
-SpotifyAccessToken.refresh()
 
 setInterval(() => {
     playbackStateUpdater.update()
@@ -36,17 +36,19 @@ setInterval(() => {
 
     playbackState.songProgress += Date.now() - now
 
+    if (playbackState.ended) statusChanger.songChanged()
+
     console.clear()
     console.log(`
     Song: ${playbackState.songName || "Not listening"}
     Author: ${playbackState.songAuthor || "Not listening"}
-    Song progress: ${playbackState.songProgress}
+    Song progress: ${statusChanger.formatSeconds(+(playbackState.songProgress / 1000).toFixed(0))}
     Current lyrics: ${(playbackState.currentLine && playbackState.currentLine.text) || "Not available"}
     Lyrics fetched from: ${lyricsFetcher.lastFetchedFrom}
     `)
 
     now = Date.now()
-}, 100)
+}, 1000 / 60)
 
 startServer()
 

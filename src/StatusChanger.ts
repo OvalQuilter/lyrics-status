@@ -1,16 +1,28 @@
 import { PlaybackState } from "./PlaybackState"
 import { Settings } from "./Settings"
 import { LyricsLine } from "./Sources/BaseSource"
+import { Autooffset } from "./Autooffset"
+import { Debug } from "./Debug"
 
 export class StatusChanger {
     public playbackState: PlaybackState
 
+    public sentLines: LyricsLine[]
+
+    public autooffset: Autooffset
+
     constructor(playbackState: PlaybackState) {
         this.playbackState = playbackState
+
+        this.sentLines = []
+
+        this.autooffset = new Autooffset()
     }
 
     public changeStatusRequest(text: string, token: string, emoji: string): Promise<Response> {
-        return fetch("https://discordapp.com/api/v8/users/@me/settings", {
+        const now = Date.now()
+
+        const request = fetch("https://discordapp.com/api/v8/users/@me/settings", {
             method: "PATCH",
             headers: {
                 "Content-Type": "application/json",
@@ -25,9 +37,15 @@ export class StatusChanger {
                 }
             })
         })
+
+        request.then(() => this.autooffset.addValue(Date.now() - now))
+
+        return request
     }
 
     public changeStatus(): void {
+        this.autooffset.setLimit(Settings.timings.autooffset)
+
         const playbackState = this.playbackState
 
         if (playbackState.ended || !playbackState.hasLyrics || !playbackState.isPlaying) return
@@ -39,7 +57,7 @@ export class StatusChanger {
         const currentLine = playbackState.currentLine
         const songProgress = playbackState.songProgress
         const lines = lyrics.lines
-        const offset = Settings.timings.offset
+        const offset = Settings.timings.enableAutooffset ? this.autooffset.getAverageValue() + 100 : Settings.timings.sendTimeOffset
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i]
@@ -48,6 +66,7 @@ export class StatusChanger {
             if (line.time < (songProgress + offset)) {
                 if (!line.text) continue
                 if (nextLine && nextLine.time < (songProgress + offset)) continue
+                if (this.sentLines.some((sentLine) => sentLine.time === line.time)) break
                 if (line === currentLine) break
 
                 playbackState.currentLine = line
@@ -58,9 +77,15 @@ export class StatusChanger {
                     this.changeStatusRequest(this.getStatusString(line), Settings.credentials.token, "🎶")
                 }
 
+                this.sentLines.push(line)
+
                 break
             }
         }
+    }
+
+    public songChanged(): void {
+        this.sentLines = []
     }
 
     public formatSeconds(s: number): string {
