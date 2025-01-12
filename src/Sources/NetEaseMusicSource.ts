@@ -1,5 +1,4 @@
 import { BaseSource, SongLyrics } from "./BaseSource"
-import { decode } from "he"
 
 interface SearchResponse {
     result: {

@@ -1,5 +1,5 @@
 import { BaseSource, SongLyrics } from "./Sources/BaseSource"
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from "node:fs"
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs"
 
 export class LyricsFetcher {
     public sources: BaseSource[]

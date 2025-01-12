@@ -10,8 +10,6 @@ export class Autooffset {
     }
 
     public addValue(value: number): void {
-        console.log(value)
-
         this.keys.pop()
 
         this.keys.unshift(value)

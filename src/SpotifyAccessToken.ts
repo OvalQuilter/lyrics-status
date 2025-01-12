@@ -8,7 +8,6 @@ export class SpotifyAccessToken {
     public static token: string = ""
 
     public static async refresh(): Promise<void> {
-
         const request = await fetch("https://open.spotify.com/get_access_token?reason=transport&productType=web_player", {
             "headers": {
                 "accept": "*/*",

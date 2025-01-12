@@ -2,7 +2,6 @@ import { PlaybackState } from "./PlaybackState"
 import { Settings } from "./Settings"
 import { LyricsLine } from "./Sources/BaseSource"
 import { Autooffset } from "./Autooffset"
-import { Debug } from "./Debug"
 
 export class StatusChanger {
     public playbackState: PlaybackState
