@@ -9,37 +9,50 @@ import { SpotifyAccessToken } from "./SpotifyAccessToken"
 import { Debug } from "./Debug"
 import { startServer } from "./Panel/Server"
 import { Settings } from "./Settings"
+import { Updater } from "./Updater"
 
 Settings.load()
-SpotifyAccessToken.refresh()
 
-const lyricsFetcher = new LyricsFetcher()
-lyricsFetcher.addSource(new SpotifySource())
-lyricsFetcher.addSource(new NetEaseMusicSource())
-lyricsFetcher.addSource(new QQMusicSource())
+if (Settings.update.enableAutoupdate) {
+    Updater.update()
+        .then(() => {
+            init()
+        })
+        .catch((e) => {
+            Debug.write("LyricsStatus failed to update. Error: " + e.stack)
+        })
+}
 
-const playbackState = new PlaybackState()
-const playbackStateUpdater = new PlaybackStateUpdater(playbackState, lyricsFetcher)
+function init(): void {
+    SpotifyAccessToken.refresh()
 
-const statusChanger = new StatusChanger(playbackState)
+    const lyricsFetcher = new LyricsFetcher()
+    lyricsFetcher.addSource(new SpotifySource())
+    lyricsFetcher.addSource(new NetEaseMusicSource())
+    lyricsFetcher.addSource(new QQMusicSource())
 
-setInterval(() => {
-    playbackStateUpdater.update()
+    const playbackState = new PlaybackState()
+    const playbackStateUpdater = new PlaybackStateUpdater(playbackState, lyricsFetcher)
 
-    //console.log(playbackState)
-    //console.log(statusChanger, playbackStateUpdater, SpotifyAccessToken)
-}, 1500)
+    const statusChanger = new StatusChanger(playbackState)
 
-let now = Date.now()
-setInterval(() => {
-    statusChanger.changeStatus()
+    setInterval(() => {
+        playbackStateUpdater.update()
 
-    playbackState.songProgress += Date.now() - now
+        //console.log(playbackState)
+        //console.log(statusChanger, playbackStateUpdater, SpotifyAccessToken)
+    }, 1500)
 
-    if (playbackState.ended) statusChanger.songChanged()
+    let now = Date.now()
+    setInterval(() => {
+        statusChanger.changeStatus()
 
-    console.clear()
-    console.log(`
+        playbackState.songProgress += Date.now() - now
+
+        if (playbackState.ended) statusChanger.songChanged()
+
+        console.clear()
+        console.log(`
     Song: ${playbackState.songName || "Not listening"}
     Author: ${playbackState.songAuthor || "Not listening"}
     Song progress: ${statusChanger.formatSeconds(+(playbackState.songProgress / 1000).toFixed(0))}
@@ -47,10 +60,11 @@ setInterval(() => {
     Lyrics fetched from: ${lyricsFetcher.lastFetchedFrom}
     `)
 
-    now = Date.now()
-}, 1000 / 60)
+        now = Date.now()
+    }, 1000 / 60)
 
-startServer()
+    startServer()
+}
 
 process.on("uncaughtException", (e) => {
     Debug.write(e.stack + "\n" + e.cause)

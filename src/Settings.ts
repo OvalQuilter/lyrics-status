@@ -23,11 +23,16 @@ export class Settings {
         autooffset: 3
     }
 
+    public static update = {
+        enableAutoupdate: true
+    }
+
     public static save(): void {
         writeFileSync("./settings.json", JSON.stringify({
             credentials: this.credentials,
             view: this.view,
-            timings: this.timings
+            timings: this.timings,
+            update: this.update
         }))
     }
 
@@ -44,6 +49,7 @@ export class Settings {
             this.credentials = settings.credentials || this.credentials
             this.view = settings.view || this.view
             this.timings = settings.timings || this.timings
+            this.update = settings.update || this.update
         }
     }
 }

@@ -72,6 +72,13 @@ $(`
                     <img id="autooffset-help" class="clickable question-mark1" src="https://www.pngall.com/wp-content/uploads/5/Help-Question-Mark-PNG-Free-Download.png" height="15" style="left: 1px;">
                 </div>
             </div>
+            <div class="settings">
+                <span class="settings-name">Update</span>
+                <div class="option">
+                    <label for="enable-autoupdate">Enable Autoupdate</label>
+                    <input type="checkbox" id="enable-autoupdate">
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -451,7 +458,8 @@ let menu                    = $("#menu-UI"),
     sendTimeOffsetHelp      = $("#send-time-offset-help"),
     enableAutooffset        = $("#enable-autooffset"),
     autooffset              = $("#autooffset"),
-    autooffsetHelp          = $("#autooffset-help");
+    autooffsetHelp          = $("#autooffset-help"),
+    enableAutoupdate        = $("#enable-autoupdate");
 // Elements
 
 let settings = {
@@ -473,6 +481,9 @@ let settings = {
         enableAutooffset: true,
         autooffset: 3
     },
+    update: {
+        enableAutoupdate: true
+    }
 }
 // Settings
 
@@ -624,6 +635,12 @@ autooffset.on("input", (e) => {
 autooffsetHelp.click(() => modal("Help", `
 Autooffset basically speaks for itself. Calculates average value depending on the time of status change + 100 ms (before Discord shows it).
 `));
+enableAutoupdate.click(() => {
+    let state = enableAutoupdate.prop("checked");
+
+    settings.update.enableAutoupdate = state;
+    saveSettings();
+})
 // Events
 
 function formatSeconds(s) {
@@ -670,6 +687,7 @@ function loadSettings(settingsToLoad) {
         sendTimeOffset.val(settings.timings.sendTimeOffset);
         enableAutooffset.prop("checked", settings.timings.enableAutooffset);
         autooffset.val(settings.timings.autooffset);
+        enableAutoupdate.prop("checked", settings.update.enableAutoupdate)
 
         settingsLoaded = true
     } catch(e) {

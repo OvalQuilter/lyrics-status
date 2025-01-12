@@ -26,6 +26,7 @@ export function startServer(): void {
             Settings.credentials = settings.credentials
             Settings.view = settings.view
             Settings.timings = settings.timings
+            Settings.update = settings.update
 
             Settings.save()
         })
@@ -33,7 +34,8 @@ export function startServer(): void {
         const settings = JSON.stringify({
             credentials: Settings.credentials,
             view: Settings.view,
-            timings: Settings.timings
+            timings: Settings.timings,
+            update: Settings.update
         })
 
         ws.send(settings)
