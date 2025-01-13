@@ -1,27 +1,16 @@
 import { join, resolve } from "path"
 import { readFileSync, copyFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, unlinkSync } from "fs"
-import { finished } from "stream/promises"
 import { Readable } from "stream"
-import unzip from "unzip"
+import zip from "node-stream-zip"
 
 export class Updater {
-    public static async update(): Promise<void> {
+    public static async tryUpdate(): Promise<void> {
         console.log("Checking for updates...")
 
         if (await Updater.checkUpdate()) {
             console.log("Found an update. Starting download...")
 
-            const downloadPath = join(__dirname, "./v3")
-            const exclude = [
-                "dist/index.js",
-                "dist/Update",
-                "settings.json",
-                "cache"
-            ]
-
-            await Updater.downloadRepo("OvalQuilter", "lyrics-status", "v3", downloadPath)
-
-            Updater.replaceFiles(downloadPath, join(__dirname, "../../"), exclude)
+            await Updater.forceUpdate()
 
             console.log("LyricsStatus updated successfully! Please restart to apply changes.")
 
@@ -29,10 +18,24 @@ export class Updater {
         }
     }
 
+    public static async forceUpdate(): Promise<void> {
+        const downloadPath = join(__dirname, "./v3")
+        const exclude = [
+            "dist/index.js",
+            "dist/Update",
+            "settings.json",
+            "cache"
+        ]
+
+        await Updater.downloadRepo("OvalQuilter", "lyrics-status", "v3", downloadPath)
+
+        Updater.replaceFiles(downloadPath, join(__dirname, "../../"), exclude)
+    }
+
     public static async checkUpdate(): Promise<boolean> {
         const version = await (await fetch("https://github.com/OvalQuilter/lyrics-status/raw/refs/heads/v3/VERSION")).text()
 
-        return readFileSync(join(__dirname, "../../VERSION"), { encoding: "utf-8" }) !== version;
+        return readFileSync(join(__dirname, "../VERSION"), { encoding: "utf-8" }) !== version;
     }
 
     public static async downloadRepo(userName: string, repoName: string, branch: string, outputDir: string): Promise<void> {
@@ -46,11 +49,15 @@ export class Updater {
         const response = await fetch(url)
         const downloadStream = createWriteStream(downloadPath)
 
-        await finished(Readable.fromWeb(response.body!).pipe(downloadStream))
+        await new Promise((res, rej) => {
+            Readable.fromWeb(response.body!)
+                .pipe(downloadStream)
+                .on("finish", res)
+        })
 
-        await finished(createReadStream(downloadPath).pipe(unzip.Extract({
-            path: outputDir
-        })))
+        const file = new zip.async({ file: downloadPath })
+
+        await file.extract(null, outputDir)
     }
 
     public static replaceFiles(srcPath: string, dstPath: string, exclude: string[]): void {

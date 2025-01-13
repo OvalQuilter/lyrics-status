@@ -14,7 +14,7 @@ import { Updater } from "./Updater"
 Settings.load()
 
 if (Settings.update.enableAutoupdate) {
-    Updater.update()
+    Updater.tryUpdate()
         .then(() => {
             init()
         })
