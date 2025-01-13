@@ -20,6 +20,8 @@ if (Settings.update.enableAutoupdate) {
         })
         .catch((e) => {
             Debug.write("LyricsStatus failed to update. Error: " + e.stack)
+
+            init()
         })
 }
 
