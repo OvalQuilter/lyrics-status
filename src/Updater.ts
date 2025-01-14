@@ -29,7 +29,7 @@ export class Updater {
 
         await Updater.downloadRepo("OvalQuilter", "lyrics-status", "v3", downloadPath)
 
-        Updater.replaceFiles(downloadPath, join(__dirname, "../../"), exclude)
+        Updater.replaceFiles(downloadPath, join(__dirname, "../"), exclude)
     }
 
     public static async checkUpdate(): Promise<boolean> {
