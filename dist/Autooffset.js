@@ -7,7 +7,6 @@ class Autooffset {
         this.limit = 0;
     }
     addValue(value) {
-        console.log(value);
         this.keys.pop();
         this.keys.unshift(value);
     }

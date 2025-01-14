@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LyricsFetcher = void 0;
-const node_fs_1 = require("node:fs");
+const fs_1 = require("fs");
 class LyricsFetcher {
     constructor() {
         this.sources = [];
@@ -47,15 +47,15 @@ class LyricsFetcher {
         const path = `./cache/${name}-${artist}.json`;
         let lyrics = null;
         try {
-            lyrics = JSON.parse((0, node_fs_1.readFileSync)(path).toString());
+            lyrics = JSON.parse((0, fs_1.readFileSync)(path).toString());
         }
         catch (_a) { }
         return lyrics;
     }
     cacheLyrics(name, artist, lyrics) {
-        if (!(0, node_fs_1.existsSync)("./cache"))
-            (0, node_fs_1.mkdirSync)("./cache");
-        (0, node_fs_1.writeFileSync)(`./cache/${name}-${artist}.json`, JSON.stringify(lyrics));
+        if (!(0, fs_1.existsSync)("./cache"))
+            (0, fs_1.mkdirSync)("./cache");
+        (0, fs_1.writeFileSync)(`./cache/${name}-${artist}.json`, JSON.stringify(lyrics));
     }
 }
 exports.LyricsFetcher = LyricsFetcher;

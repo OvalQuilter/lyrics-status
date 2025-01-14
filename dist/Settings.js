@@ -8,7 +8,8 @@ class Settings {
         (0, node_fs_1.writeFileSync)("./settings.json", JSON.stringify({
             credentials: this.credentials,
             view: this.view,
-            timings: this.timings
+            timings: this.timings,
+            update: this.update
         }));
     }
     static load() {
@@ -23,6 +24,7 @@ class Settings {
             this.credentials = settings.credentials || this.credentials;
             this.view = settings.view || this.view;
             this.timings = settings.timings || this.timings;
+            this.update = settings.update || this.update;
         }
     }
 }
@@ -44,4 +46,7 @@ Settings.timings = {
     sendTimeOffset: 500,
     enableAutooffset: true,
     autooffset: 3
+};
+Settings.update = {
+    enableAutoupdate: true
 };
