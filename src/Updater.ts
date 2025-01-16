@@ -24,7 +24,8 @@ export class Updater {
             "dist/index.js",
             "dist/Update",
             "settings.json",
-            "cache"
+            "cache",
+            ".git"
         ]
 
         await Updater.downloadRepo("OvalQuilter", "lyrics-status", "v3", downloadPath)
