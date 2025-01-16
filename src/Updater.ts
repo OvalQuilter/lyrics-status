@@ -1,5 +1,5 @@
 import { join, resolve } from "path"
-import { readFileSync, copyFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, unlinkSync } from "fs"
+import { readFileSync, copyFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, unlinkSync, rmdirSync } from "fs"
 import { Readable } from "stream"
 import zip from "node-stream-zip"
 
@@ -97,11 +97,15 @@ export class Updater {
                     if (dstIsDirectory) {
                         Updater.replaceFiles(srcFilePath, dstFilePath, exclude)
                     } else {
-                        unlinkSync(resolvedDstFilePath)
+                        rmdirSync(resolvedDstFilePath)
                         copyFileSync(resolvedSrcFilePath, resolvedDstPath)
                     }
                 } else {
-                    unlinkSync(resolvedDstFilePath)
+                    if (dstIsDirectory) {
+                        unlinkSync(resolvedDstFilePath)
+                    } else {
+                        rmdirSync(resolvedDstFilePath)
+                    }
                     copyFileSync(resolvedSrcFilePath, resolvedDstPath)
                 }
             }
@@ -109,7 +113,11 @@ export class Updater {
             for (const file of needsDelete) {
                 if (needsIgnore.has(file)) continue
 
-                unlinkSync(file)
+                try {
+                    unlinkSync(file)
+                } catch(e) {
+                    rmdirSync(file)
+                }
             }
         }
     }
