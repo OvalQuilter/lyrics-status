@@ -23,6 +23,8 @@ if (Settings.update.enableAutoupdate) {
 
             init()
         })
+} else {
+    init()
 }
 
 function init(): void {
