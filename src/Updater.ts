@@ -1,5 +1,5 @@
 import { join, resolve } from "path"
-import { readFileSync, copyFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, unlinkSync, rmdirSync } from "fs"
+import { readFileSync, copyFileSync, createWriteStream, existsSync, mkdirSync, readdirSync, rmSync } from "fs"
 import { Readable } from "stream"
 import zip from "node-stream-zip"
 
@@ -19,18 +19,25 @@ export class Updater {
     }
 
     public static async forceUpdate(): Promise<void> {
-        const downloadPath = join(__dirname, "./v3")
+        const downloadPath = join(__dirname, "../temp")
         const exclude = [
             "dist/index.js",
             "dist/Update",
             "settings.json",
             "cache",
-            ".git"
+            ".git",
+            "temp"
         ]
+
+        if (existsSync(downloadPath)) {
+            rmSync(downloadPath, { recursive: true, force: true })
+        }
+
+        mkdirSync(downloadPath)
 
         await Updater.downloadRepo("OvalQuilter", "lyrics-status", "v3", downloadPath)
 
-        Updater.replaceFiles(downloadPath, join(__dirname, "../"), exclude)
+        Updater.replaceFiles(join(downloadPath, "./lyrics-status-3"), join(__dirname, "../"), exclude)
     }
 
     public static async checkUpdate(): Promise<boolean> {
@@ -41,10 +48,11 @@ export class Updater {
 
     public static async downloadRepo(userName: string, repoName: string, branch: string, outputDir: string): Promise<void> {
         const url = `https://github.com/${userName}/${repoName}/archive/refs/heads/${branch}.zip`
-        const downloadPath = join(outputDir, `${repoName}-${branch}.zip`)
+        const resolvedOutputDir = resolve(outputDir)
+        const downloadPath = join(resolvedOutputDir, `v3.zip`)
 
         if (!existsSync(outputDir)) {
-            mkdirSync(outputDir)
+            mkdirSync(outputDir, { recursive: true })
         }
 
         const response = await fetch(url)
@@ -98,15 +106,11 @@ export class Updater {
                     if (dstIsDirectory) {
                         Updater.replaceFiles(srcFilePath, dstFilePath, exclude)
                     } else {
-                        rmdirSync(resolvedDstFilePath)
+                        rmSync(resolvedDstFilePath, { recursive: true, force: true })
                         copyFileSync(resolvedSrcFilePath, resolvedDstPath)
                     }
                 } else {
-                    if (dstIsDirectory) {
-                        unlinkSync(resolvedDstFilePath)
-                    } else {
-                        rmdirSync(resolvedDstFilePath)
-                    }
+                    rmSync(resolvedDstFilePath, { recursive: true, force: true })
                     copyFileSync(resolvedSrcFilePath, resolvedDstPath)
                 }
             }
@@ -114,11 +118,7 @@ export class Updater {
             for (const file of needsDelete) {
                 if (needsIgnore.has(file)) continue
 
-                try {
-                    unlinkSync(file)
-                } catch(e) {
-                    rmdirSync(file)
-                }
+                rmSync(file, { recursive: true, force: true })
             }
         }
     }
