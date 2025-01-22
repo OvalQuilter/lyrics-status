@@ -9,5 +9,8 @@
     "@types/express": "^4.17.21",
     "@types/he": "^1.2.3",
     "@types/ws": "^8.5.10"
+  },
+  "scripts": {
+    "run": "node dist/index"
   }
 }
