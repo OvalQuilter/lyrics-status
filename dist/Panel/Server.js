@@ -38,6 +38,6 @@ function startServer() {
         });
         ws.send(settings);
     });
-    httpServer.listen(8080);
+    httpServer.listen(8999);
 }
 exports.startServer = startServer;
