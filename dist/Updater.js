@@ -24,22 +24,31 @@ class Updater {
             if (yield Updater.checkUpdate()) {
                 console.log("Found an update. Starting download...");
                 yield Updater.forceUpdate();
-                console.log("LyricsStatus updated successfully! Please restart to apply changes.");
+                console.log("LyricsStatus updated successfully! Please run \"npm install\" & restart to apply changes.");
                 process.exit(0);
             }
         });
     }
     static forceUpdate() {
         return __awaiter(this, void 0, void 0, function* () {
-            const downloadPath = (0, path_1.join)(__dirname, "./v3");
+            const downloadPath = (0, path_1.join)(__dirname, "../temp");
             const exclude = [
                 "dist/index.js",
                 "dist/Update",
                 "settings.json",
-                "cache"
+                "cache",
+                ".git",
+                "temp",
+                "log.txt",
+                "node_modules",
+                "package-lock.json"
             ];
+            if ((0, fs_1.existsSync)(downloadPath)) {
+                (0, fs_1.rmSync)(downloadPath, { recursive: true, force: true });
+            }
+            (0, fs_1.mkdirSync)(downloadPath);
             yield Updater.downloadRepo("OvalQuilter", "lyrics-status", "v3", downloadPath);
-            Updater.replaceFiles(downloadPath, (0, path_1.join)(__dirname, "../../"), exclude);
+            Updater.replaceFiles((0, path_1.join)(downloadPath, "./lyrics-status-3"), (0, path_1.join)(__dirname, "../"), exclude);
         });
     }
     static checkUpdate() {
@@ -51,9 +60,10 @@ class Updater {
     static downloadRepo(userName, repoName, branch, outputDir) {
         return __awaiter(this, void 0, void 0, function* () {
             const url = `https://github.com/${userName}/${repoName}/archive/refs/heads/${branch}.zip`;
-            const downloadPath = (0, path_1.join)(outputDir, `${repoName}-${branch}.zip`);
+            const resolvedOutputDir = (0, path_1.resolve)(outputDir);
+            const downloadPath = (0, path_1.join)(resolvedOutputDir, `v3.zip`);
             if (!(0, fs_1.existsSync)(outputDir)) {
-                (0, fs_1.mkdirSync)(outputDir);
+                (0, fs_1.mkdirSync)(outputDir, { recursive: true });
             }
             const response = yield fetch(url);
             const downloadStream = (0, fs_1.createWriteStream)(downloadPath);
@@ -69,47 +79,48 @@ class Updater {
     static replaceFiles(srcPath, dstPath, exclude) {
         const resolvedSrcPath = (0, path_1.resolve)(srcPath);
         const resolvedDstPath = (0, path_1.resolve)(dstPath);
+        const resolvedExclude = exclude.map((path) => {
+            return (0, path_1.resolve)(path);
+        });
         const srcFiles = (0, fs_1.readdirSync)(resolvedSrcPath, { withFileTypes: true });
         const dstFiles = (0, fs_1.readdirSync)(resolvedDstPath, { withFileTypes: true });
+        const needsDelete = new Set();
+        const needsIgnore = new Set();
+        // For deleting files that doesn't exist in src dir
         for (let i = 0; i < srcFiles.length; i++) {
             const srcFile = srcFiles[i];
             const srcFilePath = (0, path_1.join)(srcPath, srcFile.name);
-            const resolvedSrcFilePath = (0, path_1.join)(resolvedSrcPath, srcFile.name);
             const srcIsDirectory = srcFile.isDirectory();
-            const needsDelete = new Set();
-            const needsIgnore = new Set();
-            // For deleting files that doesn't exist in src dir
             for (let j = 0; j < dstFiles.length; j++) {
                 const dstFile = dstFiles[j];
                 const dstFilePath = (0, path_1.join)(dstPath, dstFile.name);
-                const resolvedDstFilePath = (0, path_1.join)(resolvedDstPath, dstFile.name);
                 const dstIsDirectory = dstFile.isDirectory();
-                if (exclude.includes(dstFilePath))
+                if (resolvedExclude.includes(dstFilePath))
                     continue;
                 if (srcFile.name !== dstFile.name) {
-                    needsDelete.add(resolvedDstFilePath);
+                    needsDelete.add(dstFilePath);
                     continue;
                 }
-                needsIgnore.add(resolvedDstFilePath);
+                needsIgnore.add(dstFilePath);
                 if (srcIsDirectory) {
                     if (dstIsDirectory) {
-                        Updater.replaceFiles(srcFilePath, dstFilePath, exclude);
+                        Updater.replaceFiles(srcFilePath, dstFilePath, resolvedExclude);
                     }
                     else {
-                        (0, fs_1.unlinkSync)(resolvedDstFilePath);
-                        (0, fs_1.copyFileSync)(resolvedSrcFilePath, resolvedDstPath);
+                        (0, fs_1.rmSync)(dstFilePath, { recursive: true, force: true });
+                        (0, fs_1.copyFileSync)(srcFilePath, dstFilePath);
                     }
                 }
                 else {
-                    (0, fs_1.unlinkSync)(resolvedDstFilePath);
-                    (0, fs_1.copyFileSync)(resolvedSrcFilePath, resolvedDstPath);
+                    (0, fs_1.rmSync)(dstFilePath, { recursive: true, force: true });
+                    (0, fs_1.copyFileSync)(srcFilePath, dstFilePath);
                 }
             }
-            for (const file of needsDelete) {
-                if (needsIgnore.has(file))
-                    continue;
-                (0, fs_1.unlinkSync)(file);
-            }
+        }
+        for (const file of needsDelete) {
+            if (needsIgnore.has(file))
+                continue;
+            (0, fs_1.rmSync)(file, { recursive: true, force: true });
         }
     }
 }

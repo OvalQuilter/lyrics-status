@@ -20,7 +20,11 @@ if (Settings_1.Settings.update.enableAutoupdate) {
     })
         .catch((e) => {
         Debug_1.Debug.write("LyricsStatus failed to update. Error: " + e.stack);
+        init();
     });
+}
+else {
+    init();
 }
 function init() {
     SpotifyAccessToken_1.SpotifyAccessToken.refresh();
