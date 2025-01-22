@@ -12,7 +12,7 @@ export class Updater {
 
             await Updater.forceUpdate()
 
-            console.log("LyricsStatus updated successfully! Please restart to apply changes.")
+            console.log("LyricsStatus updated successfully! Please run \"npm install\" & restart to apply changes.")
 
             process.exit(0)
         }
@@ -26,7 +26,10 @@ export class Updater {
             "settings.json",
             "cache",
             ".git",
-            "temp"
+            "temp",
+            "log.txt",
+            "node_modules",
+            "package-lock.json"
         ]
 
         if (existsSync(downloadPath)) {
@@ -73,53 +76,55 @@ export class Updater {
         const resolvedSrcPath = resolve(srcPath)
         const resolvedDstPath = resolve(dstPath)
 
+        const resolvedExclude = exclude.map((path) => {
+            return resolve(path)
+        })
+
         const srcFiles = readdirSync(resolvedSrcPath, { withFileTypes: true })
         const dstFiles = readdirSync(resolvedDstPath, { withFileTypes: true })
+
+        const needsDelete: Set<string> = new Set()
+        const needsIgnore: Set<string> = new Set()
+        // For deleting files that doesn't exist in src dir
 
         for (let i = 0; i < srcFiles.length; i++) {
             const srcFile = srcFiles[i]
             const srcFilePath = join(srcPath, srcFile.name)
-            const resolvedSrcFilePath = join(resolvedSrcPath, srcFile.name)
             const srcIsDirectory = srcFile.isDirectory()
-
-            const needsDelete: Set<string> = new Set()
-            const needsIgnore: Set<string> = new Set()
-            // For deleting files that doesn't exist in src dir
 
             for (let j = 0; j < dstFiles.length; j++) {
                 const dstFile = dstFiles[j]
                 const dstFilePath = join(dstPath, dstFile.name)
-                const resolvedDstFilePath = join(resolvedDstPath, dstFile.name)
                 const dstIsDirectory = dstFile.isDirectory()
 
-                if (exclude.includes(dstFilePath)) continue
+                if (resolvedExclude.includes(dstFilePath)) continue
 
                 if (srcFile.name !== dstFile.name) {
-                    needsDelete.add(resolvedDstFilePath)
+                    needsDelete.add(dstFilePath)
 
                     continue
                 }
 
-                needsIgnore.add(resolvedDstFilePath)
+                needsIgnore.add(dstFilePath)
 
                 if (srcIsDirectory) {
                     if (dstIsDirectory) {
-                        Updater.replaceFiles(srcFilePath, dstFilePath, exclude)
+                        Updater.replaceFiles(srcFilePath, dstFilePath, resolvedExclude)
                     } else {
-                        rmSync(resolvedDstFilePath, { recursive: true, force: true })
-                        copyFileSync(resolvedSrcFilePath, resolvedDstPath)
+                        rmSync(dstFilePath, { recursive: true, force: true })
+                        copyFileSync(srcFilePath, dstFilePath)
                     }
                 } else {
-                    rmSync(resolvedDstFilePath, { recursive: true, force: true })
-                    copyFileSync(resolvedSrcFilePath, resolvedDstPath)
+                    rmSync(dstFilePath, { recursive: true, force: true })
+                    copyFileSync(srcFilePath, dstFilePath)
                 }
             }
+        }
 
-            for (const file of needsDelete) {
-                if (needsIgnore.has(file)) continue
+        for (const file of needsDelete) {
+            if (needsIgnore.has(file)) continue
 
-                rmSync(file, { recursive: true, force: true })
-            }
+            rmSync(file, { recursive: true, force: true })
         }
     }
 }
