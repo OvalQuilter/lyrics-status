@@ -41,5 +41,5 @@ export function startServer(): void {
         ws.send(settings)
     })
 
-    httpServer.listen(8080)
+    httpServer.listen(8999)
 }
