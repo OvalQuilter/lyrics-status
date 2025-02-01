@@ -1,6 +1,9 @@
-### NOTE: Spotify made lyrics available only for Premium users, this script won't work if you don't have Premium!
+# LyricsStatus V3 is out! Check [v3 branch](https://github.com/OvalQuilter/lyrics-status/tree/v3) for more information.
+
+## LyricsStatus V2 is outdated and won't receive any updates. 
 
 # Lyrics Status
+### NOTE: Spotify made lyrics available only for Premium users, this script won't work if you don't have Premium!
 ### What does it do?
 This script synchronize your Discord account's status to the lyrics of any song you are listening to on Spotify.
 
