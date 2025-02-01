@@ -2,7 +2,7 @@
 
 ## What is it?
 
-LyricsStatus is a tool that change your Discord status to lyrics of songs you listen to on Spotify!
+LyricsStatus is a tool that changes your Discord status to lyrics of songs you listen to on Spotify!
 
 It is written in TypeScript and runs on Node.js.
 
