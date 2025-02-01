@@ -27,14 +27,14 @@ class LyricsFetcher {
             let result = cache;
             for (const source of this.sources) {
                 if (cache) {
-                    this.lastFetchedFrom = "Cache";
+                    this.lastFetchedFrom = `Cache (${cache.appName})`;
                     break;
                 }
                 try {
                     this.lastFetchedFor = name + artist;
                     result = yield source.getLyrics(name, artist);
                     this.lastFetchedFrom = source.getAppName();
-                    this.cacheLyrics(name, artist, result);
+                    this.cacheLyrics(name, artist, result, this.lastFetchedFrom);
                 }
                 catch (_a) { }
                 if (result)
@@ -52,10 +52,10 @@ class LyricsFetcher {
         catch (_a) { }
         return lyrics;
     }
-    cacheLyrics(name, artist, lyrics) {
+    cacheLyrics(name, artist, lyrics, appName) {
         if (!(0, fs_1.existsSync)("./cache"))
             (0, fs_1.mkdirSync)("./cache");
-        (0, fs_1.writeFileSync)(`./cache/${name}-${artist}.json`, JSON.stringify(lyrics));
+        (0, fs_1.writeFileSync)(`./cache/${name}-${artist}.json`, JSON.stringify(Object.assign(Object.assign({}, lyrics), { appName })));
     }
 }
 exports.LyricsFetcher = LyricsFetcher;
