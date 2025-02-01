@@ -1,4 +1,4 @@
-import { BaseSource, SongLyrics } from "./Sources/BaseSource"
+import { BaseSource, CachedSongLyrics, SongLyrics } from "./Sources/BaseSource"
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs"
 
 export class LyricsFetcher {
@@ -23,11 +23,11 @@ export class LyricsFetcher {
 
         const cache = this.fetchCachedLyrics(name, artist)
 
-        let result = cache
+        let result = cache as SongLyrics
 
         for (const source of this.sources) {
             if (cache) {
-                this.lastFetchedFrom = "Cache"
+                this.lastFetchedFrom = `Cache (${cache.appName})`
 
                 break
             }
@@ -39,7 +39,7 @@ export class LyricsFetcher {
 
                 this.lastFetchedFrom = source.getAppName()
 
-                this.cacheLyrics(name, artist, result)
+                this.cacheLyrics(name, artist, result, this.lastFetchedFrom)
             } catch {}
 
             if (result) break
@@ -48,10 +48,10 @@ export class LyricsFetcher {
         return result
     }
 
-    public fetchCachedLyrics(name: string, artist: string): SongLyrics | null {
+    public fetchCachedLyrics(name: string, artist: string): CachedSongLyrics | null {
         const path = `./cache/${name}-${artist}.json`
 
-        let lyrics: SongLyrics | null = null
+        let lyrics: CachedSongLyrics | null = null
 
         try {
             lyrics = JSON.parse(readFileSync(path).toString())
@@ -60,9 +60,12 @@ export class LyricsFetcher {
         return lyrics
     }
 
-    public cacheLyrics(name: string, artist: string, lyrics: SongLyrics): void {
+    public cacheLyrics(name: string, artist: string, lyrics: SongLyrics, appName: string): void {
         if (!existsSync("./cache")) mkdirSync("./cache")
 
-        writeFileSync(`./cache/${name}-${artist}.json`, JSON.stringify(lyrics))
+        writeFileSync(`./cache/${name}-${artist}.json`, JSON.stringify({
+            ...lyrics,
+            appName
+        }))
     }
 }
