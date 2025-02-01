@@ -11,6 +11,6 @@
     "@types/ws": "^8.5.10"
   },
   "scripts": {
-    "run": "node dist/index"
+    "start": "node dist/index"
   }
 }
