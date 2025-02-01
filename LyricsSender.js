@@ -1125,4 +1125,6 @@ if(settings.autorun) {
         playbackState.trackProgress += 150;
     }, 150);
 })();
+
+modal("Outdated version", "LyricsStatus V3 is out!<br>It can work off browser and doesn't require Premium subscription.<br>V2 will not receive any updates.<br>Please update on <a href=\"https://github.com/OvalQuilter/lyrics-status\">script's GitHub repo.</a>");
 // Init
