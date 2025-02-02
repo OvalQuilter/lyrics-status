@@ -20,7 +20,7 @@ class SpotifySource extends BaseSource_1.BaseSource {
                 "accept": "application/json",
                 "accept-language": "ru",
                 "app-platform": "WebPlayer",
-                "authorization": "Bearer " + SpotifyAccessToken_1.SpotifyAccessToken,
+                "authorization": "Bearer " + SpotifyAccessToken_1.SpotifyAccessToken.token,
                 "spotify-app-version": "1.2.40.176.g6d58cb73",
                 "Cookie": Settings_1.Settings.credentials.cookies
             },
