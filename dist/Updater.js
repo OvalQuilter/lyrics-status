@@ -33,8 +33,6 @@ class Updater {
         return __awaiter(this, void 0, void 0, function* () {
             const downloadPath = (0, path_1.join)(__dirname, "../temp");
             const exclude = [
-                "dist/index.js",
-                "dist/Update",
                 "settings.json",
                 "cache",
                 ".git",
