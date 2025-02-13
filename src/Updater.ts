@@ -21,8 +21,6 @@ export class Updater {
     public static async forceUpdate(): Promise<void> {
         const downloadPath = join(__dirname, "../temp")
         const exclude = [
-            "dist/index.js",
-            "dist/Update",
             "settings.json",
             "cache",
             ".git",
