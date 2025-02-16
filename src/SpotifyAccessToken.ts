@@ -1,4 +1,4 @@
-import { Settings } from "./Settings"
+import { SettingsManager } from "./SettingsManager"
 
 interface AccessTokenResponse {
     accessToken: string
@@ -20,7 +20,7 @@ export class SpotifyAccessToken {
                 "sec-fetch-mode": "cors",
                 "sec-fetch-site": "same-origin",
                 "x-requested-with": "XMLHttpRequest",
-                "cookie": Settings.credentials.cookies,
+                "cookie": SettingsManager.data.credentials.cookies,
                 "Referer": "https://open.spotify.com/",
                 "Referrer-Policy": "strict-origin-when-cross-origin"
             },

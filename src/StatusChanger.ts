@@ -1,5 +1,5 @@
 import { PlaybackState } from "./PlaybackState"
-import { Settings } from "./Settings"
+import { SettingsManager } from "./SettingsManager"
 import { LyricsLine } from "./Sources/BaseSource"
 import { Autooffset } from "./Autooffset"
 
@@ -43,7 +43,7 @@ export class StatusChanger {
     }
 
     public changeStatus(): void {
-        this.autooffset.setLimit(Settings.timings.autooffset)
+        this.autooffset.setLimit(SettingsManager.data.timings.autooffset)
 
         const playbackState = this.playbackState
 
@@ -56,7 +56,7 @@ export class StatusChanger {
         const currentLine = playbackState.currentLine
         const songProgress = playbackState.songProgress
         const lines = lyrics.lines
-        const offset = Settings.timings.enableAutooffset ? this.autooffset.getAverageValue() + 100 : Settings.timings.sendTimeOffset
+        const offset = SettingsManager.data.timings.enableAutooffset ? this.autooffset.getAverageValue() + 100 : SettingsManager.data.timings.sendTimeOffset
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i]
@@ -70,10 +70,10 @@ export class StatusChanger {
 
                 playbackState.currentLine = line
 
-                if (Settings.view.advanced.enabled) {
-                    this.changeStatusRequest(this.parseStatusString(Settings.view.advanced.customStatus), Settings.credentials.token, Settings.view.advanced.customEmoji)
+                if (SettingsManager.data.view.advanced.enabled) {
+                    this.changeStatusRequest(this.parseStatusString(SettingsManager.data.view.advanced.customStatus), SettingsManager.data.credentials.token, SettingsManager.data.view.advanced.customEmoji)
                 } else {
-                    this.changeStatusRequest(this.getStatusString(line), Settings.credentials.token, "🎶")
+                    this.changeStatusRequest(this.getStatusString(line), SettingsManager.data.credentials.token, "🎶")
                 }
 
                 this.sentLines.push(line)
@@ -92,7 +92,7 @@ export class StatusChanger {
     }
 
     public getStatusString(line: LyricsLine): string {
-        return `${Settings.view.timestamp ? `[${this.formatSeconds(+(line.time / 1000).toFixed(0))}] ` : ""}${Settings.view.label ? "Song lyrics - " : ""}${line.text.replace("♪", "🎶")}`.slice(0, 128)
+        return `${SettingsManager.data.view.timestamp ? `[${this.formatSeconds(+(line.time / 1000).toFixed(0))}] ` : ""}${SettingsManager.data.view.label ? "Song lyrics - " : ""}${line.text.replace("♪", "🎶")}`.slice(0, 128)
     }
 
     public parseStatusString(status: string): string {
