@@ -1,6 +1,6 @@
 import { BaseSource, SongLyrics } from "./BaseSource"
-import { SpotifyAccessToken } from "../SpotifyAccessToken"
 import { Settings } from "../Settings"
+import { SpotifyService } from "../SpotifyService"
 
 interface PlayerResponse {
     item: {
@@ -26,7 +26,7 @@ export class SpotifySource extends BaseSource {
                 "accept": "application/json",
                 "accept-language": "ru",
                 "app-platform": "WebPlayer",
-                "authorization": "Bearer " + SpotifyAccessToken.token,
+                "authorization": "Bearer " + SpotifyService.token,
                 "spotify-app-version": "1.2.40.176.g6d58cb73",
                 "Cookie": Settings.credentials.cookies
             },

@@ -5,11 +5,11 @@ import { QQMusicSource } from "./Sources/QQMusicSource"
 import { PlaybackStateUpdater } from "./PlaybackStateUpdater"
 import { PlaybackState } from "./PlaybackState"
 import { StatusChanger } from "./StatusChanger"
-import { SpotifyAccessToken } from "./SpotifyAccessToken"
 import { Debug } from "./Debug"
 import { startServer } from "./Panel/Server"
 import { Settings } from "./Settings"
 import { Updater } from "./Updater"
+import { SpotifyService } from "./SpotifyService"
 
 Settings.load()
 
@@ -28,7 +28,7 @@ if (Settings.update.enableAutoupdate) {
 }
 
 function init(): void {
-    SpotifyAccessToken.refresh()
+    SpotifyService.refresh()
 
     const lyricsFetcher = new LyricsFetcher()
     lyricsFetcher.addSource(new SpotifySource())

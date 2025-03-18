@@ -1,6 +1,6 @@
 import { PlaybackState } from "./PlaybackState"
 import { LyricsFetcher } from "./LyricsFetcher"
-import { SpotifyAccessToken } from "./SpotifyAccessToken"
+import { SpotifyService } from "./SpotifyService"
 
 interface PlaybackResponse {
     item: {
@@ -35,11 +35,11 @@ export class PlaybackStateUpdater {
         const request = await fetch("https://api.spotify.com/v1/me/player", {
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": "Bearer " + SpotifyAccessToken.token
+                "Authorization": "Bearer " + SpotifyService.token
             }
         })
 
-        if (request.status === 401) return await SpotifyAccessToken.refresh()
+        if (request.status === 401) return await SpotifyService.refresh()
         if (request.status === 200) {
             const json = await request.json() as PlaybackResponse
             const playbackState = this.playbackState
