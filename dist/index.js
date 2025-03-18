@@ -7,11 +7,11 @@ const QQMusicSource_1 = require("./Sources/QQMusicSource");
 const PlaybackStateUpdater_1 = require("./PlaybackStateUpdater");
 const PlaybackState_1 = require("./PlaybackState");
 const StatusChanger_1 = require("./StatusChanger");
-const SpotifyAccessToken_1 = require("./SpotifyAccessToken");
 const Debug_1 = require("./Debug");
 const Server_1 = require("./Panel/Server");
 const Settings_1 = require("./Settings");
 const Updater_1 = require("./Updater");
+const SpotifyService_1 = require("./SpotifyService");
 Settings_1.Settings.load();
 if (Settings_1.Settings.update.enableAutoupdate) {
     Updater_1.Updater.tryUpdate()
@@ -27,7 +27,7 @@ else {
     init();
 }
 function init() {
-    SpotifyAccessToken_1.SpotifyAccessToken.refresh();
+    SpotifyService_1.SpotifyService.refresh();
     const lyricsFetcher = new LyricsFetcher_1.LyricsFetcher();
     lyricsFetcher.addSource(new SpotifySource_1.SpotifySource());
     lyricsFetcher.addSource(new NetEaseMusicSource_1.NetEaseMusicSource());

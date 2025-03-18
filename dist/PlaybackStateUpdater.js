@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PlaybackStateUpdater = void 0;
-const SpotifyAccessToken_1 = require("./SpotifyAccessToken");
+const SpotifyService_1 = require("./SpotifyService");
 class PlaybackStateUpdater {
     constructor(playbackState, lyricsFetcher) {
         this.playbackState = playbackState;
@@ -22,11 +22,11 @@ class PlaybackStateUpdater {
             const request = yield fetch("https://api.spotify.com/v1/me/player", {
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": "Bearer " + SpotifyAccessToken_1.SpotifyAccessToken.token
+                    "Authorization": "Bearer " + SpotifyService_1.SpotifyService.token
                 }
             });
             if (request.status === 401)
-                return yield SpotifyAccessToken_1.SpotifyAccessToken.refresh();
+                return yield SpotifyService_1.SpotifyService.refresh();
             if (request.status === 200) {
                 const json = yield request.json();
                 const playbackState = this.playbackState;

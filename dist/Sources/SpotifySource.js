@@ -11,8 +11,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SpotifySource = void 0;
 const BaseSource_1 = require("./BaseSource");
-const SpotifyAccessToken_1 = require("../SpotifyAccessToken");
 const Settings_1 = require("../Settings");
+const SpotifyService_1 = require("../SpotifyService");
 class SpotifySource extends BaseSource_1.BaseSource {
     request(url) {
         return fetch(url, {
@@ -20,7 +20,7 @@ class SpotifySource extends BaseSource_1.BaseSource {
                 "accept": "application/json",
                 "accept-language": "ru",
                 "app-platform": "WebPlayer",
-                "authorization": "Bearer " + SpotifyAccessToken_1.SpotifyAccessToken.token,
+                "authorization": "Bearer " + SpotifyService_1.SpotifyService.token,
                 "spotify-app-version": "1.2.40.176.g6d58cb73",
                 "Cookie": Settings_1.Settings.credentials.cookies
             },
