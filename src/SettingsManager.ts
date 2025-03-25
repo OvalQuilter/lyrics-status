@@ -3,7 +3,7 @@ import { Debug } from "./Debug"
 import { ISettingsData } from "./ISettingsData"
 
 export class SettingsManager {
-    public static data: ISettingsData = {
+    public static readonly defaultSettings: ISettingsData = {
         credentials: {
             token: "",
             cookies: ""
@@ -26,6 +26,7 @@ export class SettingsManager {
             enableAutoupdate: true
         }
     }
+    public static data: ISettingsData = SettingsManager.defaultSettings
 
     public static save(): void {
         writeFileSync("./settings.json", JSON.stringify(this.data))
