@@ -1,92 +1,159 @@
 # LyricsStatus V3
 
-## What is it?
+## Overview
 
-LyricsStatus is a tool that changes your Discord status to lyrics of songs you listen to on Spotify!
+**LyricsStatus** is a tool that automatically updates your Discord status with the lyrics of songs you're listening to on Spotify. It is written in **TypeScript** and runs on **Node.js**.
 
-It is written in TypeScript and runs on Node.js.
+## Disclaimer
 
-## Precautions
+Before proceeding with the setup, please read the following:
 
-Before you proceed to [Setup](#Setup) please read those precautions.
+- This tool is provided **"AS IS"**, without any warranties regarding its functionality or compatibility with your system.
+- The creator of **LyricsStatus** is **not responsible** for any consequences arising from its usage.
+- By using this tool, you **agree** to these terms.
 
-This tool is provided "AS IS" and doesn't have any warranty that it will work on your machine.
+---
 
-I, creator of the LyricsStatus, am not responsible for any consequences that LyricsStatus can lead to.
+## Installation Guide
 
-By using it, you agree with the statements above.
+### 1. Install Node.js
 
-## Setup
+Ensure you have Node.js installed. You can download it from the official website:
 
-### Node.js
+🔗 [Download Node.js](https://nodejs.org/en)
 
-Firstly, you need to [download](https://nodejs.org/en) Node.js.
+> [!IMPORTANT]
+> **LyricsStatus** requires **Node.js version 17.x.x or higher**.
 
-LyricsStatus needs version 17.x.x or higher.
+### 2. Download LyricsStatus
 
-### Downloading LyricsStatus
+There are two ways to download LyricsStatus:
 
-You can download it using Git or going to [Releases](https://github.com/OvalQuilter/lyrics-status/releases) and downloading source code archive. Then unpack it to the place you want.
+#### Option 1: Using Git
 
-For Git, use this command:
+> [!NOTE] 
+> This option requires **Git** to be installed.
+> You can download it from the official website: [https://git-scm.com/](https://git-scm.com/)
 
-```
+Run the following command in your terminal:
+
+```sh
 git clone --single-branch --branch v3 https://github.com/OvalQuilter/lyrics-status
 ```
 
-### Locating to LyricsStatus
+#### Option 2: Downloading from Releases
 
-#### Windows & Linux
+1. Visit the [**Releases**](https://github.com/OvalQuilter/lyrics-status/releases) page.
+2. Download the latest source code archive.
+3. Extract the files to a directory of your choice.
 
-Copy the path to the LyricsStatus folder, often found on top of your File Explorer (`C:\Users\your_profile_name\path\to\LyricsStatus` or `/usr/name/path/to/LyricsStatus` for example).
+### 3. Navigate to the LyricsStatus Directory
 
-For Windows, press `Win + R` and type `cmd`, then press `Run`.
+#### **Windows & Linux**
 
-For Linux, you need to manually open Terminal from your start menu.
+1. Copy the path to the **LyricsStatus** folder:
+    - Example (Windows): `C:\Users\your_profile_name\path\to\LyricsStatus`
+    - Example (Linux): `/home/your_name/path/to/LyricsStatus`
+    
+   📌 **Example screenshot:**
 
-In the opened window type `cd paste_path_you_copied` and press `Enter`.
+   ![Explorer](res/explorer.png)
+2. Open a terminal:
+    - **Windows**: Press `Win + R`, type `cmd`, and press `Enter`.
+    - **Linux**: Open **Terminal** from your applications menu.
+3. Change to the LyricsStatus directory using:
+   ```sh
+   cd /path/to/LyricsStatus
+   ```
+   
+   📌 **Example screenshot:**
 
-### Installing modules
+   ![Command Prompt](res/command_prompt.png)
 
-Now, you need to install modules. In the command prompt, run the following command:
+### 4. Install Dependencies
 
-```
+Run the following command to install required modules:
+
+```sh
 npm install
 ```
 
-Then wait for modules to install.
+Wait for the installation to complete.
 
-### Running and configuring
+### 5. Start LyricsStatus
 
-Run `npm run start` to start LyricsStatus.
+Launch LyricsStatus with:
 
-Now you need to configure it. Open `localhost:8999` in your browser, you should see a menu with various settings.
+```sh
+npm run start
+```
 
-First, you need to get your Discord token. [Here's](https://www.youtube.com/watch?v=LnBnm_tZlyU) a nice video on how to do it.
+### 6. Configure LyricsStatus
 
-After getting your token you need to paste it, head back to the menu and paste it in the `Token` input field. Remove quotes if there are any.
+Open your browser and go to:
 
-Second, you need to get your Spotify cookies. Open [Spotify](https://open.spotify.com/) in your browser, then press `F12` or `Ctrl + Alt + I`, depending on your browser.
+🔗 [http://localhost:8999](http://localhost:8999)
 
-Head to the `Network` tab or similar, you should see something like this:
+You should see a settings menu.
+
+#### **Step 1: Obtain Your Discord Token**
+
+1. Follow this [video guide](https://www.youtube.com/watch?v=LnBnm_tZlyU) to get your Discord token.
+2. Copy the token and paste it into the **Token** input field in the LyricsStatus settings.
+3. Remove any quotation marks if any.
+
+#### **Step 2: Get Your Spotify Cookies**
+
+1. Open [**Spotify Web**](https://open.spotify.com/) in your browser.
+2. Open **Developer Tools**:
+    - Press `F12` or `Ctrl + Shift + I` (Windows/Linux)
+    - Press `Cmd + Option + I` (Mac)
+3. Navigate to the **Network** tab.
+
+> [!NOTE]
+> You may need to press the `>>` button, and then select the **Network** tab.
+
+📌 **Example screenshot:**
 
 ![Network Tab](res/network_tab.png)
 
-Now reload the page, wait for it to load, and search for something like `open.spotify.com` (often it's appear on top):
+4. Reload the page and look for the first request in the list (usually `open.spotify.com`).
 
-![Request](res/request.png)
+📌 **Example screenshot:**:
 
-Click on it, in the opened window search for `Cookie:`, it's your cookies. Copy and paste them in `Cookie` input field in the menu.
+![The Request](res/request.png)
 
-Start some song in Spotify, if it has lyrics, you should see current lyrics in your command prompt as well as in your Discord status.
+5. Click on the request, find the **Cookie** header, copy its contents, and paste it into the **Cookie** input field in the LyricsStatus settings.
 
-### Troubleshooting
+### 7. Verify the Setup
 
-#### Windows
+- Start playing a song on Spotify.
+- If the song has lyrics, they should appear in both your **command prompt** and **Discord status**.
 
-Try running command line with administrator privileges or disabling your firewall.
+> [!IMPORTANT]
+> Check the cookies for any extra characters, such as spaces or newlines.
 
-#### Linux
+---
 
-Try running Terminal from `su` user.
+## Troubleshooting
 
+### Windows
+
+- Try running the **Command Prompt** as an administrator.
+- Temporarily disable your **firewall** if necessary.
+
+### Linux
+
+- Try running the **Terminal** as a **root user** (`su`).
+
+---
+
+## **TODO**:
+
+- [ ] Allow to turn off specific lyrics providers
+- [ ] More advanced debugging system
+- [ ] Rewrite the UI (again) (in progress)
+- [ ] Add more playback platforms (YouTube Music, Deezer etc.) (if possible)
+- [ ] ...or any other feature you can think of
+
+---
