@@ -1,0 +1,23 @@
+---
+name: "Question"
+description: "Ask a question."
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: "## Question\nPlease describe your inquiry."
+  - type: textarea
+    id: details
+    attributes:
+      label: "Details"
+      description: "Provide as much detail as possible."
+      placeholder: "Explain your question in depth."
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: "Confirmation"
+      options:
+        - label: "I have checked for similar issues before submitting"
+          required: true

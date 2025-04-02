@@ -1,0 +1,23 @@
+---
+name: "Suggestion"
+description: "Suggest an improvement."
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: "## Suggestion\nPlease describe your suggestion."
+  - type: textarea
+    id: details
+    attributes:
+      label: "Details"
+      description: "Provide as much detail as possible."
+      placeholder: "Explain your idea in depth."
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: "Confirmation"
+      options:
+        - label: "I have checked for similar issues before submitting"
+          required: true

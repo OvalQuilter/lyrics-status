@@ -1,0 +1,35 @@
+---
+name: "Bug Report"
+description: "Report a bug."
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "## Bug Report\nPlease provide detailed information about the issue."
+  - type: textarea
+    id: description
+    attributes:
+      label: "Description"
+      description: "Describe the bug, including expected and actual behavior."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "Steps to reproduce (omit if unpredictable)"
+      description: "List the steps to reproduce the issue."
+      placeholder: "1. Do this\n2. Then this\n3. Observe the issue"
+  - type: input
+    id: environment
+    attributes:
+      label: "Environment"
+      description: "Specify the OS."
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: "Confirmation"
+      options:
+        - label: "I have searched for existing issues"
+          required: true
+        - label: "I use the latest version of LyricsStatus"
+          required: true
