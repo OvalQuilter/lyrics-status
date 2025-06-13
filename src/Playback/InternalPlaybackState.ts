@@ -1,6 +1,6 @@
-import { LyricsLine, SongLyrics } from "./Sources/BaseSource"
+import { LyricsLine, SongLyrics } from "../Lyrics/Sources/BaseSource"
 
-export class PlaybackState {
+export class InternalPlaybackState {
     public songName: string
     public songAuthor: string
 

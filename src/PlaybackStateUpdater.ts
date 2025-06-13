@@ -1,5 +1,5 @@
-import { PlaybackState } from "./PlaybackState"
-import { LyricsFetcher } from "./LyricsFetcher"
+import { InternalPlaybackState } from "./Playback/InternalPlaybackState"
+import { LyricsFetcher } from "./Lyrics/LyricsFetcher"
 import { SpotifyAccessToken } from "./SpotifyAccessToken"
 
 interface PlaybackResponse {
@@ -20,11 +20,11 @@ interface PlaybackResponse {
 }
 
 export class PlaybackStateUpdater {
-    public playbackState: PlaybackState
+    public playbackState: InternalPlaybackState
 
     public lyricsFetcher: LyricsFetcher
 
-    constructor(playbackState: PlaybackState, lyricsFetcher: LyricsFetcher) {
+    constructor(playbackState: InternalPlaybackState, lyricsFetcher: LyricsFetcher) {
         this.playbackState = playbackState
 
         this.lyricsFetcher = lyricsFetcher

@@ -1,17 +1,17 @@
-import { LyricsFetcher } from "./LyricsFetcher"
-import { PlaybackState } from "./PlaybackState"
+import { LyricsFetcher } from "./Lyrics/LyricsFetcher"
+import { InternalPlaybackState } from "./Playback/InternalPlaybackState"
 import { PlaybackStateUpdater } from "./PlaybackStateUpdater"
 import { StatusChanger } from "./StatusChanger"
-import { SpotifySource } from "./Sources/SpotifySource"
-import { NetEaseMusicSource } from "./Sources/NetEaseMusicSource"
-import { QQMusicSource } from "./Sources/QQMusicSource"
+import { SpotifySource } from "./Lyrics/Sources/SpotifySource"
+import { NetEaseMusicSource } from "./Lyrics/Sources/NetEaseMusicSource"
+import { QQMusicSource } from "./Lyrics/Sources/QQMusicSource"
 import { WebServer } from "./Panel/WebServer"
 import { SpotifyAccessToken } from "./SpotifyAccessToken"
 
 export class LyricsStatus {
     public lyricsFetcher: LyricsFetcher
 
-    public playbackState: PlaybackState
+    public playbackState: InternalPlaybackState
     public playbackStateUpdater: PlaybackStateUpdater
 
     public statusChanger: StatusChanger
@@ -25,7 +25,7 @@ export class LyricsStatus {
         this.lyricsFetcher.addSource(new NetEaseMusicSource())
         this.lyricsFetcher.addSource(new QQMusicSource())
 
-        this.playbackState = new PlaybackState()
+        this.playbackState = new InternalPlaybackState()
         this.playbackStateUpdater = new PlaybackStateUpdater(this.playbackState, this.lyricsFetcher)
 
         this.statusChanger = new StatusChanger(this.playbackState)

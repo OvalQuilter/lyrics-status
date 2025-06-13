@@ -1,16 +1,16 @@
-import { PlaybackState } from "./PlaybackState"
+import { InternalPlaybackState } from "./Playback/InternalPlaybackState"
 import { SettingsManager } from "./SettingsManager"
-import { LyricsLine } from "./Sources/BaseSource"
+import { LyricsLine } from "./Lyrics/Sources/BaseSource"
 import { Autooffset } from "./Autooffset"
 
 export class StatusChanger {
-    public playbackState: PlaybackState
+    public playbackState: InternalPlaybackState
 
     public sentLines: LyricsLine[]
 
     public autooffset: Autooffset
 
-    constructor(playbackState: PlaybackState) {
+    constructor(playbackState: InternalPlaybackState) {
         this.playbackState = playbackState
 
         this.sentLines = []
