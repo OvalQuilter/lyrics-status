@@ -31,7 +31,7 @@ export class WebServer {
     public startListeners(): void {
         this.wss.on("connection", (ws) => {
             ws.on("data", (data) => {
-                SettingsManager.data = JSON.parse(data.toString())
+                SettingsManager.instance.data = JSON.parse(data.toString())
             })
         })
     }

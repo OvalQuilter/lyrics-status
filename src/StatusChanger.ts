@@ -43,7 +43,7 @@ export class StatusChanger {
     }
 
     public changeStatus(): void {
-        this.autooffset.setLimit(SettingsManager.data.timings.autooffset)
+        this.autooffset.setLimit(SettingsManager.instance.data.timings.autooffset)
 
         const playbackState = this.playbackState
 
@@ -56,7 +56,7 @@ export class StatusChanger {
         const currentLine = playbackState.currentLine
         const songProgress = playbackState.songProgress
         const lines = lyrics.lines
-        const offset = SettingsManager.data.timings.enableAutooffset ? this.autooffset.getAverageValue() + 100 : SettingsManager.data.timings.sendTimeOffset
+        const offset = SettingsManager.instance.data.timings.enableAutooffset ? this.autooffset.getAverageValue() + 100 : SettingsManager.instance.data.timings.sendTimeOffset
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i]
@@ -70,10 +70,10 @@ export class StatusChanger {
 
                 playbackState.currentLine = line
 
-                if (SettingsManager.data.view.advanced.enabled) {
-                    this.changeStatusRequest(this.parseStatusString(SettingsManager.data.view.advanced.customStatus), SettingsManager.data.credentials.token, SettingsManager.data.view.advanced.customEmoji)
+                if (SettingsManager.instance.data.view.advanced.enabled) {
+                    this.changeStatusRequest(this.parseStatusString(SettingsManager.instance.data.view.advanced.customStatus), SettingsManager.instance.data.credentials.token, SettingsManager.instance.data.view.advanced.customEmoji)
                 } else {
-                    this.changeStatusRequest(this.getStatusString(line), SettingsManager.data.credentials.token, "🎶")
+                    this.changeStatusRequest(this.getStatusString(line), SettingsManager.instance.data.credentials.token, "🎶")
                 }
 
                 this.sentLines.push(line)
@@ -92,7 +92,7 @@ export class StatusChanger {
     }
 
     public getStatusString(line: LyricsLine): string {
-        return `${SettingsManager.data.view.timestamp ? `[${this.formatSeconds(+(line.time / 1000).toFixed(0))}] ` : ""}${SettingsManager.data.view.label ? "Song lyrics - " : ""}${line.text.replace("♪", "🎶")}`.slice(0, 128)
+        return `${SettingsManager.instance.data.view.timestamp ? `[${this.formatSeconds(+(line.time / 1000).toFixed(0))}] ` : ""}${SettingsManager.instance.data.view.label ? "Song lyrics - " : ""}${line.text.replace("♪", "🎶")}`.slice(0, 128)
     }
 
     public parseStatusString(status: string): string {

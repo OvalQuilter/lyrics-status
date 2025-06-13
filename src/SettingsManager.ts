@@ -3,36 +3,45 @@ import { Debug } from "./Debug"
 import { ISettingsData } from "./ISettingsData"
 
 export class SettingsManager {
-    public static readonly defaultSettings: ISettingsData = {
-        credentials: {
-            token: "",
-            cookies: ""
-        },
-        view: {
-            timestamp: true,
-            label: true,
-            advanced: {
-                enabled: false,
-                customEmoji: "🎶",
-                customStatus: "[{timestamp}] [{lyrics}]"
+    public static instance: SettingsManager = new SettingsManager()
+
+    public data: ISettingsData
+
+    constructor() {
+        this.data = this.defaultSettings
+    }
+
+    public get defaultSettings(): ISettingsData {
+        return {
+            credentials: {
+                token: "",
+                cookies: ""
+            },
+            view: {
+                timestamp: true,
+                label: true,
+                advanced: {
+                    enabled: false,
+                    customEmoji: "🎶",
+                    customStatus: "[{timestamp}] [{lyrics}]"
+                }
+            },
+            timings: {
+                sendTimeOffset: 500,
+                enableAutooffset: true,
+                autooffset: 3
+            },
+            update: {
+                enableAutoupdate: true
             }
-        },
-        timings: {
-            sendTimeOffset: 500,
-            enableAutooffset: true,
-            autooffset: 3
-        },
-        update: {
-            enableAutoupdate: true
         }
     }
-    public static data: ISettingsData = SettingsManager.defaultSettings
 
-    public static save(): void {
+    public save(): void {
         writeFileSync("./settings.json", JSON.stringify(this.data))
     }
 
-    public static loadSettings(): void {
+    public loadSettings(): void {
         let settings
 
         try {

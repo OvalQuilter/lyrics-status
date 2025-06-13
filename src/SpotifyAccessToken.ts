@@ -20,7 +20,7 @@ export class SpotifyAccessToken {
                 "sec-fetch-mode": "cors",
                 "sec-fetch-site": "same-origin",
                 "x-requested-with": "XMLHttpRequest",
-                "cookie": SettingsManager.data.credentials.cookies,
+                "cookie": SettingsManager.instance.data.credentials.cookies,
                 "Referer": "https://open.spotify.com/",
                 "Referrer-Policy": "strict-origin-when-cross-origin"
             },

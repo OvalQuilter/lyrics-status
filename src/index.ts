@@ -3,11 +3,11 @@ import { SettingsManager } from "./SettingsManager"
 import { Updater } from "./Updater"
 import { LyricsStatus } from "./LyricsStatus"
 
-SettingsManager.loadSettings()
+SettingsManager.instance.loadSettings()
 
 const lyricsStatus = new LyricsStatus()
 
-if (SettingsManager.data.update.enableAutoupdate) {
+if (SettingsManager.instance.data.update.enableAutoupdate) {
     Updater.tryUpdate()
         .then(() => {
             lyricsStatus.init()
