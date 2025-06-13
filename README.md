@@ -54,8 +54,6 @@ git clone --single-branch --branch v3 https://github.com/OvalQuilter/lyrics-stat
 1. Copy the path to the **LyricsStatus** folder:
     - Example (Windows): `C:\Users\your_profile_name\path\to\LyricsStatus`
     - Example (Linux): `/home/your_name/path/to/LyricsStatus`
-    
-   📌 **Example screenshot:**
 
    ![Explorer](res/explorer.png)
 2. Open a terminal:
@@ -65,8 +63,6 @@ git clone --single-branch --branch v3 https://github.com/OvalQuilter/lyrics-stat
    ```sh
    cd /path/to/LyricsStatus
    ```
-   
-   📌 **Example screenshot:**
 
    ![Command Prompt](res/command_prompt.png)
 
@@ -113,13 +109,9 @@ You should see a settings menu.
 > [!NOTE]
 > You may need to press the `>>` button, and then select the **Network** tab.
 
-📌 **Example screenshot:**
-
 ![Network Tab](res/network_tab.png)
 
 4. Reload the page and look for the first request in the list (usually `open.spotify.com`).
-
-📌 **Example screenshot:**:
 
 ![The Request](res/request.png)
 
