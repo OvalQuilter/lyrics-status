@@ -47,6 +47,16 @@ git clone --single-branch --branch v3 https://github.com/OvalQuilter/lyrics-stat
 2. Download the latest source code archive.
 3. Extract the files to a directory of your choice.
 
+### 3(a). Running from the Start Script
+
+> [!NOTE]
+> Depending on your OS, you may need to use the appropriate script file.
+> Use the **start.sh** script for Linux and the **start.bat** script for Windows.
+
+Open downloaded LyricsStatus folder and run the `start.bat` or `start.sh` script.
+
+If you chose this option, you can skip to the configuration part.
+
 ### 3. Navigate to the LyricsStatus Directory
 
 #### **Windows & Linux**
