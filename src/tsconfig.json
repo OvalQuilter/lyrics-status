@@ -1,0 +1,16 @@
+{
+  "exclude": ["./backup/**/*", "./Panel/Frontend/**/*"],
+  "compilerOptions": {
+    "target": "es6",
+    "lib": ["esnext", "es2015"],
+    "module": "commonjs",
+    "rootDir": "./",
+    "outDir": "../dist",
+    "noEmit": false,
+    "noEmitOnError": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true
+  }
+}
