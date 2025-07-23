@@ -1,19 +1,19 @@
-import { BasePacketHandler } from "./Handlers/BasePacketHandler"
 import { BasePacketSerializer } from "./Serializers/BasePacketSerializer"
 import { BasePacketDeserializer } from "./Deserializers/BasePacketDeserializer"
+import { BasePacketHandler } from "./Handlers/BasePacketHandler"
 
-export class PacketDefinition {
+export class PacketDefinition<T = unknown> {
     public type: string
 
-    public handler: BasePacketHandler<any> | undefined
-    public serializer: BasePacketSerializer<any> | undefined
-    public deserializer: BasePacketDeserializer<any> | undefined
+    public handler: BasePacketHandler<T> | undefined
+    public serializer: BasePacketSerializer<T> | undefined
+    public deserializer: BasePacketDeserializer<T> | undefined
 
-    constructor(name: string,
-                handler?: BasePacketHandler<any>,
-                serializer?: BasePacketSerializer<any>,
-                deserializer?: BasePacketDeserializer<any>) {
-        this.type = name
+    constructor(type: string,
+                handler?: BasePacketHandler<T>,
+                serializer?: BasePacketSerializer<T>,
+                deserializer?: BasePacketDeserializer<T>) {
+        this.type = type
 
         this.handler = handler
         this.serializer = serializer

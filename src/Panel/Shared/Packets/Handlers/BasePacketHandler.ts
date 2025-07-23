@@ -1,6 +1,6 @@
-import { IPacketMetadata } from "../IPacketMetadata"
-import WebSocket from "ws"
+import { IClient } from "../IClient"
+import { Packet } from "../Packet"
 
 export abstract class BasePacketHandler<T> {
-    public abstract handle(client: WebSocket, data: T, metadata: IPacketMetadata): void
+    public abstract handle(client: IClient, packet: Packet<T>): void
 }

@@ -1,4 +1,4 @@
 export interface IReplyPacketMetadata {
-    replyId: string,
+    replyId: string
     specific: boolean
 }
