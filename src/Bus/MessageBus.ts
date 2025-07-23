@@ -30,17 +30,17 @@ export class MessageBus extends EventEmitter<MessageBusEvents> {
         })
     }
 
-    public registerMessageHandler(messageDefinition: MessageDefinition): void {
+    public registerMessageDefinition(messageDefinition: MessageDefinition): void {
         this._messages.set(messageDefinition.type, messageDefinition)
     }
 
-    public registerMessageHandlers(messageDefinitions: MessageDefinition[]): void {
+    public registerMessageDefinitions(messageDefinitions: MessageDefinition[]): void {
         messageDefinitions.forEach((messageDefinition) => {
             this._messages.set(messageDefinition.type, messageDefinition)
         })
     }
 
-    public unregisterMessageHandler(messageType: string): void {
+    public unregisterMessageDefinition(messageType: string): void {
         this._messages.delete(messageType)
     }
 
