@@ -45,6 +45,7 @@ export function startServer(): void {
 
             Settings.credentials = settings.credentials
             Settings.view = settings.view
+            Settings.translation = settings.translation,
             Settings.timings = settings.timings
             Settings.update = settings.update
 
@@ -54,6 +55,7 @@ export function startServer(): void {
         const settings = JSON.stringify({
             credentials: Settings.credentials,
             view: Settings.view,
+            translation: Settings.translation,
             timings: Settings.timings,
             update: Settings.update
         })

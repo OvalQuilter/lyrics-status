@@ -34,10 +34,16 @@ export class Settings {
         enableAutoupdate: true
     }
 
+    public static translation = {
+        enableTranslation: false,
+        translationLanguage: "en-US"
+    }
+
     public static save(): void {
         writeFileSync("./settings.json", JSON.stringify({
             credentials: this.credentials,
             view: this.view,
+            translation: this.translation,
             timings: this.timings,
             update: this.update
         }))
@@ -55,6 +61,7 @@ export class Settings {
         if (settings) {
             this.credentials = settings.credentials || this.credentials
             this.view = settings.view || this.view
+            this.translation = settings.translation || this.translation
             this.timings = settings.timings || this.timings
             this.update = settings.update || this.update
         }

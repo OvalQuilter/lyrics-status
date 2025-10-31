@@ -88,11 +88,27 @@ $(`
                 </div>
             </div>
             <div class="settings">
-                <span class="settings-name">Update</span>
-                <div class="option">
-                    <label for="enable-autoupdate">Enable Autoupdate</label>
-                    <input type="checkbox" id="enable-autoupdate">
-                </div>
+            <span class="settings-name">Lyrics translation</span>
+            <div class="option">
+            <label for="enable-translation">Enable translation</label>
+            <input type="checkbox" id="enable-translation">
+            </div>
+            <div id="translation-settings">
+            <div class="option">
+            <label for="translation-language">Target language:</label>
+            <select id="translation-language" class="text-input1">
+            <option value="en-US">English</option>
+            <option value="es">Spanish</option>
+            <option value="pt">Portuguese</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="it">Italian</option>
+            <option value="ru">Russian</option>
+            <option value="ja">Japanese</option>
+            <option value="ko">Korean</option>
+            </select>
+            </div>
+            </div>
             </div>
         </div>
     </div>
@@ -478,7 +494,11 @@ let menu                    = $("#menu-UI"),
     enableAutooffset        = $("#enable-autooffset"),
     autooffset              = $("#autooffset"),
     autooffsetHelp          = $("#autooffset-help"),
-    enableAutoupdate        = $("#enable-autoupdate");
+    enableAutoupdate        = $("#enable-autoupdate"),
+    enableTranslation       = $("#enable-translation"),
+    translationLanguage     = $("#translation-language")
+
+
 // Elements
 
 let settings = {
@@ -507,6 +527,10 @@ let settings = {
     },
     update: {
         enableAutoupdate: true
+    },
+    translation: {
+        enableTranslation: false,
+        translationLanguage: "en-US"
     }
 }
 // Settings
@@ -686,6 +710,20 @@ enableAutoupdate.click(() => {
     settings.update.enableAutoupdate = state;
     saveSettings();
 })
+
+enableTranslation.click(() => {
+    let state = enableTranslation.prop("checked");
+    settings.translation.enableTranslation = state;
+    saveSettings();
+});
+
+// Change target language
+translationLanguage.change(() => {
+    let lang = translationLanguage.val();
+    settings.translation.translationLanguage = lang;
+    saveSettings();
+});
+
 // Events
 
 function formatSeconds(s) {
@@ -735,7 +773,9 @@ function loadSettings(settingsToLoad) {
         sendTimeOffset.val(settings.timings.sendTimeOffset);
         enableAutooffset.prop("checked", settings.timings.enableAutooffset);
         autooffset.val(settings.timings.autooffset);
-        enableAutoupdate.prop("checked", settings.update.enableAutoupdate)
+        enableAutoupdate.prop("checked", settings.update.enableAutoupdate);
+        enableTranslation.prop("checked", settings.translation.enableTranslation);
+        translationLanguage.val(settings.translation.translationLanguage);
 
         settingsLoaded = true
     } catch(e) {

@@ -1,8 +1,18 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StatusChanger = void 0;
 const Settings_1 = require("./Settings");
 const Autooffset_1 = require("./Autooffset");
+const Translation_1 = require("./Translation");
 class StatusChanger {
     constructor(playbackState) {
         this.playbackState = playbackState;
@@ -30,40 +40,53 @@ class StatusChanger {
         return request;
     }
     changeStatus() {
-        this.autooffset.setLimit(Settings_1.Settings.timings.autooffset);
-        const playbackState = this.playbackState;
-        if (playbackState.ended || !playbackState.hasLyrics || !playbackState.isPlaying)
-            return;
-        const lyrics = playbackState.lyrics;
-        if (!lyrics)
-            return;
-        const currentLine = playbackState.currentLine;
-        const songProgress = playbackState.songProgress;
-        const lines = lyrics.lines;
-        const offset = Settings_1.Settings.timings.enableAutooffset ? this.autooffset.getAverageValue() + 100 : Settings_1.Settings.timings.sendTimeOffset;
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const nextLine = lines[i + 1];
-            if (line.time < (songProgress + offset)) {
-                if (!line.text)
-                    continue;
-                if (nextLine && nextLine.time < (songProgress + offset))
-                    continue;
-                if (this.sentLines.some((sentLine) => sentLine.time === line.time))
+        return __awaiter(this, void 0, void 0, function* () {
+            this.autooffset.setLimit(Settings_1.Settings.timings.autooffset);
+            const playbackState = this.playbackState;
+            if (playbackState.ended || !playbackState.hasLyrics || !playbackState.isPlaying)
+                return;
+            const lyrics = playbackState.lyrics;
+            if (!lyrics)
+                return;
+            const currentLine = playbackState.currentLine;
+            const songProgress = playbackState.songProgress;
+            const lines = lyrics.lines;
+            const offset = Settings_1.Settings.timings.enableAutooffset
+                ? this.autooffset.getAverageValue() + 100
+                : Settings_1.Settings.timings.sendTimeOffset;
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const nextLine = lines[i + 1];
+                if (line.time < (songProgress + offset)) {
+                    if (!line.text)
+                        continue;
+                    if (nextLine && nextLine.time < (songProgress + offset))
+                        continue;
+                    if (this.sentLines.some((sentLine) => sentLine.time === line.time))
+                        break;
+                    if (line === currentLine)
+                        break;
+                    playbackState.currentLine = line;
+                    let textToSend = line.text;
+                    if (Settings_1.Settings.translation.enableTranslation && Settings_1.Settings.translation.translationLanguage !== "en") {
+                        try {
+                            textToSend = yield (0, Translation_1.translateLyrics)(line.text, Settings_1.Settings.translation.translationLanguage);
+                        }
+                        catch (e) {
+                            console.warn("Error translating lyrics:", e);
+                        }
+                    }
+                    if (Settings_1.Settings.view.advanced.enabled) {
+                        this.changeStatusRequest(this.parseStatusString(Settings_1.Settings.view.advanced.customStatus.replace("{lyrics}", textToSend)), Settings_1.Settings.credentials.token, Settings_1.Settings.view.advanced.customEmoji);
+                    }
+                    else {
+                        this.changeStatusRequest(this.getStatusString(Object.assign(Object.assign({}, line), { text: textToSend })), Settings_1.Settings.credentials.token, "🎶");
+                    }
+                    this.sentLines.push(line);
                     break;
-                if (line === currentLine)
-                    break;
-                playbackState.currentLine = line;
-                if (Settings_1.Settings.view.advanced.enabled) {
-                    this.changeStatusRequest(this.parseStatusString(Settings_1.Settings.view.advanced.customStatus), Settings_1.Settings.credentials.token, Settings_1.Settings.view.advanced.customEmoji);
                 }
-                else {
-                    this.changeStatusRequest(this.getStatusString(line), Settings_1.Settings.credentials.token, "🎶");
-                }
-                this.sentLines.push(line);
-                break;
             }
-        }
+        });
     }
     songChanged() {
         this.sentLines = [];

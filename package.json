@@ -4,6 +4,7 @@
     "he": "^1.2.0",
     "node-stream-zip": "^1.15.0",
     "totp-generator": "^1.0.0",
+    "typescript": "^5.9.3",
     "uuid": "^11.1.0",
     "ws": "^8.18.0"
   },
