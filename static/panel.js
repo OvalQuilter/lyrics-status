@@ -88,6 +88,12 @@ $(`
                 </div>
             </div>
             <div class="settings">
+            <span class="settings-name">Update</span>
+            <div class="option">
+            <label for="enable-autoupdate">Enable Autoupdate</label>
+            <input type="checkbox" id="enable-autoupdate">
+            </div>
+            <div class="settings">
             <span class="settings-name">Lyrics translation</span>
             <div class="option">
             <label for="enable-translation">Enable translation</label>
