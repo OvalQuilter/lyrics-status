@@ -13,7 +13,6 @@ import { Updater } from "./Updater"
 import { SpotifyService } from "./SpotifyService"
 import { v4 as uuidv4 } from "uuid"
 import { ExternalAuthServerAPI } from "./ExternalAuthServerAPI"
-import { translateLyrics } from "./Translation"
 
 
 Settings.load()
@@ -32,7 +31,29 @@ if (Settings.update.enableAutoupdate) {
     init()
 }
 
-   async function init(): Promise<void> {
+export async function handleTranslation(playbackState: PlaybackState): Promise<void> {
+    const line = playbackState.currentLine as { text?: string; textTranslated?: string }
+
+    if (
+        line &&
+        line.text &&
+        Settings.translation?.enableTranslation &&
+        !line.textTranslated
+    ) {
+        try {
+            const { translateLyrics } = await import("./Translation")
+            const translated = await translateLyrics(
+                line.text,
+                Settings.translation.translationLanguage
+            )
+            line.textTranslated = translated
+        } catch (err) {
+            console.error("Error translating lyrics:", err)
+        }
+    }
+}
+
+   function init(): void {
     if (!Settings.credentials.uuid) {
         Settings.credentials.uuid = uuidv4()
 
@@ -61,27 +82,21 @@ if (Settings.update.enableAutoupdate) {
     }, 5000)
 
     let now = Date.now()
-    setInterval(async () => {
+    setInterval(() => {
         statusChanger.changeStatus()
 
         playbackState.songProgress += Date.now() - now
 
         if (playbackState.ended) statusChanger.songChanged()
-        let currentText = (playbackState.currentLine && playbackState.currentLine.text) || "Not available"
-        if (Settings.translation.enableTranslation && playbackState.currentLine) {
-            try {
-                    currentText = await translateLyrics(playbackState.currentLine.text, Settings.translation.translationLanguage)
-                } catch (e) {
-                    Debug.write("Translation failed: " + (e as Error).message)
-                }
-            }
+        handleTranslation(playbackState) // Para ver primero si termino la cancion y no traducir
 
         console.clear()
         console.log(`
     Song: ${playbackState.songName || "Not listening"}
     Author: ${playbackState.songAuthor || "Not listening"}
     Song progress: ${statusChanger.formatSeconds(+(playbackState.songProgress / 1000).toFixed(0))}
-    Current lyrics: ${currentText}
+    Current lyrics: ${
+    (playbackState.currentLine && (playbackState.currentLine.textTranslated || playbackState.currentLine.text)) || "Not available"}   
     Lyrics fetched from: ${lyricsFetcher.lastFetchedFrom}
     `)
 

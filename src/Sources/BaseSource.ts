@@ -1,6 +1,7 @@
 export interface LyricsLine {
     time: number
     text: string
+    textTranslated?: string
 }
 
 export interface SongLyrics {
