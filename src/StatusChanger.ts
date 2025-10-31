@@ -67,7 +67,7 @@ export class StatusChanger {
 
                                                     let textToSend = line.text;
 
-                                                if (Settings.translation.enableTranslation && Settings.translation.translationLanguage !== "en") {
+                                                if (Settings.translation.enableTranslation) {
                                                     try {
                                                         textToSend = await translateLyrics(line.text, Settings.translation.translationLanguage);
                                                     } catch (e) {

@@ -68,7 +68,7 @@ class StatusChanger {
                         break;
                     playbackState.currentLine = line;
                     let textToSend = line.text;
-                    if (Settings_1.Settings.translation.enableTranslation && Settings_1.Settings.translation.translationLanguage !== "en") {
+                    if (Settings_1.Settings.translation.enableTranslation) {
                         try {
                             textToSend = yield (0, Translation_1.translateLyrics)(line.text, Settings_1.Settings.translation.translationLanguage);
                         }

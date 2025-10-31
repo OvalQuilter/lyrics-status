@@ -13,6 +13,8 @@ import { Updater } from "./Updater"
 import { SpotifyService } from "./SpotifyService"
 import { v4 as uuidv4 } from "uuid"
 import { ExternalAuthServerAPI } from "./ExternalAuthServerAPI"
+import { translateLyrics } from "./Translation"
+
 
 Settings.load()
 
@@ -30,7 +32,7 @@ if (Settings.update.enableAutoupdate) {
     init()
 }
 
-function init(): void {
+   async function init(): Promise<void> {
     if (!Settings.credentials.uuid) {
         Settings.credentials.uuid = uuidv4()
 
@@ -50,7 +52,7 @@ function init(): void {
     const playbackStateUpdater = new PlaybackStateUpdater(playbackState, lyricsFetcher)
 
     const statusChanger = new StatusChanger(playbackState)
-
+    
     setInterval(() => {
         playbackStateUpdater.update()
 
@@ -59,19 +61,27 @@ function init(): void {
     }, 5000)
 
     let now = Date.now()
-    setInterval(() => {
+    setInterval(async () => {
         statusChanger.changeStatus()
 
         playbackState.songProgress += Date.now() - now
 
         if (playbackState.ended) statusChanger.songChanged()
+        let currentText = (playbackState.currentLine && playbackState.currentLine.text) || "Not available"
+        if (Settings.translation.enableTranslation && playbackState.currentLine) {
+            try {
+                    currentText = await translateLyrics(playbackState.currentLine.text, Settings.translation.translationLanguage)
+                } catch (e) {
+                    Debug.write("Translation failed: " + (e as Error).message)
+                }
+            }
 
         console.clear()
         console.log(`
     Song: ${playbackState.songName || "Not listening"}
     Author: ${playbackState.songAuthor || "Not listening"}
     Song progress: ${statusChanger.formatSeconds(+(playbackState.songProgress / 1000).toFixed(0))}
-    Current lyrics: ${(playbackState.currentLine && playbackState.currentLine.text) || "Not available"}
+    Current lyrics: ${currentText}
     Lyrics fetched from: ${lyricsFetcher.lastFetchedFrom}
     `)
 
