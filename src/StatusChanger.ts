@@ -18,29 +18,30 @@ export class StatusChanger {
         this.autooffset = new Autooffset()
     }
 
-    public changeStatusRequest(text: string, token: string, emoji: string): Promise<Response> {
-        const now = Date.now()
+public changeStatusRequest(text: string, token: string, emoji: string): Promise<Response> {
+    const now = Date.now();
 
-        const request = fetch("https://discordapp.com/api/v8/users/@me/settings", {
-            method: "PATCH",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": token
-            },
-            body: JSON.stringify({
-                custom_status: {
-                    text,
-                    emoji_id: null,
-                    emoji_name: emoji,
-                    expires_at: new Date(Date.now() + 60000).toISOString()
-                }
-            })
+    const request = fetch("https://discord.com/api/v10/users/@me/settings", { // parche: v10
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": token
+        },
+        body: JSON.stringify({
+            custom_status: {
+                text: text || null,
+                emoji_id: null,
+                emoji_name: emoji || null,
+                expires_at: new Date(Date.now() + 1 * 60000).toISOString() // expira en 5 min
+            }
         })
+    });
 
-        request.then(() => this.autooffset.addValue(Date.now() - now))
+    request.then(() => this.autooffset.addValue(Date.now() - now));
 
-        return request
-    }
+    return request;
+}
+
 
     public changeStatus(): void {
         this.autooffset.setLimit(Settings.timings.autooffset)
