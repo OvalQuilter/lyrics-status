@@ -1,11 +1,15 @@
-import { BaseSource, SongLyrics } from "./BaseSource"
+import axios from "axios"
+import { Logger } from "pino"
+import { LogManager } from "../../Debug/LogManager"
+import { SettingsManager } from "../../Settings/SettingsManager"
 import { SpotifyAccessToken } from "../../SpotifyAccessToken"
-import { SettingsManager } from "../../SettingsManager"
+import { ISongLyrics } from "../ISongLyrics"
+import { BaseSource } from "./BaseSource"
 
 interface PlayerResponse {
     item: {
         id: number
-    }
+    } | null
 }
 
 interface LyricsResponse {
@@ -20,59 +24,72 @@ interface LyricsResponse {
 }
 
 export class SpotifySource extends BaseSource {
-    public request(url: string): Promise<Response> {
-        return fetch(url, {
-            "headers": {
+    private _logger: Logger = LogManager.instance.getClassLogger("SpotifySource")
+
+    public async request<T>(url: string): Promise<T> {
+        const response = await axios.get<T>(url, {
+            headers: {
                 "accept": "application/json",
                 "accept-language": "ru",
                 "app-platform": "WebPlayer",
                 "authorization": "Bearer " + SpotifyAccessToken.token,
                 "spotify-app-version": "1.2.40.176.g6d58cb73",
-                "Cookie": SettingsManager.instance.data.credentials.cookies
+                "Cookie": SettingsManager.instance.data.credentials.cookies,
+                "Referer": "https://open.spotify.com/",
             },
-            "referrer": "https://open.spotify.com/",
-            "referrerPolicy": "strict-origin-when-cross-origin",
-            "body": null,
-            "method": "GET",
         })
+
+        return response.data
     }
 
-    public async getSongId(): Promise<number> {
-        const request = await this.request("https://api.spotify.com/v1/me/player")
-        const json = await request.json() as PlayerResponse
+    public async getSongId(): Promise<number | null> {
+        const json = await this.request<PlayerResponse>("https://api.spotify.com/v1/me/player")
+
+        if (!json.item?.id) {
+            return null
+        }
 
         return json.item.id
     }
 
-    public async getLyrics(name: string, artist: string): Promise<SongLyrics> {
+    public async getLyrics(name: string, artist: string): Promise<ISongLyrics | null> {
         const songId = await this.getSongId()
 
-        const request = await this.request(
-            `https://spclient.wg.spotify.com/color-lyrics/v2/track/${songId}?format=json&vocalRemoval=false&market=from_token`
+        if (!songId) {
+            return null
+        }
+
+        const json = await this.request<LyricsResponse>(
+            `https://spclient.wg.spotify.com/color-lyrics/v2/track/${songId}?format=json&vocalRemoval=false&market=from_token`,
         )
-        const json = await request.json() as LyricsResponse
 
-        if (json.lyrics.showUpsell || json.lyrics.syncType === "UNSYNCED") throw "Lyrics not found"
+        if (json.lyrics.showUpsell || json.lyrics.syncType === "UNSYNCED") {
+            return null
+        }
 
-        return this.parseLyrics(json.lyrics.lines)
+        return this.parseLyrics(json.lyrics.lines, songId.toString())
     }
 
-    public parseLyrics(lines: LyricsResponse["lyrics"]["lines"]): SongLyrics {
-        const result: SongLyrics = {
-            lines: []
+    public parseLyrics(lines: LyricsResponse["lyrics"]["lines"], songId: string): ISongLyrics {
+        const result: ISongLyrics = {
+            lines: [],
+            meta: {
+                sourceName: this.getSourceName(),
+                sourceSongId: songId,
+            },
         }
 
         for (const line of lines) {
             result.lines.push({
-                time: +line.startTimeMs,
-                text: line.words
+                timestamp: +line.startTimeMs,
+                text: line.words,
             })
         }
 
         return result
     }
 
-    public getAppName(): string {
+    public getSourceName(): string {
         return "Spotify"
     }
 }

@@ -1,5 +1,9 @@
-import { BaseSource, SongLyrics } from "./BaseSource"
+import axios from "axios"
 import { decode } from "he"
+import { Logger } from "pino"
+import { LogManager } from "../../Debug/LogManager"
+import { ISongLyrics } from "../ISongLyrics"
+import { BaseSource } from "./BaseSource"
 
 interface SearchResponse {
     count: number
@@ -11,58 +15,77 @@ interface SearchResponse {
         }
     }
 }
+
 interface LyricsResponse {
     lyric: string
 }
 
 export class QQMusicSource extends BaseSource {
-    public async request(url: string): Promise<Response> {
-        return fetch(url, {
+    private _logger: Logger = LogManager.instance.getClassLogger("QQMUsicSource")
+
+    public async request<T>(url: string): Promise<T> {
+        const response = await axios.get<T>(url, {
             headers: {
-                "Referer": "http://y.qq.com/portal/player.html"
-            }
+                "Referer": "https://y.qq.com/portal/player.html",
+            },
         })
+
+        return response.data
     }
 
-    public async getSongId(name: string, artist: string): Promise<string> {
-        const request = await this.request(
-            `https://c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg?inCharset=utf-8&outCharset=utf-8&key=${encodeURIComponent(`${name}-${artist}`)}`
+    public async getSongId(name: string, artist: string): Promise<string | null> {
+        const json = await this.request<SearchResponse>(
+            `https://c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg?inCharset=utf-8&outCharset=utf-8&key=${encodeURIComponent(`${name} - ${artist}`)}`,
         )
-        const json = await request.json() as SearchResponse
 
-        if (json.count <= 0) throw "Song not found"
+        if (json.count <= 0) {
+            return null
+        }
 
         return json.data.song.itemlist[0].mid
     }
 
-    public async getLyrics(name: string, artist: string): Promise<SongLyrics> {
+    public async getLyrics(name: string, artist: string): Promise<ISongLyrics | null> {
         const songId = await this.getSongId(name, artist)
 
-        const request = await this.request(
-            `http://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?g_tk=5381&format=json&inCharset=utf-8&outCharset=utf-8&songmid=${songId}`
+        if (!songId) {
+            return null
+        }
+
+        const json = await this.request<LyricsResponse>(
+            `https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?g_tk=5381&format=json&inCharset=utf-8&outCharset=utf-8&songmid=${songId}`,
         )
-        const json = await request.json() as LyricsResponse
 
-        if (!json.lyric) throw "Lyrics not found"
+        if (!json.lyric) {
+            return null
+        }
 
-        return this.parseLyrics(json.lyric)
+        return this._parseLyrics(json.lyric, songId)
     }
 
-    public parseLyrics(lyrics: string): SongLyrics {
+    private _parseLyrics(lyrics: string, songId: string): ISongLyrics {
         const lines = Buffer.from(lyrics, "base64").toString("utf-8").split("\n")
 
-        const result: SongLyrics = {
-            lines: []
+        const result: ISongLyrics = {
+            lines: [],
+            meta: {
+                sourceName: this.getSourceName(),
+                sourceSongId: songId,
+            },
         }
 
         const regexp = /\[(\d\d):((\d\d)\.(\d\d?\d?))]/
 
         for (const line of lines) {
-            if (!line) continue
+            if (!line) {
+                continue
+            }
 
-            const match = line.match(regexp)
+            const match = regexp.exec(line)
 
-            if (!(match && match[1] && match[3] && match[4])) continue
+            if (!(match && match[1] && match[3] && match[4])) {
+                continue
+            }
 
             const m = +match[1]
             const s = +match[3]
@@ -71,15 +94,15 @@ export class QQMusicSource extends BaseSource {
             const text = line.replace(regexp, "")
 
             result.lines.push({
-                time: (60 * m + s) * 1000 + ms,
-                text: decode(text)
+                timestamp: (60 * m + s) * 1000 + ms,
+                text: decode(text),
             })
         }
 
         return result
     }
 
-    public getAppName(): string {
+    public getSourceName(): string {
         return "QQMusic"
     }
 }
