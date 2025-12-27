@@ -1,86 +1,61 @@
 import { EventEmitter } from "eventemitter3"
-import { v4 as uuidv4 } from "uuid"
 import { Message } from "./Message"
+import { MessageBusEvents } from "./MessageBusEvents"
 import { MessageDefinition } from "./MessageDefinition"
-import { QueueReplyMessage } from "./QueueReplyMessage"
-import { IMessageMetadata } from "./IMessageMetadata"
+import { RequestHandler } from "./RequestHandler"
 
-interface MessageBusEvents {
-    "message": (message: Message) => void
-    "_reply": (message: Message) => void
-    [key: string]: (message: Message) => void
-}
+/*
+ * MessageBus
+ *
+ * A message bus is a message broker that allows for communication between different parts of the application without
+ * the need of complicated class hierarchies or dependencies.
+ *
+ * While it comes with a bit of overhead, it is a much better alternative especially in an asynchronous environment.
+ *
+ * Also, it can be used as a simple event listener using EventEmitter's methods, though reply logic won't work in this
+ * case.
+ */
+export class MessageBus<T extends MessageBusEvents = MessageBusEvents> extends EventEmitter<T> {
+    private _handler = new RequestHandler<MessageDefinition, Message>()
 
-export class MessageBus extends EventEmitter<MessageBusEvents> {
-    private _messages: Map<string, MessageDefinition> = new Map()
-
-    private _pendingReplies: {
-        [key: string]: QueueReplyMessage[]
+    public registerMessageDefinition(definition: MessageDefinition): void {
+        this._handler.registerDefinition(definition.type, definition)
     }
 
-    constructor() {
-        super()
-
-        this._pendingReplies = {}
-
-        this.on("_reply", (message) => {
-            this._pendingReplies[message.metadata.replyId!].forEach((r) => {
-                r.resolve(message)
-            })
+    public registerMessageDefinitions(definitions: MessageDefinition[]): void {
+        definitions.forEach((definition) => {
+            this.registerMessageDefinition(definition)
         })
     }
 
-    public registerMessageDefinition(messageDefinition: MessageDefinition): void {
-        this._messages.set(messageDefinition.type, messageDefinition)
+    public unregisterMessageDefinition(type: string): void {
+        this._handler.unregisterDefinition(type)
     }
 
-    public registerMessageDefinitions(messageDefinitions: MessageDefinition[]): void {
-        messageDefinitions.forEach((messageDefinition) => {
-            this._messages.set(messageDefinition.type, messageDefinition)
-        })
-    }
-
-    public unregisterMessageDefinition(messageType: string): void {
-        this._messages.delete(messageType)
-    }
-
-    public publish<T>(type: string, data: T, replyId?: string, specific?: boolean): void {
-        const metadata: IMessageMetadata = {
-            id: uuidv4(),
-            type,
-            replyId,
-            specific
-        }
-
-        const message = new Message(data, metadata)
-
+    public publish<T>(message: Message<T>): void {
         this._processMessage(message)
     }
 
-    public getMessageReply(id: string): Promise<unknown> {
-        if (!this._pendingReplies[id]) this._pendingReplies[id] = []
-        
-        return new Promise((resolve, reject) => {
-            this._pendingReplies[id].push(new QueueReplyMessage(resolve, reject))
-        })
+    public getMessageReply(id: string): Promise<Message> {
+        return this._handler.addReplyPromise(id)
     }
 
     private _processMessage<T>(message: Message<T>): void {
-        const messageDefinition = this._messages.get(message.metadata.type)
+        const definition = this._handler.getDefinition(message.metadata.type)
 
-        if (messageDefinition) {
-            if (messageDefinition.handler) {
-                messageDefinition.handler.handle(message)
+        if (definition) {
+            definition.handler?.handle(message)
+
+            if (message.metadata.reply.replyId) {
+                this._handler.resolveReply(message.metadata.reply.replyId, message)
+
+                if (message.metadata.reply.specific) {
+                    return
+                }
             }
 
-            if (message.metadata.replyId) {
-                if (!this._pendingReplies[message.metadata.replyId]) this._pendingReplies[message.metadata.replyId] = []
-
-                this.emit("_reply", message)
-            }
-
-            this.emit("message", message)
-            this.emit(message.metadata.type, message)
+            (this as EventEmitter<MessageBusEvents>).emit("message", message);
+            (this as EventEmitter<MessageBusEvents>).emit(message.metadata.type, message)
         }
     }
 }
