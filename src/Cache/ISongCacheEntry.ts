@@ -1,10 +1,11 @@
 import { ISongLyrics } from "../Lyrics/ISongLyrics"
+import { ISongLyricsPartial } from "../Lyrics/ISongLyricsPartial"
 
 export interface ISongCacheEntry {
     name: string
     artist: string
 
-    lyrics: ISongLyrics | null
+    lyrics: ISongLyrics | ISongLyricsPartial | null
     lyricsPath: string | null
 
     _transformedFullName: string // Transformed to UUID song name + artist
