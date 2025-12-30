@@ -18,9 +18,7 @@ export class SongCacheManager {
     private _logger: Logger = LogManager.instance.getClassLogger("SongCacheManager")
 
     public constructor() {
-        this._fetchCacheFileNames().catch((error: any) => {
-            this._logger.error({ error }, "An error occurred while fetching cache files during class init.")
-        })
+        void this._fetchCacheFileNames()
     }
 
     public async fetchCachedSong(name: string, artist: string): Promise<ISongCacheEntry | null> {
@@ -72,6 +70,13 @@ export class SongCacheManager {
 
     private async _fetchCacheFileNames(): Promise<void> {
         const files = await fsPromises.readdir(SongCacheManager.SONGS_CACHE_PATH)
+            .catch((error: any) => {
+                this._logger.error({ error }, "Failed to get file list from the cache folder.")
+            })
+
+        if (!files) {
+            return
+        }
 
         for (const file of files) {
             this._cacheFileNames.add(file)
