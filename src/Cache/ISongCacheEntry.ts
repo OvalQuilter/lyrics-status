@@ -4,8 +4,8 @@ export interface ISongCacheEntry {
     name: string
     artist: string
 
-    lyrics?: ISongLyrics
-    lyricsPath?: string
+    lyrics: ISongLyrics | null
+    lyricsPath: string | null
 
     _transformedFullName: string // Transformed to UUID song name + artist
 }

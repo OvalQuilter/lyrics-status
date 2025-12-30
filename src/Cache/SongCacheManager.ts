@@ -36,10 +36,6 @@ export class SongCacheManager {
     }
 
     public async cacheSong(playbackState: PlaybackState): Promise<void> {
-        if (!playbackState.lyrics) {
-            return
-        }
-
         const transformedName = this._transformFullSongName(playbackState.songName, playbackState.songArtist)
 
         const exists = await fsPromises.stat(transformedName)
@@ -65,6 +61,7 @@ export class SongCacheManager {
             name: playbackState.songName,
             artist: playbackState.songArtist,
             lyrics: playbackState.lyrics,
+            lyricsPath: null,
             _transformedFullName: transformedName,
         }
 
