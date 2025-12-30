@@ -28,9 +28,19 @@ export class SongCacheManager {
             return null
         }
 
-        return yamlParse(
-            await fsPromises.readFile(path.join(SongCacheManager.SONGS_CACHE_PATH, fileName), "utf-8"),
-        ) as ISongCacheEntry
+        const contents = await fsPromises.readFile(
+            path.join(SongCacheManager.SONGS_CACHE_PATH, fileName),
+            "utf-8"
+        )
+            .catch((error: any) => {
+                this._logger.error({ error }, "Failed to read song cache data from the cache folder.")
+            })
+
+        if (!contents) {
+            return null
+        }
+
+        return yamlParse(contents) as ISongCacheEntry
     }
 
     public async cacheSong(playbackState: PlaybackState): Promise<void> {
@@ -66,6 +76,9 @@ export class SongCacheManager {
         await fsPromises.writeFile(
             path.join(SongCacheManager.SONGS_CACHE_PATH, transformedName + ".yml"), yamlStringify(entry),
         )
+            .catch((error: any) => {
+                this._logger.error({ error }, "Failed to write song cache data to the cache folder. ")
+            })
     }
 
     private async _fetchCacheFileNames(): Promise<void> {
