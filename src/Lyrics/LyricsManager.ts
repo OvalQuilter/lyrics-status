@@ -3,6 +3,7 @@ import { LogManager } from "../Debug/LogManager"
 import { ISongLyrics } from "./ISongLyrics"
 import { ISongLyricsPartial } from "./ISongLyricsPartial"
 import { BaseSource } from "./Sources/BaseSource"
+import { SongLyricsPartialSchema } from "./Schemas/SongLyricsPartialSchema";
 
 export class LyricsManager {
     private _sources: BaseSource[] = []
@@ -19,7 +20,10 @@ export class LyricsManager {
                 this._logger.warn({ error }, `Got unexpected error from a source "${source.sourceName}".`)
             })
 
-            if (lyrics && lyrics.lines.length > 0) {
+            if (
+                lyrics && lyrics.lines.length > 0 &&
+                SongLyricsPartialSchema.safeParse(lyrics).success
+            ) {
                 return lyrics
             }
         }
