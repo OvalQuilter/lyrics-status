@@ -76,7 +76,7 @@ export class SpotifySource extends BaseSource {
         const result: ISongLyrics = {
             lines: [],
             meta: {
-                sourceName: this.getSourceName(),
+                sourceName: this.sourceName,
                 sourceSongId: songId,
             },
         }
