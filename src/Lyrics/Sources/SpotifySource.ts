@@ -5,6 +5,7 @@ import { SettingsManager } from "../../Settings/SettingsManager"
 import { SpotifyAccessToken } from "../../SpotifyAccessToken"
 import { ISongLyrics } from "../ISongLyrics"
 import { BaseSource } from "./BaseSource"
+import { PlaybackState } from "../../Playback/PlaybackState";
 
 interface PlayerResponse {
     item: {
@@ -28,6 +29,10 @@ export class SpotifySource extends BaseSource {
 
     private _logger: Logger = LogManager.instance.getClassLogger("SpotifySource")
 
+    public constructor(
+        private _playbackState: PlaybackState
+    ) { super() }
+
     public async request<T>(url: string): Promise<T> {
         const response = await axios.get<T>(url, {
             headers: {
@@ -44,18 +49,8 @@ export class SpotifySource extends BaseSource {
         return response.data
     }
 
-    public async getSongId(): Promise<number | null> {
-        const json = await this.request<PlayerResponse>("https://api.spotify.com/v1/me/player")
-
-        if (!json.item?.id) {
-            return null
-        }
-
-        return json.item.id
-    }
-
     public async getLyrics(name: string, artist: string): Promise<ISongLyrics | null> {
-        const songId = await this.getSongId()
+        const songId = this._playbackState.songId
 
         if (!songId) {
             return null
