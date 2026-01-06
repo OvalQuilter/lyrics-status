@@ -7,6 +7,7 @@ import { LogManager } from "../Debug/LogManager"
 import { LRC_PATHS } from "../LrcPaths"
 import { PlaybackState } from "../Playback/PlaybackState"
 import { ISongCacheEntry } from "./ISongCacheEntry"
+import { SongCacheEntrySchema } from "./Schemas/SongCacheEntrySchema";
 
 export class SongCacheManager {
     public static SONGS_CACHE_PATH: string = LRC_PATHS.SONGS_CACHE
@@ -40,7 +41,15 @@ export class SongCacheManager {
             return null
         }
 
-        return yamlParse(contents) as ISongCacheEntry
+        const parsed = yamlParse(contents)
+
+        if (!SongCacheEntrySchema.safeParse(parsed).success) {
+            this._logger.warn({ fileName }, `Got invalid data from a cached song entry.`)
+
+            return null
+        }
+
+        return parsed as ISongCacheEntry
     }
 
     public async cacheSong(playbackState: PlaybackState): Promise<void> {
