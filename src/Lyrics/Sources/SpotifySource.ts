@@ -24,6 +24,8 @@ interface LyricsResponse {
 }
 
 export class SpotifySource extends BaseSource {
+    public readonly sourceName: string = "Spotify"
+
     private _logger: Logger = LogManager.instance.getClassLogger("SpotifySource")
 
     public async request<T>(url: string): Promise<T> {
@@ -87,9 +89,5 @@ export class SpotifySource extends BaseSource {
         }
 
         return result
-    }
-
-    public getSourceName(): string {
-        return "Spotify"
     }
 }

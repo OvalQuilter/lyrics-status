@@ -20,6 +20,8 @@ interface LyricsResponse {
 }
 
 export class NetEaseMusicSource extends BaseSource {
+    public readonly sourceName: string = "NetEase Music"
+
     private _logger: Logger = LogManager.instance.getClassLogger("NetEaseMusicSource")
 
     public async request<T>(url: string): Promise<T> {
@@ -69,7 +71,7 @@ export class NetEaseMusicSource extends BaseSource {
         const result: ISongLyrics = {
             lines: [],
             meta: {
-                sourceName: this.getSourceName(),
+                sourceName: this.sourceName,
                 sourceSongId: songId,
             },
         }
@@ -106,9 +108,5 @@ export class NetEaseMusicSource extends BaseSource {
         })
 
         return result
-    }
-
-    public getSourceName(): string {
-        return "NetEase Music"
     }
 }

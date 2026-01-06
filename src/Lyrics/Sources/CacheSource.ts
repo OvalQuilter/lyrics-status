@@ -4,6 +4,8 @@ import { ISongLyricsPartial } from "../ISongLyricsPartial"
 import { BaseSource } from "./BaseSource"
 
 export class CacheSource extends BaseSource {
+    public readonly sourceName: string = "Cache"
+
     public constructor(
         public songCacheManager: SongCacheManager,
     ) { super() }
@@ -16,9 +18,5 @@ export class CacheSource extends BaseSource {
         }
 
         return entry.lyrics
-    }
-
-    public getSourceName(): string {
-        return "Cache"
     }
 }

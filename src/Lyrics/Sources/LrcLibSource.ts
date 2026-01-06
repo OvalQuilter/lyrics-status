@@ -21,6 +21,8 @@ function parseLrcTimestamp(ts: string): number {
 }
 
 export class LrcLibSource extends BaseSource {
+    public readonly sourceName: string = "LrcLib"
+
     private _logger: Logger = LogManager.instance.getClassLogger("LrcLibSource")
 
     public async getLyrics(name: string, artist: string, album?: string | null): Promise<ISongLyrics | null> {
@@ -83,12 +85,8 @@ export class LrcLibSource extends BaseSource {
         return {
             lines,
             meta: {
-                sourceName: this.getSourceName(),
+                sourceName: this.sourceName,
             },
         }
-    }
-
-    public getSourceName(): string {
-        return "LrcLib"
     }
 }
