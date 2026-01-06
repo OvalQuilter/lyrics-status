@@ -16,7 +16,7 @@ export class LyricsManager {
     public async fetchLyrics(song: string, artist: string): Promise<ISongLyrics | ISongLyricsPartial | null> {
         for (const source of this._sources) {
             const lyrics = await source.getLyrics(song, artist).catch((error: any) => {
-                this._logger.warn({ error }, `Got unexpected error from a source "${source.getSourceName()}".`)
+                this._logger.warn({ error }, `Got unexpected error from a source "${source.sourceName}".`)
             })
 
             if (lyrics && lyrics.lines.length > 0) {
