@@ -23,6 +23,7 @@ interface LyricsResponse {
 export class QQMusicSource extends BaseSource {
     public readonly sourceName: string = "QQMusic"
 
+    private _logger: Logger = LogManager.instance.getClassLogger("QQMusicSource")
 
     public async request<T>(url: string): Promise<T> {
         const response = await axios.get<T>(url, {
