@@ -5,7 +5,7 @@ export const SpotifyServiceConfig: IServiceConfig = {
     "authMethods": [{
         "name": "OAuth",
         "type": "oauth",
-        "value": "",
+        "token": "",
         "oauthUrl": "",
         "callbackUrl": "",
     }],

@@ -1,7 +1,4 @@
-export interface IAuthMethod {
-    name: string
-    type: "field" | "oauth"
-    value: string
-    oauthUrl: string
-    callbackUrl: string
-}
+import { IFieldAuthMethod } from "./AuthMethods/IFieldAuthMethod";
+import { IOAuthMethod } from "./AuthMethods/IOAuthMethod";
+
+export type IAuthMethod = IFieldAuthMethod | IOAuthMethod
