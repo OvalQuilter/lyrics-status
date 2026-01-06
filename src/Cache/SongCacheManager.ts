@@ -34,7 +34,7 @@ export class SongCacheManager {
             "utf-8"
         )
             .catch((error: any) => {
-                this._logger.error({ error }, "Failed to read song cache data from the cache folder.")
+                this._logger.error({ error }, "Failed to read a song cache entry from the cache folder.")
             })
 
         if (!contents) {
@@ -44,7 +44,7 @@ export class SongCacheManager {
         const parsed = yamlParse(contents)
 
         if (!SongCacheEntrySchema.safeParse(parsed).success) {
-            this._logger.warn({ fileName }, `Got invalid data from a cached song entry.`)
+            this._logger.warn({ fileName }, `Got invalid data from a song cache entry.`)
 
             return null
         }
@@ -64,7 +64,7 @@ export class SongCacheManager {
 
                 this._logger.error({ error },
                     "An unexpected error occurred while checking if " +
-                    "a song exists in the cache. OK if nothing broke after.",
+                    "a song cache entry exists in the cache folder. OK if nothing broke after.",
                 )
 
                 return false
@@ -86,7 +86,7 @@ export class SongCacheManager {
             path.join(SongCacheManager.SONGS_CACHE_PATH, transformedName + ".yml"), yamlStringify(entry),
         )
             .catch((error: any) => {
-                this._logger.error({ error }, "Failed to write song cache data to the cache folder. ")
+                this._logger.error({ error }, "Failed to write a song cache entry to the cache folder. ")
             })
     }
 
