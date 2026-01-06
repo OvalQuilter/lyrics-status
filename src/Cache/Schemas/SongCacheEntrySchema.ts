@@ -9,5 +9,5 @@ export const SongCacheEntrySchema = z.object({
     lyrics: SongLyricsSchema.or(SongLyricsPartialSchema).nullable(),
     lyricsPath: z.string().nullable(),
 
-    _transformedFullName: z.string()
+    _transformedFullSongName: z.string()
 })

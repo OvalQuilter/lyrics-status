@@ -79,7 +79,7 @@ export class SongCacheManager {
             artist: playbackState.songArtist,
             lyrics: playbackState.lyrics,
             lyricsPath: null,
-            _transformedFullName: transformedName,
+            _transformedFullSongName: transformedName,
         }
 
         await fsPromises.writeFile(
