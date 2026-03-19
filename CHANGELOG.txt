@@ -167,20 +167,6 @@ The BOM was stripped and all affected characters restored to their
 correct UTF-8 codepoints.
 
 ─────────────────────────────────────────────────────────────────────
-FILES MODIFIED
-─────────────────────────────────────────────────────────────────────
-  dist/LyricsFetcher.js
-  dist/PlaybackStateUpdater.js
-  dist/StatusChanger.js
-  dist/Settings.js
-  dist/Panel/Server.js
-  dist/index.js
-  static/panel.js
-
-  No changes to: package.json, tsconfig.json, README.md,
-  VERSION, or any other files.
-
-─────────────────────────────────────────────────────────────────────
 9. SOURCE SYNC & SETTINGS FIX (March 2026)
    Files: src/StatusChanger.ts, src/Settings.ts
 ─────────────────────────────────────────────────────────────────────
@@ -204,3 +190,57 @@ setting replaces 40+ individual event handlers. Deep path helpers
 (getPath/setPath) replace repetitive object access. Help modals driven
 by a HELP map. Check token made async. $.extend deep merge replaced
 with explicit DEFAULTS spread for safe fallbacks on load.
+
+─────────────────────────────────────────────────────────────────────
+11. TERMINAL DISPLAY FLICKER FIX (March 2026)
+    File: dist/index.js
+─────────────────────────────────────────────────────────────────────
+The terminal was spamming the screen with repeated border characters
+due to console.clear() being called 60 times per second inside the
+60fps loop. Git Bash on Windows scrolls on clear rather than
+overwriting in place, causing the stacking.
+
+Fix: rendering was fully separated into its own 1s setInterval.
+The 60fps loop now handles only changeStatus() and songProgress
+advancement — no rendering whatsoever. The 1s display loop uses
+ESC[H + ESC[K per line to overwrite in place with zero scroll or
+flicker. A single ESC[2J ESC[H on startup clears the screen once.
+
+─────────────────────────────────────────────────────────────────────
+12. ADDITIONAL NULL SAFETY PASS (March 2026)
+    Files: dist/StatusChanger.js, dist/PlaybackStateUpdater.js,
+           dist/index.js
+─────────────────────────────────────────────────────────────────────
+A second pass of null safety fixes following live testing:
+
+  StatusChanger:
+  - songChanged() now unconditionally sets _lastSentAt = Date.now()
+    so the minimum send interval is respected across song boundaries.
+    Previously the guard (=== 0) meant it only ever fired on the very
+    first song of a session.
+  - parseStatusString() fully null-coalesced throughout.
+
+  PlaybackStateUpdater:
+  - artists[0].name access guarded with optional chaining and
+    fallback to "Unknown" to handle tracks with missing artist data.
+
+  index.js:
+  - Optional chaining on rateLimit?.mergeWindowMs and
+    rateLimit?.minIntervalMs prevents crashes if settings.json is
+    missing the rateLimit block on first load.
+  - next.text in the Next lyric display null-coalesced to "".
+
+─────────────────────────────────────────────────────────────────────
+FILES MODIFIED
+─────────────────────────────────────────────────────────────────────
+  dist/LyricsFetcher.js
+  dist/PlaybackStateUpdater.js
+  dist/StatusChanger.js
+  dist/Settings.js
+  dist/Panel/Server.js
+  dist/index.js
+  static/panel.js
+  CHANGELOG.txt
+
+  No changes to: package.json, tsconfig.json, README.md,
+  VERSION, or any other files.
