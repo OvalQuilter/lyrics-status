@@ -44,11 +44,19 @@ function init() {
 
     // 60fps progress + status change — no rendering here
     let now = Date.now();
+    let _songEndedFired = false;
     setInterval(() => {
         statusChanger.changeStatus();
         playbackState.songProgress += Date.now() - now;
-        if (playbackState.ended) statusChanger.songChanged();
         now = Date.now();
+        if (playbackState.ended) {
+            if (!_songEndedFired) {
+                _songEndedFired = true;
+                statusChanger.songChanged();
+            }
+        } else {
+            _songEndedFired = false;
+        }
     }, 1000 / 60);
 
     // Clear screen once on startup so cursor positioning works from the start

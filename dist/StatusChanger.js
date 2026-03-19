@@ -81,9 +81,11 @@ class StatusChanger {
         let mergedLines = [anchor];
         if (mergeWindowMs > 0) {
             for (let j = startIndex + 1; j < lines.length; j++) {
-                const gap = lines[j].time - lines[j - 1].time;
+                // Measure gap from anchor, not hop-by-hop, so the window
+                // applies to the total span of merged lines, not each step.
+                const gapFromAnchor = lines[j].time - anchor.time;
                 const isDue = lines[j].time < (songProgress + offset);
-                if (isDue && gap <= mergeWindowMs && lines[j].text) {
+                if (isDue && gapFromAnchor <= mergeWindowMs && lines[j].text) {
                     lyricLines.push(lines[j].text);
                     mergedLines.push(lines[j]);
                 } else {

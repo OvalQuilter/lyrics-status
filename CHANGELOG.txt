@@ -177,5 +177,30 @@ FILES MODIFIED
   dist/index.js
   static/panel.js
 
-  No changes to: src/, package.json, tsconfig.json, README.md,
+  No changes to: package.json, tsconfig.json, README.md,
   VERSION, or any other files.
+
+─────────────────────────────────────────────────────────────────────
+9. SOURCE SYNC & SETTINGS FIX (March 2026)
+   Files: src/StatusChanger.ts, src/Settings.ts
+─────────────────────────────────────────────────────────────────────
+src/StatusChanger.ts was stale — synced to match dist/StatusChanger.js.
+Includes all rate limiting, smartTruncate, buildMergedLines,
+applyTemplate, and null-safety additions from entries 3–5.
+
+src/Settings.ts:
+  - rateLimit block added to static defaults
+  - save() now includes rateLimit in the written JSON
+  - load() uses spread merge ({ ...defaults, ...loaded }) instead of
+    || so partial rateLimit objects don't discard missing keys
+
+─────────────────────────────────────────────────────────────────────
+10. PANEL OVERHAUL (March 2026)
+    Files: static/index.html, static/panel.js
+─────────────────────────────────────────────────────────────────────
+All HTML moved from panel.js into index.html. panel.js rewritten from
+~500 lines to ~160 using a data-driven BINDINGS map — one entry per
+setting replaces 40+ individual event handlers. Deep path helpers
+(getPath/setPath) replace repetitive object access. Help modals driven
+by a HELP map. Check token made async. $.extend deep merge replaced
+with explicit DEFAULTS spread for safe fallbacks on load.
