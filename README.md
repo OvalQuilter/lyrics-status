@@ -1,7 +1,6 @@
 > **This is a fork of [OvalQuilter/lyrics-status](https://github.com/OvalQuilter/lyrics-status).**
 > The purpose of this fork is to refactor and improve several core functions — including rate limit handling, lyric line merging, smart truncation, null safety, error handling, and the terminal display. See [CHANGELOG.txt](CHANGELOG.txt) for a full breakdown of changes.
 
-FORK COMPARISON — RamenFighter03 vs OvalQuilter/lyrics-status (v3)
 ====================================================================
 Base: OvalQuilter/lyrics-status @ v3 (v3.0.7)
 Fork: RamenFighter03/lyrics-status @ v3
