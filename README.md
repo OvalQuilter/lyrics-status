@@ -1,3 +1,5 @@
+ALL CREDIT GOES TO OVALQUILTER, CREATOR OF LYRICS-STATUS
+
 > **This is a fork of [OvalQuilter/lyrics-status](https://github.com/OvalQuilter/lyrics-status).**
 > The purpose of this fork is to refactor and improve several core functions — including rate limit handling, lyric line merging, smart truncation, null safety, error handling, and the terminal display. See [CHANGELOG.txt](CHANGELOG.txt) for a full breakdown of changes.
 
