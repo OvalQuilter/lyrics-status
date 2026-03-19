@@ -161,6 +161,49 @@ $(`
                             </label>
                         </div>
                 </section>
+
+                <section class="settings-section">
+                    <h2 class="settings-name">Rate Limiting</h2>
+                    <p class="settings-description">Discord limits how often your custom status can be updated. These options help avoid hitting that limit.</p>
+
+                    <div class="option form-row">
+                        <label class="checkbox-row" for="enable-backoff">
+                            <input type="checkbox" id="enable-backoff" checked>
+                            <span>Auto backoff when rate limited</span>
+                        </label>
+                    </div>
+                    <div class="option form-row" style="margin-left: 24px;">
+                        <small class="field-help">When Discord returns a rate limit response, automatically pause sending for the suggested retry window.</small>
+                    </div>
+
+                    <div class="option form-row" style="margin-top: 14px;">
+                        <label class="checkbox-row" for="enable-min-interval">
+                            <input type="checkbox" id="enable-min-interval" checked>
+                            <span>Minimum interval between updates</span>
+                        </label>
+                    </div>
+                    <div class="option form-row" style="margin-left: 24px; align-items: center; gap: 8px;">
+                        <input type="number" id="min-interval-ms" class="text-input1" style="width: 80px;" min="1000" max="60000" step="500" value="5000">
+                        <span class="inline-text">ms between sends</span>
+                    </div>
+                    <div class="option form-row" style="margin-left: 24px;">
+                        <small class="field-help">Prevents sending faster than this interval regardless of lyric timing. 5000ms (5s) is a safe default.</small>
+                    </div>
+
+                    <div class="option form-row" style="margin-top: 14px;">
+                        <label class="checkbox-row" for="enable-merge-lines">
+                            <input type="checkbox" id="enable-merge-lines" checked>
+                            <span>Merge nearby lyric lines into one status</span>
+                        </label>
+                    </div>
+                    <div class="option form-row" style="margin-left: 24px; align-items: center; gap: 8px;">
+                        <input type="number" id="merge-window-ms" class="text-input1" style="width: 80px;" min="1000" max="30000" step="500" value="8000">
+                        <span class="inline-text">ms merge window</span>
+                    </div>
+                    <div class="option form-row" style="margin-left: 24px;">
+                        <small class="field-help">Lines closer together than this window are joined with a space into a single status update, reducing total sends.</small>
+                    </div>
+                </section>
             </section>
         </main>
     </div>
@@ -563,7 +606,12 @@ let menu                    = $("#menu-UI"),
     enableAutooffset        = $("#enable-autooffset"),
     autooffset              = $("#autooffset"),
     autooffsetHelp          = $("#autooffset-help"),
-    enableAutoupdate        = $("#enable-autoupdate");
+    enableAutoupdate        = $("#enable-autoupdate"),
+    enableBackoff           = $("#enable-backoff"),
+    enableMinInterval       = $("#enable-min-interval"),
+    minIntervalMs           = $("#min-interval-ms"),
+    enableMergeLines        = $("#enable-merge-lines"),
+    mergeWindowMs           = $("#merge-window-ms");
 // Elements
 
 let settings = {
@@ -594,6 +642,13 @@ let settings = {
     },
     update: {
         enableAutoupdate: true
+    },
+    rateLimit: {
+        enableBackoff: true,
+        enableMinInterval: true,
+        minIntervalMs: 5000,
+        enableMergeLines: true,
+        mergeWindowMs: 8000
     }
 }
 // Settings
@@ -647,7 +702,7 @@ checkTokenButton.click(() => {
             label.text("✖");
         } else {
             checkTokenButton.addClass("success");
-            label.text("✔");
+            label.text("âœ”");
         }
 
         label.css("opacity", 1);
@@ -795,6 +850,32 @@ enableAutoupdate.click(() => {
     settings.update.enableAutoupdate = state;
     saveSettings();
 })
+enableBackoff.click(() => {
+    settings.rateLimit.enableBackoff = enableBackoff.prop("checked");
+    saveSettings();
+});
+enableMinInterval.click(() => {
+    settings.rateLimit.enableMinInterval = enableMinInterval.prop("checked");
+    saveSettings();
+});
+minIntervalMs.on("input", () => {
+    let value = +minIntervalMs.val();
+    if (!isNaN(value) && value >= 0) {
+        settings.rateLimit.minIntervalMs = value;
+        saveSettings();
+    }
+});
+enableMergeLines.click(() => {
+    settings.rateLimit.enableMergeLines = enableMergeLines.prop("checked");
+    saveSettings();
+});
+mergeWindowMs.on("input", () => {
+    let value = +mergeWindowMs.val();
+    if (!isNaN(value) && value >= 0) {
+        settings.rateLimit.mergeWindowMs = value;
+        saveSettings();
+    }
+});
 // Events
 
 function formatSeconds(s) {
@@ -845,6 +926,14 @@ function loadSettings(settingsToLoad) {
         enableAutooffset.prop("checked", settings.timings.enableAutooffset);
         autooffset.val(settings.timings.autooffset);
     enableAutoupdate.prop("checked", settings.update.enableAutoupdate)
+
+    // Rate limit settings
+    const rl = settings.rateLimit || {};
+    enableBackoff.prop("checked", rl.enableBackoff !== false);
+    enableMinInterval.prop("checked", rl.enableMinInterval !== false);
+    minIntervalMs.val(rl.minIntervalMs != null ? rl.minIntervalMs : 5000);
+    enableMergeLines.prop("checked", rl.enableMergeLines !== false);
+    mergeWindowMs.val(rl.mergeWindowMs != null ? rl.mergeWindowMs : 8000);
 
     const authorized = !!(settings.credentials && (settings.credentials.refreshToken || settings.credentials.code));
     spotifyAuthorizedIndicator.toggleClass("hid", !authorized).toggleClass("act", authorized);

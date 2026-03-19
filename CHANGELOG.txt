@@ -1,0 +1,181 @@
+LYRICS-STATUS — CHANGELOG & MODIFICATION SUMMARY
+=================================================
+Base Version: 3.0.7
+Modified by: suici
+Date: March 2026
+
+This document summarizes all changes made to the lyrics-status project
+(https://github.com/OvalQuilter/lyrics-status) from the original v3.0.7
+source. All changes were applied directly to the compiled JavaScript in
+dist/ and to static/panel.js. No TypeScript source files were modified.
+
+─────────────────────────────────────────────────────────────────────
+1. LOGGING
+   Files: dist/StatusChanger.js, dist/PlaybackStateUpdater.js
+─────────────────────────────────────────────────────────────────────
+The app originally wrote to log.txt only for uncaught exceptions and
+update failures. Logging was extended across both runtime classes.
+
+PlaybackStateUpdater:
+  - Logs every Spotify API poll and HTTP response code
+  - Logs song detection, lyrics fetch result and source
+  - Logs auth errors and token refresh events
+  - Logs HTTP 204 (nothing playing)
+
+StatusChanger:
+  - Logs every Discord API send attempt with text and emoji
+  - Logs HTTP response code and round-trip time
+  - Logs rate limit events including retry_after duration
+  - Logs how many lyric lines were merged per send
+  - Removed 60fps "Song changed" log spam (~60 writes/sec)
+  - Removed 60fps skip log spam when nothing is playing
+
+─────────────────────────────────────────────────────────────────────
+2. BUG FIX — Lyrics mismatch re-fetch loop
+   File: dist/LyricsFetcher.js
+─────────────────────────────────────────────────────────────────────
+Original bug: lastFetchedFor was only set inside the live-source fetch
+path, not on cache hits. This caused PlaybackStateUpdater to detect a
+mismatch on every 5-second Spotify poll and redundantly re-fetch lyrics
+from cache on every single tick.
+
+Fix: lastFetchedFor is now set on the cache hit path before breaking
+out of the source loop. The mismatch re-fetch block in
+PlaybackStateUpdater was removed entirely as it is no longer needed.
+
+─────────────────────────────────────────────────────────────────────
+3. DISCORD RATE LIMIT HANDLING
+   File: dist/StatusChanger.js
+─────────────────────────────────────────────────────────────────────
+The original code had no protection against Discord's custom status
+rate limit (~1 update per 40 seconds under heavy use). Three
+protections were added:
+
+  Auto backoff: When Discord returns HTTP 429, the app reads
+  retry_after from the response body and blocks all sends until that
+  timestamp has passed. Falls back to 30s if the body cannot be
+  parsed. Respects the enableBackoff setting toggle.
+
+  Minimum send interval: A configurable minimum number of milliseconds
+  enforced between any two Discord sends, checked before any other
+  logic in changeStatus().
+
+  Line merging: Consecutive lyric lines that are both already due AND
+  within a configurable time window of each other are joined with a
+  space into a single status update, reducing total API calls. The
+  merge only considers lines whose timestamps have already been
+  reached — it never pre-merges future lines.
+
+  Song boundary protection: songChanged() now always sets _lastSentAt
+  to Date.now() unconditionally so the minimum interval applies on
+  the first send of every new song.
+
+─────────────────────────────────────────────────────────────────────
+4. SMART TRUNCATION
+   File: dist/StatusChanger.js
+─────────────────────────────────────────────────────────────────────
+The original code hard-cut status text at 128 characters with
+.slice(0, 128), which could break mid-word.
+
+Replaced with smartTruncate(text, limit, lyricLines):
+  - Phase 1: If multiple lyric lines were merged, drops whole lines
+    from the end until the joined text fits within the limit
+  - Phase 2: If a single lyric line still exceeds the limit, falls
+    back to word-boundary chopping with "..." appended
+  - Phase 3: If a single word exceeds the limit, hard-cuts with "..."
+  - Guards against null/undefined input, returning "" safely
+
+For advanced template mode, the template is re-rendered with
+progressively fewer lyric lines until it fits, rather than chopping
+the already-rendered string mid-word.
+
+─────────────────────────────────────────────────────────────────────
+5. NULL SAFETY & ERROR HANDLING
+   Files: dist/StatusChanger.js, dist/PlaybackStateUpdater.js
+─────────────────────────────────────────────────────────────────────
+Added defensive null guards to prevent crashes from missing or
+malformed Spotify metadata:
+
+  StatusChanger:
+  - applyTemplate(): songName and songAuthor default to "" if null,
+    preventing .toUpperCase() crashes on missing track metadata
+  - smartTruncate(): returns "" immediately if text is null/undefined
+  - buildMergedLines(): anchor.text defaults to "" if undefined
+  - parseStatusString(): all line.text, songName, songAuthor
+    accesses null-coalesced throughout
+
+  PlaybackStateUpdater:
+  - artists[0].name guarded against empty or missing artists array,
+    falls back to "Unknown"
+
+─────────────────────────────────────────────────────────────────────
+6. RATE LIMIT SETTINGS UI
+   Files: dist/Settings.js, dist/Panel/Server.js, static/panel.js
+─────────────────────────────────────────────────────────────────────
+A new rateLimit block was added to settings with five fields:
+
+  enableBackoff      (bool)   — toggles auto backoff on 429
+  enableMinInterval  (bool)   — toggles the minimum send interval
+  minIntervalMs      (number) — minimum ms between Discord sends
+  enableMergeLines   (bool)   — toggles lyric line merging
+  mergeWindowMs      (number) — ms window for merging adjacent lines
+
+Settings.js: rateLimit added to static defaults, save(), and load()
+Server.js: rateLimit included in WebSocket payload both on connect
+  and on receive so the panel reads and writes it live
+panel.js: New "Rate Limiting" section added to the settings UI with
+  checkboxes for each toggle and number inputs for the two ms values.
+  All five controls wired to saveSettings() and populated correctly
+  in loadSettings().
+
+─────────────────────────────────────────────────────────────────────
+7. TERMINAL DISPLAY
+   File: dist/index.js
+─────────────────────────────────────────────────────────────────────
+The original terminal display showed only song name, author, progress,
+current lyric line (frozen at last Discord send), and lyrics source.
+
+Completely rewritten with two separate intervals:
+
+  60fps loop: runs changeStatus() and advances songProgress only.
+  No rendering occurs here at all.
+
+  1s display loop: independent setInterval that reads shared state
+  and writes the display. Uses ANSI cursor positioning (ESC[H) to
+  overwrite lines in place rather than console.clear(), eliminating
+  the scroll-spam that occurred in Git Bash on Windows.
+
+  Display now shows:
+  - Song / Artist / Progress (MM:SS / MM:SS) / Playing or Paused
+  - Lyrics source and fetch origin
+  - Now: actual current lyric based on real song progress,
+    independent of what was last sent to Discord
+  - Next: upcoming lyric line and seconds until it fires
+  - Last sent: exact text of last Discord status update
+  - Send: green Ready, yellow countdown, or red RATE LIMITED
+    with live seconds remaining
+  - Settings: min interval, merge window, auto backoff — each
+    shown as green (enabled + value) or red (Off)
+
+─────────────────────────────────────────────────────────────────────
+8. PANEL ENCODING FIX
+   File: static/panel.js
+─────────────────────────────────────────────────────────────────────
+panel.js was found to contain a UTF-8 BOM and mojibake emoji
+corruption (e.g. 🎶 rendered as ðŸŽ¶) introduced during file writes.
+The BOM was stripped and all affected characters restored to their
+correct UTF-8 codepoints.
+
+─────────────────────────────────────────────────────────────────────
+FILES MODIFIED
+─────────────────────────────────────────────────────────────────────
+  dist/LyricsFetcher.js
+  dist/PlaybackStateUpdater.js
+  dist/StatusChanger.js
+  dist/Settings.js
+  dist/Panel/Server.js
+  dist/index.js
+  static/panel.js
+
+  No changes to: src/, package.json, tsconfig.json, README.md,
+  VERSION, or any other files.

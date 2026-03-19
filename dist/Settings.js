@@ -9,7 +9,8 @@ class Settings {
             credentials: this.credentials,
             view: this.view,
             timings: this.timings,
-            update: this.update
+            update: this.update,
+            rateLimit: this.rateLimit
         }));
     }
     static load() {
@@ -25,6 +26,7 @@ class Settings {
             this.view = settings.view || this.view;
             this.timings = settings.timings || this.timings;
             this.update = settings.update || this.update;
+            this.rateLimit = settings.rateLimit || this.rateLimit;
         }
     }
 }
@@ -56,4 +58,11 @@ Settings.timings = {
 };
 Settings.update = {
     enableAutoupdate: true
+};
+Settings.rateLimit = {
+    enableBackoff: true,
+    enableMinInterval: true,
+    minIntervalMs: 5000,
+    enableMergeLines: true,
+    mergeWindowMs: 8000
 };

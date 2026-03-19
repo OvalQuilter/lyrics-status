@@ -27,6 +27,7 @@ class LyricsFetcher {
             let result = cache;
             for (const source of this.sources) {
                 if (cache) {
+                    this.lastFetchedFor = name + artist;
                     this.lastFetchedFrom = `Cache (${cache.appName})`;
                     break;
                 }

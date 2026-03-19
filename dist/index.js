@@ -18,15 +18,9 @@ const ExternalAuthServerAPI_1 = require("./ExternalAuthServerAPI");
 Settings_1.Settings.load();
 if (Settings_1.Settings.update.enableAutoupdate) {
     Updater_1.Updater.tryUpdate()
-        .then(() => {
-        init();
-    })
-        .catch((e) => {
-        Debug_1.Debug.write("LyricsStatus failed to update. Error: " + e.stack);
-        init();
-    });
-}
-else {
+        .then(() => { init(); })
+        .catch((e) => { Debug_1.Debug.write("LyricsStatus failed to update. Error: " + e.stack); init(); });
+} else {
     init();
 }
 function init() {
@@ -44,32 +38,91 @@ function init() {
     const playbackState = new PlaybackState_1.PlaybackState();
     const playbackStateUpdater = new PlaybackStateUpdater_1.PlaybackStateUpdater(playbackState, lyricsFetcher);
     const statusChanger = new StatusChanger_1.StatusChanger(playbackState);
-    setInterval(() => {
-        playbackStateUpdater.update();
-        //console.log(playbackState)
-        //console.log(statusChanger, playbackStateUpdater, SpotifyAccessToken)
-    }, 5000);
+
+    // 5s Spotify polling
+    setInterval(() => { playbackStateUpdater.update(); }, 5000);
+
+    // 60fps progress + status change — no rendering here
     let now = Date.now();
     setInterval(() => {
         statusChanger.changeStatus();
         playbackState.songProgress += Date.now() - now;
-        if (playbackState.ended)
-            statusChanger.songChanged();
-        console.clear();
-        console.log(`
-    Song: ${playbackState.songName || "Not listening"}
-    Author: ${playbackState.songAuthor || "Not listening"}
-    Song progress: ${statusChanger.formatSeconds(+(playbackState.songProgress / 1000).toFixed(0))}
-    Current lyrics: ${(playbackState.currentLine && playbackState.currentLine.text) || "Not available"}
-    Lyrics fetched from: ${lyricsFetcher.lastFetchedFrom}
-    `);
+        if (playbackState.ended) statusChanger.songChanged();
         now = Date.now();
     }, 1000 / 60);
+
+    // Clear screen once on startup so cursor positioning works from the start
+    process.stdout.write("\x1b[2J\x1b[H");
+
+    // 1s display refresh — completely separate from 60fps loop, no flicker
+    setInterval(() => {
+        const lyrics = playbackState.lyrics;
+        const progress = playbackState.songProgress;
+        const offset = Settings_1.Settings.timings.sendTimeOffset;
+
+        let dueLine = "Not available";
+        let nextLine = "Not available";
+        if (lyrics && lyrics.lines && lyrics.lines.length > 0) {
+            let dueIndex = -1;
+            for (let i = 0; i < lyrics.lines.length; i++) {
+                if (lyrics.lines[i].time <= progress + offset) { dueIndex = i; } else { break; }
+            }
+            if (dueIndex >= 0) {
+                dueLine = lyrics.lines[dueIndex].text || "Not available";
+                if (dueIndex + 1 < lyrics.lines.length) {
+                    const next = lyrics.lines[dueIndex + 1];
+                    nextLine = `${next.text || ""}  (in ${((next.time - progress) / 1000).toFixed(1)}s)`;
+                }
+            }
+        }
+
+        const nowMs = Date.now();
+        const rateLimitedUntil = statusChanger._rateLimitedUntil || 0;
+        const lastSentAt = statusChanger._lastSentAt || 0;
+        const minInterval = Settings_1.Settings.rateLimit.enableMinInterval ? (Settings_1.Settings.rateLimit.minIntervalMs || 5000) : 0;
+        const rateLimitRemaining = rateLimitedUntil > nowMs ? ((rateLimitedUntil - nowMs) / 1000).toFixed(1) : null;
+        const nextSendIn = lastSentAt > 0 ? Math.max(0, minInterval - (nowMs - lastSentAt)) : 0;
+        const mergeWindowSec = ((Settings_1.Settings.rateLimit?.mergeWindowMs || 0) / 1000).toFixed(1);
+        const minIntervalSec = ((Settings_1.Settings.rateLimit?.minIntervalMs || 0) / 1000).toFixed(1);
+
+        const rateStatus = rateLimitRemaining
+            ? `\x1b[31mRATE LIMITED - resumes in ${rateLimitRemaining}s\x1b[0m`
+            : nextSendIn <= 0 ? `\x1b[32mReady to send\x1b[0m`
+            : `\x1b[33mNext send in ${(nextSendIn / 1000).toFixed(1)}s\x1b[0m`;
+
+        const rows = [
+            `\x1b[1m╔══════════════════════════════════════════════════════╗\x1b[0m`,
+            `\x1b[1m  Lyrics Status                                       \x1b[0m`,
+            `\x1b[1m╚══════════════════════════════════════════════════════╝\x1b[0m`,
+            ``,
+            `  \x1b[1mSong:\x1b[0m       ${playbackState.songName || "Not listening"}`,
+            `  \x1b[1mArtist:\x1b[0m     ${playbackState.songAuthor || "-"}`,
+            `  \x1b[1mProgress:\x1b[0m   ${statusChanger.formatSeconds(+(progress / 1000).toFixed(0))} / ${statusChanger.formatSeconds(+(playbackState.songDuration / 1000).toFixed(0))}`,
+            `  \x1b[1mStatus:\x1b[0m     ${playbackState.isPlaying ? "\x1b[32mPlaying\x1b[0m" : "\x1b[33mPaused\x1b[0m"}`,
+            `  \x1b[1mLyrics:\x1b[0m     ${playbackState.hasLyrics ? `\x1b[32mYes\x1b[0m (${lyricsFetcher.lastFetchedFrom})` : "\x1b[31mNo\x1b[0m"}`,
+            ``,
+            `  \x1b[1m-- Lyrics --------------------------------------------------\x1b[0m`,
+            `  \x1b[1mNow:\x1b[0m        ${dueLine}`,
+            `  \x1b[1mNext:\x1b[0m       ${nextLine}`,
+            ``,
+            `  \x1b[1m-- Discord -------------------------------------------------\x1b[0m`,
+            `  \x1b[1mLast sent:\x1b[0m  ${statusChanger._lastSentText || "Nothing sent yet"}`,
+            `  \x1b[1mSend:\x1b[0m       ${rateStatus}`,
+            ``,
+            `  \x1b[1m-- Settings ------------------------------------------------\x1b[0m`,
+            `  \x1b[1mMin interval:\x1b[0m ${Settings_1.Settings.rateLimit.enableMinInterval ? `\x1b[32m${minIntervalSec}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}`,
+            `  \x1b[1mMerge window:\x1b[0m ${Settings_1.Settings.rateLimit.enableMergeLines ? `\x1b[32m${mergeWindowSec}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}`,
+            `  \x1b[1mAuto backoff:\x1b[0m ${Settings_1.Settings.rateLimit.enableBackoff ? "\x1b[32mOn\x1b[0m" : "\x1b[31mOff\x1b[0m"}`,
+            ``
+        ];
+
+        // Move cursor to top-left then overwrite each line — no scroll, no flicker
+        process.stdout.write("\x1b[H" + rows.map(r => r + "\x1b[K").join("\n") + "\n");
+    }, 1000);
+
     (0, Server_1.startServer)();
 }
 process.on("uncaughtException", (e) => {
     Debug_1.Debug.write(e.stack + "\n" + e.cause);
-    if (!e.message.includes("fetch failed")) {
-        process.exit(1);
-    }
+    if (!e.message.includes("fetch failed")) process.exit(1);
 });

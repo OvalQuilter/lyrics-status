@@ -69,13 +69,15 @@ function startServer() {
             Settings_1.Settings.view = settings.view;
             Settings_1.Settings.timings = settings.timings;
             Settings_1.Settings.update = settings.update;
+            if (settings.rateLimit) Settings_1.Settings.rateLimit = settings.rateLimit;
             Settings_1.Settings.save();
         });
         const settings = JSON.stringify({
             credentials: Settings_1.Settings.credentials,
             view: Settings_1.Settings.view,
             timings: Settings_1.Settings.timings,
-            update: Settings_1.Settings.update
+            update: Settings_1.Settings.update,
+            rateLimit: Settings_1.Settings.rateLimit
         });
         ws.send(settings);
     });
