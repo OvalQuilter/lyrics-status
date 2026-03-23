@@ -354,3 +354,24 @@ SOURCE ORDER TOGGLES:
   sources block wired into Settings save/load spread, Server.js
   WebSocket payload, panel.js DEFAULTS + 5 new BINDINGS, and
   index.html Sources section + Musixmatch token field.
+
+─────────────────────────────────────────────────────────────────────
+16. MUSIXMATCH COOKIE PASTE + TOKEN CHECK FIX (March 2026)
+    Files: static/panel.js, dist/Panel/Server.js
+─────────────────────────────────────────────────────────────────────
+COOKIE AUTO-EXTRACTION:
+  The Musixmatch token field now accepts a raw browser cookie paste.
+  extractMxmToken() finds musixmatchUserToken=, URL-decodes it, parses
+  the JSON, and saves only the web-desktop-app-v1.0 token. Field updates
+  to show the extracted value so the user knows it worked. Plain token
+  strings still pass through unchanged.
+
+TOKEN CHECK PROXY:
+  The Check button previously sent the validation request directly from
+  the browser. Browsers silently strip the Cookie header on cross-origin
+  requests (forbidden header), so the request always reached Musixmatch
+  unauthenticated and returned a failure.
+
+  Fixed by adding a /check-mxm GET endpoint in Server.js. The panel now
+  calls GET /check-mxm (same origin), Node makes the request with the
+  Cookie header intact, and returns { ok: true/false }.

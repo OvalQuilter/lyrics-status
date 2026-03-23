@@ -22,6 +22,19 @@ function startServer() {
     app.get("/", (req, res) => {
         res.sendFile((0, node_path_1.join)(__dirname, "../../static/index.html"));
     });
+
+    // Proxy: validates Musixmatch token server-side (browsers cannot set Cookie header).
+    app.get("/check-mxm", (req, res) => {
+        const token = Settings_1.Settings.credentials.musixmatchToken;
+        if (!token) { res.json({ ok: false }); return; }
+        const url = "https://apic-desktop.musixmatch.com/ws/1.1/token.get?app_id=web-desktop-app-v1.0&usertoken=" + encodeURIComponent(token);
+        fetch(url, { headers: { "cookie": "x-mxm-token-guid=" + token, "authority": "apic-desktop.musixmatch.com" } })
+        .then(r => r.json()).then(j => {
+            const ok = !!(j && j.message && j.message.header && j.message.header.status_code === 200);
+            Debug_1.Debug.write("[Server] Musixmatch token check: ok=" + ok);
+            res.json({ ok });
+        }).catch(() => res.json({ ok: false }));
+    });
     app.get("/callback", (req, res) => {
         if (Settings_1.Settings.credentials.useExternalAuthServer) {
             if (!req.query.refresh_token) return res.sendStatus(401);

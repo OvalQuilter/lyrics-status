@@ -16,7 +16,6 @@ const DEFAULTS = {
 };
 
 // ── Binding map: [ selector, settings path, type ] ───────────────────────────
-// type: "text" | "checkbox" | "number" | "textarea"
 const BINDINGS = [
     ["#user-token",              "credentials.token",                   "text"],
     ["#client-id",               "credentials.clientID",                "text"],
@@ -63,14 +62,38 @@ const HELP = {
         <code>{song_name}</code>, <code>{song_name_cropped}</code>, <code>{song_author}</code>, <code>{timestamp}</code><br><br>
         Status is automatically cropped to 128 characters.`,
     "#musixmatch-token-help": `
-        <strong>Musixmatch user token</strong> is required to fetch lyrics from Musixmatch.<br><br>
+        <strong>Musixmatch cookie</strong> — paste your full Musixmatch cookie string here.<br><br>
+        The token is extracted automatically from <code>musixmatchUserToken</code>.<br><br>
         To get it:<br>
         1. Go to <a href="https://www.musixmatch.com" target="_blank" style="color:var(--accent)">musixmatch.com</a> and log in.<br>
-        2. Open DevTools (F12) &rarr; Network tab &rarr; reload the page.<br>
-        3. Click any request to <code>apic-desktop.musixmatch.com</code>.<br>
-        4. In the Cookie header, copy the value of <code>x-mxm-token-guid</code>.<br><br>
+        2. Open DevTools (F12) &rarr; Application tab &rarr; Cookies &rarr; <code>https://www.musixmatch.com</code>.<br>
+        3. Find <code>musixmatchUserToken</code>, double-click its Value column and copy the whole string.<br>
+        4. Paste it into this field &mdash; the token is extracted and saved automatically.<br><br>
         Musixmatch is the database that powers Spotify's own lyrics &mdash; it has the widest coverage.`,
 };
+
+// ── Musixmatch token extraction ───────────────────────────────────────────────
+// Accepts either:
+//   (a) a raw cookie string containing musixmatchUserToken=... (full cookie blob)
+//   (b) a plain token string (already extracted) -- passed through as-is
+// Returns the web-desktop-app-v1.0 token string, or "" on any failure.
+function extractMxmToken(input) {
+    if (!input || !input.trim()) return "";
+    const raw = input.trim();
+    const cookieMatch = raw.match(/(?:^|;\s*)musixmatchUserToken=([^;]+)/);
+    if (cookieMatch) {
+        try {
+            const decoded = decodeURIComponent(cookieMatch[1]);
+            const parsed = JSON.parse(decoded);
+            const token = parsed && parsed.tokens && parsed.tokens["web-desktop-app-v1.0"];
+            if (token && typeof token === "string") return token;
+        } catch (e) {
+            console.warn("Failed to parse musixmatchUserToken cookie:", e);
+        }
+        return "";
+    }
+    return raw;
+}
 
 // ── Deep path helpers ─────────────────────────────────────────────────────────
 function getPath(obj, path) {
@@ -138,7 +161,7 @@ function applyToDom() {
         const adv = settings.view.advanced.enabled;
         $("#advanced-swt").toggleClass("show", adv);
         $("#enable-timestamp, #enable-label").prop("disabled", adv);
-        const ok = !!(settings.credentials?.refreshToken || settings.credentials?.code);
+        const ok = !!(settings.credentials && (settings.credentials.refreshToken || settings.credentials.code));
         $("#spotify-ok").toggleClass("show", ok);
         updatePreview();
     } catch (e) { console.error("applyToDom error:", e); }
@@ -176,6 +199,10 @@ function bindAll() {
                     if (isNaN(n)) return;
                     v = n;
                 }
+                if (sel === "#musixmatch-token") {
+                    v = extractMxmToken(v);
+                    el.val(v);
+                }
                 setPath(settings, path, v);
                 save();
             });
@@ -206,7 +233,7 @@ function bindHelp() {
     }
 }
 
-// ── Check token ───────────────────────────────────────────────────────────────
+// ── Check Discord token ───────────────────────────────────────────────────────
 $("#check-token").on("click", function () {
     const btn = $(this), orig = btn.text();
     btn.prop("disabled", true).text("...");
@@ -222,6 +249,27 @@ $("#check-token").on("click", function () {
                .addClass(ok ? "success" : "danger").text(ok ? "\u2713" : "\u2717");
             setTimeout(() => btn.removeClass("success danger").text(orig), 3000);
         }
+    });
+});
+
+// ── Check Musixmatch token ────────────────────────────────────────────────────
+$("#check-mxm-token").on("click", function () {
+    const btn = $(this), orig = btn.text();
+    const token = settings.credentials.musixmatchToken;
+    if (!token) {
+        btn.removeClass("success danger").addClass("danger").text("\u2717");
+        setTimeout(() => btn.removeClass("success danger").text(orig), 3000);
+        return;
+    }
+    btn.prop("disabled", true).text("...");
+    $.get("/check-mxm", (data) => {
+        const ok = !!(data && data.ok);
+        btn.prop("disabled", false).removeClass("success danger")
+           .addClass(ok ? "success" : "danger").text(ok ? "\u2713" : "\u2717");
+        setTimeout(() => btn.removeClass("success danger").text(orig), 3000);
+    }).fail(() => {
+        btn.prop("disabled", false).removeClass("success danger").addClass("danger").text("\u2717");
+        setTimeout(() => btn.removeClass("success danger").text(orig), 3000);
     });
 });
 

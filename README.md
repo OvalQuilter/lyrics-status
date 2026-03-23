@@ -94,12 +94,11 @@ Start some song in Spotify, if it has lyrics, you should see current lyrics in y
 Musixmatch is the same lyrics database that Spotify uses internally -- it has the widest catalog of any source. Adding your token gives the best chance of finding synced lyrics for any song, including ones that Spotify itself doesn't display lyrics for.
 
 1. Go to [musixmatch.com](https://www.musixmatch.com) and log in or create a free account.
-2. Open DevTools in your browser (`F12`).
-3. Go to the **Network** tab and reload the page.
-4. Click any request to `apic-desktop.musixmatch.com`.
-5. In the **Request Headers**, find the `Cookie:` header.
-6. Copy the value of `x-mxm-token-guid` (a long alphanumeric string).
-7. Paste it into the **Musixmatch token** field in the panel at `localhost:8999`.
+2. Open DevTools (`F12`) and go to the **Application** tab.
+3. Under **Cookies**, click `https://www.musixmatch.com`.
+4. Find `musixmatchUserToken`, double-click its Value and copy the whole string.
+5. Paste it into the **Musixmatch token** field in the panel at `localhost:8999` -- the token is extracted automatically.
+6. Click **Check** to verify it works.
 
 Leaving this field blank is fine -- the app will fall back to LrcLib, NetEase, and QQMusic automatically.
 
