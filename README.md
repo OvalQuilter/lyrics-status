@@ -1,7 +1,7 @@
 ALL CREDIT GOES TO OVALQUILTER, CREATOR OF LYRICS-STATUS
 
 > **This is a fork of [OvalQuilter/lyrics-status](https://github.com/OvalQuilter/lyrics-status).**
-> The purpose of this fork is to refactor and improve several core functions — including rate limit handling, lyric line merging, smart truncation, null safety, error handling, and the terminal display. See [CHANGELOG.txt](CHANGELOG.txt) for a full breakdown of changes.
+> The purpose of this fork is to refactor and improve several core functions -- including rate limit handling, lyric line merging, smart truncation, null safety, error handling, and the terminal display. See [CHANGELOG.txt](CHANGELOG.txt) for a full breakdown of changes.
 
 ![Terminal display](res/screenie.png)
 
@@ -88,6 +88,20 @@ Now reload the page, wait for it to load, and search for something like `open.sp
 Click on it, in the opened window search for `Cookie:`, it's your cookies. Copy and paste them in `Cookie` input field in the menu.
 
 Start some song in Spotify, if it has lyrics, you should see current lyrics in your command prompt as well as in your Discord status.
+
+### Musixmatch (optional, recommended)
+
+Musixmatch is the same lyrics database that Spotify uses internally -- it has the widest catalog of any source. Adding your token gives the best chance of finding synced lyrics for any song, including ones that Spotify itself doesn't display lyrics for.
+
+1. Go to [musixmatch.com](https://www.musixmatch.com) and log in or create a free account.
+2. Open DevTools in your browser (`F12`).
+3. Go to the **Network** tab and reload the page.
+4. Click any request to `apic-desktop.musixmatch.com`.
+5. In the **Request Headers**, find the `Cookie:` header.
+6. Copy the value of `x-mxm-token-guid` (a long alphanumeric string).
+7. Paste it into the **Musixmatch token** field in the panel at `localhost:8999`.
+
+Leaving this field blank is fine -- the app will fall back to LrcLib, NetEase, and QQMusic automatically.
 
 ### Troubleshooting
 

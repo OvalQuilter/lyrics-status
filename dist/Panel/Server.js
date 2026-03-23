@@ -10,6 +10,7 @@ const ws_1 = require("ws");
 const node_path_1 = require("node:path");
 const Settings_1 = require("../Settings");
 const SpotifyService_1 = require("../SpotifyService");
+const Debug_1 = require("../Debug");
 function startServer() {
     const app = (0, express_1.default)();
     const httpServer = (0, node_http_1.createServer)(app);
@@ -23,36 +24,33 @@ function startServer() {
     });
     app.get("/callback", (req, res) => {
         if (Settings_1.Settings.credentials.useExternalAuthServer) {
-            if (!req.query.refresh_token)
-                return res.sendStatus(401);
+            if (!req.query.refresh_token) return res.sendStatus(401);
             const refreshToken = req.query.refresh_token;
-            console.log(refreshToken);
+            Debug_1.Debug.write(`[Server] OAuth callback: received refresh token`);
             Settings_1.Settings.credentials.refreshToken = refreshToken;
             Settings_1.Settings.save();
+        } else {
+            if (!req.query.code) return res.sendStatus(401);
+            const code = req.query.code;
+            Settings_1.Settings.credentials.code = code;
+            // FIX: catch exchange failures so a bad OAuth response doesn't cause an
+            // unhandled promise rejection that reaches the process-level error handler
+            SpotifyService_1.SpotifyService.exchange()
+                .then(() => Settings_1.Settings.save())
+                .catch((e) => Debug_1.Debug.write(`[Server] SpotifyService.exchange failed: ${e}`));
         }
-                else {
-                        if (!req.query.code)
-                                return res.sendStatus(401);
-                        const code = req.query.code;
-                        Settings_1.Settings.credentials.code = code;
-                        SpotifyService_1.SpotifyService.exchange().then(() => Settings_1.Settings.save());
-                }
-                res.send(`<!DOCTYPE html>
+        res.send(`<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
         <title>Spotify authorization complete</title>
         <script>
-            // Try to close the popup window once the callback has been received
             (function () {
                 try {
-                    // If this window was opened by another page, attempt to close it
                     if (window.opener && !window.opener.closed) {
                         window.close();
                     }
-                } catch (e) {
-                    // Ignore cross-origin or other errors
-                }
+                } catch (e) {}
             })();
         </script>
     </head>
@@ -62,24 +60,43 @@ function startServer() {
     </html>`);
     });
     wss.on("connection", (ws) => {
+        // FIX: per-connection error handler — an ECONNRESET or similar on one client
+        // previously had no handler and would propagate to the process-level handler
+        ws.on("error", (err) => {
+            Debug_1.Debug.write(`[Server] WebSocket client error: ${err}`);
+        });
         ws.on("message", (data) => {
-            const settings = JSON.parse(data.toString());
-            // Not typed but it's necessary
-            Settings_1.Settings.credentials = settings.credentials;
-            Settings_1.Settings.view = settings.view;
-            Settings_1.Settings.timings = settings.timings;
-            Settings_1.Settings.update = settings.update;
-            if (settings.rateLimit) Settings_1.Settings.rateLimit = settings.rateLimit;
+            // FIX: wrap JSON.parse in try/catch — a malformed payload previously threw
+            // an uncaught exception that reached the process-level error handler
+            let parsed;
+            try {
+                parsed = JSON.parse(data.toString());
+            } catch (e) {
+                Debug_1.Debug.write(`[Server] Received malformed JSON from panel, ignoring: ${e}`);
+                return;
+            }
+            if (!parsed || typeof parsed !== "object") return;
+            Settings_1.Settings.credentials = parsed.credentials ?? Settings_1.Settings.credentials;
+            Settings_1.Settings.view        = parsed.view        ?? Settings_1.Settings.view;
+            Settings_1.Settings.timings     = parsed.timings     ?? Settings_1.Settings.timings;
+            Settings_1.Settings.update      = parsed.update      ?? Settings_1.Settings.update;
+            if (parsed.rateLimit) Settings_1.Settings.rateLimit = parsed.rateLimit;
+            if (parsed.sources)   Settings_1.Settings.sources   = parsed.sources;
             Settings_1.Settings.save();
         });
-        const settings = JSON.stringify({
+        const payload = JSON.stringify({
             credentials: Settings_1.Settings.credentials,
-            view: Settings_1.Settings.view,
-            timings: Settings_1.Settings.timings,
-            update: Settings_1.Settings.update,
-            rateLimit: Settings_1.Settings.rateLimit
+            view:        Settings_1.Settings.view,
+            timings:     Settings_1.Settings.timings,
+            update:      Settings_1.Settings.update,
+            rateLimit:   Settings_1.Settings.rateLimit,
+            sources:     Settings_1.Settings.sources
         });
-        ws.send(settings);
+        // FIX: check socket is still open before sending initial settings payload
+        // (connection could theoretically close in the same event-loop tick it opens)
+        if (ws.readyState === ws_1.WebSocket.OPEN) {
+            ws.send(payload);
+        }
     });
     httpServer.listen(8999);
 }

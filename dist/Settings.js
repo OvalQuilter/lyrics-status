@@ -10,7 +10,8 @@ class Settings {
             view: this.view,
             timings: this.timings,
             update: this.update,
-            rateLimit: this.rateLimit
+            rateLimit: this.rateLimit,
+            sources: this.sources
         }));
     }
     static load() {
@@ -26,7 +27,8 @@ class Settings {
             this.view = settings.view || this.view;
             this.timings = settings.timings || this.timings;
             this.update = settings.update || this.update;
-            this.rateLimit = settings.rateLimit || this.rateLimit;
+            this.rateLimit = { ...this.rateLimit, ...(settings.rateLimit || {}) };
+            this.sources = { ...this.sources, ...(settings.sources || {}) };
         }
     }
 }
@@ -34,6 +36,7 @@ exports.Settings = Settings;
 Settings.credentials = {
     token: "",
     cookies: "",
+    musixmatchToken: "",
     clientID: "",
     clientSecret: "",
     useExternalAuthServer: "",
@@ -47,7 +50,7 @@ Settings.view = {
     label: true,
     advanced: {
         enabled: false,
-        customEmoji: "🎶",
+        customEmoji: "\uD83C\uDFB6",
         customStatus: "[{timestamp}] [{lyrics}]"
     }
 };
@@ -65,4 +68,11 @@ Settings.rateLimit = {
     minIntervalMs: 5000,
     enableMergeLines: true,
     mergeWindowMs: 8000
+};
+Settings.sources = {
+    enableSpotify: true,
+    enableMusixmatch: true,
+    enableLrcLib: true,
+    enableNetEase: true,
+    enableQQMusic: true
 };

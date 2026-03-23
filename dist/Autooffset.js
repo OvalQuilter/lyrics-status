@@ -11,6 +11,8 @@ class Autooffset {
         this.keys.unshift(value);
     }
     getAverageValue() {
+        // FIX: guard against empty keys — prevents NaN propagating into offset
+        if (this.keys.length === 0) return 0;
         let value = 0;
         for (const key of this.keys) {
             value += key;

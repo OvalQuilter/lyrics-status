@@ -1,17 +1,18 @@
 // ── Settings schema & defaults ────────────────────────────────────────────────
 const DEFAULTS = {
     credentials: {
-        token: "", cookies: "", clientID: "", clientSecret: "",
+        token: "", cookies: "", musixmatchToken: "", clientID: "", clientSecret: "",
         useExternalAuthServer: false, code: "", refreshToken: "",
         uuid: "", customRedirectUri: ""
     },
     view: {
         timestamp: true, label: true,
-        advanced: { enabled: false, customEmoji: "🎶", customStatus: "[{timestamp}] Song lyrics - {lyrics}" }
+        advanced: { enabled: false, customEmoji: "\uD83C\uDFB6", customStatus: "[{timestamp}] Song lyrics - {lyrics}" }
     },
     timings:  { sendTimeOffset: 500, enableAutooffset: true, autooffset: 3 },
     update:   { enableAutoupdate: true },
-    rateLimit:{ enableBackoff: true, enableMinInterval: true, minIntervalMs: 5000, enableMergeLines: true, mergeWindowMs: 8000 }
+    rateLimit:{ enableBackoff: true, enableMinInterval: true, minIntervalMs: 5000, enableMergeLines: true, mergeWindowMs: 8000 },
+    sources:  { enableSpotify: true, enableMusixmatch: true, enableLrcLib: true, enableNetEase: true, enableQQMusic: true }
 };
 
 // ── Binding map: [ selector, settings path, type ] ───────────────────────────
@@ -22,6 +23,7 @@ const BINDINGS = [
     ["#client-secret",           "credentials.clientSecret",            "text"],
     ["#custom-redirect-uri",     "credentials.customRedirectUri",       "text"],
     ["#use-external-auth-server","credentials.useExternalAuthServer",   "checkbox"],
+    ["#musixmatch-token",        "credentials.musixmatchToken",         "text"],
     ["#enable-timestamp",        "view.timestamp",                      "checkbox"],
     ["#enable-label",            "view.label",                          "checkbox"],
     ["#enable-advanced-swt",     "view.advanced.enabled",               "checkbox"],
@@ -36,6 +38,11 @@ const BINDINGS = [
     ["#min-interval-ms",         "rateLimit.minIntervalMs",             "number"],
     ["#enable-merge-lines",      "rateLimit.enableMergeLines",          "checkbox"],
     ["#merge-window-ms",         "rateLimit.mergeWindowMs",             "number"],
+    ["#enable-spotify",          "sources.enableSpotify",               "checkbox"],
+    ["#enable-musixmatch",       "sources.enableMusixmatch",            "checkbox"],
+    ["#enable-lrclib",           "sources.enableLrcLib",                "checkbox"],
+    ["#enable-netease",          "sources.enableNetEase",               "checkbox"],
+    ["#enable-qqmusic",          "sources.enableQQMusic",               "checkbox"],
 ];
 
 // ── Help text map ─────────────────────────────────────────────────────────────
@@ -55,6 +62,14 @@ const HELP = {
         <code>{lyrics}</code>, <code>{lyrics_upper}</code>, <code>{lyrics_lower}</code>, <code>{lyrics_letters_only}</code><br>
         <code>{song_name}</code>, <code>{song_name_cropped}</code>, <code>{song_author}</code>, <code>{timestamp}</code><br><br>
         Status is automatically cropped to 128 characters.`,
+    "#musixmatch-token-help": `
+        <strong>Musixmatch user token</strong> is required to fetch lyrics from Musixmatch.<br><br>
+        To get it:<br>
+        1. Go to <a href="https://www.musixmatch.com" target="_blank" style="color:var(--accent)">musixmatch.com</a> and log in.<br>
+        2. Open DevTools (F12) &rarr; Network tab &rarr; reload the page.<br>
+        3. Click any request to <code>apic-desktop.musixmatch.com</code>.<br>
+        4. In the Cookie header, copy the value of <code>x-mxm-token-guid</code>.<br><br>
+        Musixmatch is the database that powers Spotify's own lyrics &mdash; it has the widest coverage.`,
 };
 
 // ── Deep path helpers ─────────────────────────────────────────────────────────
@@ -64,7 +79,6 @@ function getPath(obj, path) {
 function setPath(obj, path, val) {
     const keys = path.split(".");
     const last = keys.pop();
-    // FIX: guard against missing intermediate keys
     const target = keys.reduce((o, k) => (o != null ? o[k] : null), obj);
     if (target != null) target[last] = val;
 }
@@ -79,42 +93,24 @@ let _pendingSave = false;
 
 function connectWS() {
     ws = new WebSocket("ws://localhost:8999/ws");
-
     ws.onmessage = ({ data }) => {
         try {
             settings = $.extend(true, {}, DEFAULTS, JSON.parse(data));
             applyToDom();
-            // Flush any save that was queued while socket was reconnecting
             if (_pendingSave) { _pendingSave = false; save(); }
-        } catch (e) {
-            console.error("Failed to load settings:", e);
-        }
+        } catch (e) { console.error("Failed to load settings:", e); }
     };
-
     ws.onerror = (e) => console.error("WebSocket error:", e);
-
-    ws.onclose = () => {
-        // Reconnect after 2s — server may have restarted
-        setTimeout(connectWS, 2000);
-    };
+    ws.onclose = () => { setTimeout(connectWS, 2000); };
 }
-
 connectWS();
 
 // ── Save ──────────────────────────────────────────────────────────────────────
 function save() {
-    if (!loaded) return console.warn("Settings not yet loaded — save skipped.");
-    // FIX: guard readyState; queue if not yet open
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-        _pendingSave = true;
-        return;
-    }
-    try {
-        ws.send(JSON.stringify(settings));
-    } catch (e) {
-        console.error("ws.send failed:", e);
-        _pendingSave = true;
-    }
+    if (!loaded) return console.warn("Settings not yet loaded - save skipped.");
+    if (!ws || ws.readyState !== WebSocket.OPEN) { _pendingSave = true; return; }
+    try { ws.send(JSON.stringify(settings)); }
+    catch (e) { console.error("ws.send failed:", e); _pendingSave = true; }
 }
 
 // ── Preview ───────────────────────────────────────────────────────────────────
@@ -124,7 +120,6 @@ function fmtTime(ms) {
 }
 function updatePreview() {
     const { timestamp, label } = settings.view;
-    // Use 137000ms (2:17) as the demo value — consistent with ms everywhere
     $("#status-preview").text(
         `${timestamp ? `[${fmtTime(137000)}] ` : ""}${label ? "Song lyrics - " : ""}La-la-la`
     );
@@ -137,33 +132,23 @@ function applyToDom() {
             const el  = $(sel);
             const val = getPath(settings, path);
             if (val == null) continue;
-
             if (type === "checkbox") el.prop("checked", !!val);
             else                     el.val(val);
         }
-
-        // Side-effects
         const adv = settings.view.advanced.enabled;
         $("#advanced-swt").toggleClass("show", adv);
         $("#enable-timestamp, #enable-label").prop("disabled", adv);
-
         const ok = !!(settings.credentials?.refreshToken || settings.credentials?.code);
         $("#spotify-ok").toggleClass("show", ok);
-
         updatePreview();
-    } catch (e) {
-        console.error("applyToDom error:", e);
-    } finally {
-        // Always mark loaded so saves aren't blocked after a partial apply
-        loaded = true;
-    }
+    } catch (e) { console.error("applyToDom error:", e); }
+    finally { loaded = true; }
 }
 
 // ── Attach data-driven events ─────────────────────────────────────────────────
 function bindAll() {
     for (const [sel, path, type] of BINDINGS) {
         const el = $(sel);
-
         if (type === "checkbox") {
             el.on("change", () => {
                 setPath(settings, path, el.prop("checked"));
@@ -180,7 +165,7 @@ function bindAll() {
                 const v = parseFloat(el.val());
                 if (!isNaN(v) && v >= 0) { setPath(settings, path, v); save(); }
             });
-        } else { // text / textarea
+        } else {
             const evt = type === "textarea" ? "input" : "change";
             el.on(evt, () => {
                 let v = el.val();
@@ -205,23 +190,15 @@ function showModal(title, html) {
             <div class="modal-box">
                 <div class="modal-header">
                     <span>${title}</span>
-                    <span class="modal-close">✕</span>
+                    <span class="modal-close">&#x2715;</span>
                 </div>
                 <div class="modal-body">${html}</div>
             </div>
         </div>`);
-
-    // FIX: separate handlers so each selector does exactly the right check
-    // Overlay click: only close when clicking the backdrop itself, not the box
-    m.on("click", function(e) {
-        if (e.target === this) m.remove();
-    });
-    // Close button: always close
+    m.on("click", function(e) { if (e.target === this) m.remove(); });
     m.find(".modal-close").on("click", () => m.remove());
-
     m.appendTo(document.body);
 }
-
 function bindHelp() {
     for (const [sel, html] of Object.entries(HELP)) {
         const title = sel.replace(/^#/, "").replace(/-help$/, "").replace(/-/g, " ");
@@ -231,22 +208,18 @@ function bindHelp() {
 
 // ── Check token ───────────────────────────────────────────────────────────────
 $("#check-token").on("click", function () {
-    const btn  = $(this);
-    const orig = btn.text();
-    btn.prop("disabled", true).text("…");
-
+    const btn = $(this), orig = btn.text();
+    btn.prop("disabled", true).text("...");
     let ok = true;
     $.ajax({
-        url:      "https://discordapp.com/api/v8/users/@me",
-        headers:  { Authorization: settings.credentials.token },
-        async:    true,
+        url: "https://discordapp.com/api/v8/users/@me",
+        headers: { Authorization: settings.credentials.token },
+        async: true,
         statusCode: { 401: () => { ok = false; } },
         error: () => { ok = false; },
         complete: () => {
-            btn.prop("disabled", false)
-               .removeClass("success danger")
-               .addClass(ok ? "success" : "danger")
-               .text(ok ? "✓" : "✗");
+            btn.prop("disabled", false).removeClass("success danger")
+               .addClass(ok ? "success" : "danger").text(ok ? "\u2713" : "\u2717");
             setTimeout(() => btn.removeClass("success danger").text(orig), 3000);
         }
     });
@@ -262,7 +235,4 @@ $("#btn-authorize").on("click", () => {
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-$(document).ready(() => {
-    bindAll();
-    bindHelp();
-});
+$(document).ready(() => { bindAll(); bindHelp(); });

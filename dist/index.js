@@ -5,6 +5,7 @@ const SpotifySource_1 = require("./Sources/SpotifySource");
 const NetEaseMusicSource_1 = require("./Sources/NetEaseMusicSource");
 const LrcLibSource_1 = require("./Sources/LrcLibSource");
 const QQMusicSource_1 = require("./Sources/QQMusicSource");
+const MusixmatchSource_1 = require("./Sources/MusixmatchSource");
 const PlaybackStateUpdater_1 = require("./PlaybackStateUpdater");
 const PlaybackState_1 = require("./PlaybackState");
 const StatusChanger_1 = require("./StatusChanger");
@@ -30,11 +31,27 @@ function init() {
     }
     ExternalAuthServerAPI_1.ExternalAuthServerAPI.register();
     SpotifyService_1.SpotifyService.refresh();
+
     const lyricsFetcher = new LyricsFetcher_1.LyricsFetcher();
-    lyricsFetcher.addSource(new SpotifySource_1.SpotifySource());
-    lyricsFetcher.addSource(new LrcLibSource_1.LrcLibSource());
-    lyricsFetcher.addSource(new NetEaseMusicSource_1.NetEaseMusicSource());
-    lyricsFetcher.addSource(new QQMusicSource_1.QQMusicSource());
+    const src = Settings_1.Settings.sources;
+
+    // Sources are tried in this priority order. Each is skipped if disabled in Settings.
+    // Spotify → Musixmatch → LrcLib → NetEase → QQMusic
+    if (src.enableSpotify    !== false) lyricsFetcher.addSource(new SpotifySource_1.SpotifySource());
+    if (src.enableMusixmatch !== false) lyricsFetcher.addSource(new MusixmatchSource_1.MusixmatchSource());
+    if (src.enableLrcLib     !== false) lyricsFetcher.addSource(new LrcLibSource_1.LrcLibSource());
+    if (src.enableNetEase    !== false) lyricsFetcher.addSource(new NetEaseMusicSource_1.NetEaseMusicSource());
+    if (src.enableQQMusic    !== false) lyricsFetcher.addSource(new QQMusicSource_1.QQMusicSource());
+
+    const activeNames = [
+        src.enableSpotify    !== false ? "Spotify"     : null,
+        src.enableMusixmatch !== false ? "Musixmatch"  : null,
+        src.enableLrcLib     !== false ? "LrcLib"      : null,
+        src.enableNetEase    !== false ? "NetEase"     : null,
+        src.enableQQMusic    !== false ? "QQMusic"     : null,
+    ].filter(Boolean);
+    Debug_1.Debug.write(`[init] Active lyric sources: ${activeNames.join(", ")}`);
+
     const playbackState = new PlaybackState_1.PlaybackState();
     const playbackStateUpdater = new PlaybackStateUpdater_1.PlaybackStateUpdater(playbackState, lyricsFetcher);
     const statusChanger = new StatusChanger_1.StatusChanger(playbackState);
@@ -45,7 +62,14 @@ function init() {
     // 60fps progress + status change — no rendering here
     let now = Date.now();
     let _songEndedFired = false;
+    let _lastKnownSongId = "";
     setInterval(() => {
+        // Detect manual song skip: songId changed but ended never fired.
+        // Clears sentLines and resets _lastSentAt so the new song starts fresh.
+        if (playbackState.songId && playbackState.songId !== _lastKnownSongId) {
+            _lastKnownSongId = playbackState.songId;
+            statusChanger.songChanged();
+        }
         statusChanger.changeStatus();
         playbackState.songProgress += Date.now() - now;
         now = Date.now();

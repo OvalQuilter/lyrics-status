@@ -231,6 +231,87 @@ A second pass of null safety fixes following live testing:
   - next.text in the Next lyric display null-coalesced to "".
 
 ─────────────────────────────────────────────────────────────────────
+13. UNICODE CODE POINT TRUNCATION FIX (March 2026)
+    Files: dist/StatusChanger.js, src/StatusChanger.ts
+─────────────────────────────────────────────────────────────────────
+JavaScript's string.length counts UTF-16 code units, not Unicode code
+points. Emoji (e.g. 🎵, 🎶) use surrogate pairs and have .length === 2
+but are a single code point — which is how Discord counts toward its
+128-character status limit.
+
+This caused two bugs:
+  - Lyrics containing emoji were truncated 1 character too early per
+    emoji (over-truncation), wasting space in the status.
+  - The phase 3 hard-cut in smartTruncate used text.slice(0, n), which
+    can land inside a surrogate pair and produce a broken/garbled
+    character at the end of the Discord status (visible as ? or □).
+    This also affects any non-BMP Unicode characters in lyrics from
+    languages such as Japanese, Korean, or Chinese that include
+    characters outside the Basic Multilingual Plane.
+
+Fix: two module-level helpers added to StatusChanger:
+  cpLen(s)     — returns [...s].length  (code point count)
+  cpSlice(s,n) — returns [...s].slice(0,n).join("") (safe substring)
+
+All character-limit checks and slices in smartTruncate() and
+changeStatus() now use cpLen/cpSlice instead of .length/.slice:
+  - smartTruncate(): 4 length checks + 1 hard-cut slice
+  - changeStatus() simple mode: prefix limit calculation,
+    merged line reduction loop, and final length guard
+  - changeStatus() advanced template mode: fullStatus fit check
+    and per-candidate fit check in the reduction loop
+
+Both dist/StatusChanger.js and src/StatusChanger.ts updated.
+
+─────────────────────────────────────────────────────────────────────
+14. MERGE BUG FIX + BOM CLEANUP (March 2026)
+    Files: dist/StatusChanger.js, src/StatusChanger.ts,
+           dist/Settings.js, dist/index.js
+─────────────────────────────────────────────────────────────────────
+MERGE BUG — Root cause: buildMergedLines looked FORWARD from the
+anchor line. The skip logic in changeStatus() always positions the
+anchor at the LAST due line (the one where nextLine is not yet due).
+By definition, nothing ahead of that anchor is yet due, so the forward
+scan always found zero lines to merge. Result: every send was exactly
+one line, regardless of mergeWindowMs.
+
+Fix: buildMergedLines rewritten to look BACKWARD from the anchor.
+It now collects unsent lines within mergeWindowMs behind the anchor
+and returns them in chronological order (oldest first). This aligns
+with the intent of the setting: "merge the last N seconds of lyrics
+into one Discord status update."
+
+  buildMergedLines signature change:
+    Old: (lines, startIndex, songProgress, offset)
+    New: (lines, anchorIndex, mergeWindowMs)
+
+  mergeWindowMs is now pre-computed once per changeStatus() call
+  (from Settings.rateLimit) and passed directly, removing redundant
+  Settings reads inside the function.
+
+  Previously-sent lines in the backward window are skipped (they are
+  already in sentLines from an earlier send). Only fresh unsent lines
+  are collected.
+
+  The intermediate skip-logic tweak introduced during entry #13 was
+  reverted back to the original clean one-liner:
+    if (nextLine && nextLine.time < (songProgress + offset)) continue;
+  This is correct: find the last due line, then merge backward.
+
+EXPECTED BEHAVIOR with minInterval=6s, mergeWindow=4s:
+  - Lines fire every ~3s. Each 6s interval send picks up the most
+    recent ~2 lines (within the 4s window) as a merged status.
+  - Lines older than 4s from the anchor are treated as stale and
+    omitted — they fall outside the merge window by design.
+  - The log now correctly shows "(2 line(s) merged)" on these sends.
+
+BOM CLEANUP: dist/Settings.js and dist/index.js had a UTF-8 BOM
+(EF BB BF) prefix added silently by the file-write tool. Node.js
+tolerates it but it is non-standard. BOMs stripped from both files
+via PowerShell byte-level rewrite. dist/StatusChanger.js confirmed
+clean on this write.
+
+─────────────────────────────────────────────────────────────────────
 FILES MODIFIED
 ─────────────────────────────────────────────────────────────────────
   dist/LyricsFetcher.js
@@ -239,8 +320,37 @@ FILES MODIFIED
   dist/Settings.js
   dist/Panel/Server.js
   dist/index.js
+  src/StatusChanger.ts
   static/panel.js
   CHANGELOG.txt
 
   No changes to: package.json, tsconfig.json, README.md,
   VERSION, or any other files.
+
+
+─────────────────────────────────────────────────────────────────────
+15. MUSIXMATCH SOURCE + SOURCE TOGGLES (March 2026)
+    Files: dist/Sources/MusixmatchSource.js (new), src/Sources/MusixmatchSource.ts (new),
+           dist/Settings.js, src/Settings.ts, dist/Panel/Server.js,
+           dist/index.js, static/panel.js, static/index.html
+─────────────────────────────────────────────────────────────────────
+NEW SOURCE — Musixmatch (unofficial API):
+  Same database Spotify uses for its own built-in lyrics. Uses the
+  unofficial desktop API endpoint (apic-desktop.musixmatch.com).
+  Requires musixmatchToken (x-mxm-token-guid cookie from musixmatch.com).
+
+  track.search resolves name+artist to track_id. track.subtitle.get
+  fetches LRC-format synced lyrics. LRC parser with correct 2/3-digit
+  ms normalisation. Throws early if token is empty so LyricsFetcher
+  falls through cleanly to the next source.
+
+SOURCE ORDER TOGGLES:
+  New Settings.sources block: enableSpotify, enableMusixmatch,
+  enableLrcLib, enableNetEase, enableQQMusic (all true by default).
+  index.js reads these at startup; disabled sources are never
+  instantiated. Fixed priority order: Spotify -> Musixmatch ->
+  LrcLib -> NetEase -> QQMusic.
+
+  sources block wired into Settings save/load spread, Server.js
+  WebSocket payload, panel.js DEFAULTS + 5 new BINDINGS, and
+  index.html Sources section + Musixmatch token field.

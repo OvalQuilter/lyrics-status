@@ -16,6 +16,9 @@ export class Autooffset {
     }
 
     public getAverageValue(): number {
+        // FIX: guard against empty keys array to avoid NaN propagating into offset
+        if (this.keys.length === 0) return 0
+
         let value = 0
 
         for (const key of this.keys) {

@@ -6,3 +6,5 @@
 /src/backup/
 /log.txt
 **/.DS_Store
+/dist/*_patch.txt
+/rpc/

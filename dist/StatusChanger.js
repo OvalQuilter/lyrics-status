@@ -5,6 +5,12 @@ const Settings_1 = require("./Settings");
 const Autooffset_1 = require("./Autooffset");
 const Debug_1 = require("./Debug");
 
+// Count by Unicode code points, not UTF-16 code units.
+// Emoji use surrogate pairs and have .length === 2 but are 1 code point.
+// Discord's 128-char status limit is by code point, so we must count the same way.
+function cpLen(s) { return [...s].length; }
+function cpSlice(s, n) { return [...s].slice(0, n).join(""); }
+
 class StatusChanger {
     constructor(playbackState) {
         this.playbackState = playbackState;
@@ -14,6 +20,7 @@ class StatusChanger {
         this._lastSentAt = 0;
         this._lastSentText = "";
     }
+
     changeStatusRequest(text, token, emoji) {
         const now = Date.now();
         Debug_1.Debug.write(`[StatusChanger] Sending Discord status: "${text}" | emoji: ${emoji}`);
@@ -52,49 +59,57 @@ class StatusChanger {
         });
         return request;
     }
+
     smartTruncate(text, limit = 128, lyricLines = null) {
         if (!text) return "";
-        if (text.length <= limit) return text;
+        if (cpLen(text) <= limit) return text;
         if (lyricLines && lyricLines.length > 1) {
             const lines = lyricLines.slice();
             while (lines.length > 1) {
                 lines.pop();
                 const candidate = lines.join(" ");
-                if (candidate.length <= limit) return candidate;
+                if (cpLen(candidate) <= limit) return candidate;
             }
             text = lines[0] || "";
-            if (text.length <= limit) return text;
+            if (cpLen(text) <= limit) return text;
         }
         const words = text.split(" ");
         while (words.length > 1) {
             words.pop();
             const candidate = words.join(" ");
-            if (candidate.length <= limit) return candidate + "...";
+            if (cpLen(candidate) <= limit) return candidate + "...";
         }
-        return text.slice(0, limit - 3) + "...";
+        return cpSlice(text, limit - 3) + "...";
     }
-    buildMergedLines(lines, startIndex, songProgress, offset) {
-        const anchor = lines[startIndex];
-        const mergeWindowMs = Settings_1.Settings.rateLimit.enableMergeLines
-            ? (Settings_1.Settings.rateLimit.mergeWindowMs || 8000) : 0;
+
+    // Collects the anchor line and any unsent lines within mergeWindowMs BEHIND it.
+    // Lines are returned in chronological order (oldest first) so the merged text
+    // reads naturally and the truncation reduction loop drops the newest lines first.
+    //
+    // Why backward? The skip logic in changeStatus() always positions i at the LAST
+    // due line (where nextLine is not yet due). Looking forward from there finds
+    // nothing — all future lines are not yet due. Looking backward collects the
+    // recent past within the configurable window, which is exactly what merging means.
+    buildMergedLines(lines, anchorIndex, mergeWindowMs) {
+        const anchor = lines[anchorIndex];
         let lyricLines = [anchor.text || ""];
         let mergedLines = [anchor];
+
         if (mergeWindowMs > 0) {
-            for (let j = startIndex + 1; j < lines.length; j++) {
-                // Measure gap from anchor, not hop-by-hop, so the window
-                // applies to the total span of merged lines, not each step.
-                const gapFromAnchor = lines[j].time - anchor.time;
-                const isDue = lines[j].time < (songProgress + offset);
-                if (isDue && gapFromAnchor <= mergeWindowMs && lines[j].text) {
-                    lyricLines.push(lines[j].text);
-                    mergedLines.push(lines[j]);
-                } else {
-                    break;
-                }
+            for (let j = anchorIndex - 1; j >= 0; j--) {
+                const gapFromAnchor = anchor.time - lines[j].time;
+                if (gapFromAnchor > mergeWindowMs) break;
+                if (!lines[j].text) continue;
+                // Skip lines already sent in a previous interval
+                if (this.sentLines.some(s => s.time === lines[j].time)) continue;
+                lyricLines.unshift(lines[j].text);
+                mergedLines.unshift(lines[j]);
             }
         }
+
         return { mergedText: lyricLines.join(" "), lyricLines, mergedLines };
     }
+
     applyTemplate(template, mergedText, line, playbackState) {
         const name = playbackState.songName || "";
         const author = playbackState.songAuthor || "";
@@ -117,40 +132,59 @@ class StatusChanger {
             .replace("{song_author_upper}", author.toUpperCase())
             .replace("{song_author_lower}", author.toLowerCase());
     }
+
     changeStatus() {
         this.autooffset.setLimit(Settings_1.Settings.timings.autooffset);
         const playbackState = this.playbackState;
         if (playbackState.ended || !playbackState.hasLyrics || !playbackState.isPlaying) return;
         const lyrics = playbackState.lyrics;
         if (!lyrics) return;
+
         const now = Date.now();
         if (Settings_1.Settings.rateLimit.enableBackoff && now < this._rateLimitedUntil) return;
+
         const minInterval = Settings_1.Settings.rateLimit.enableMinInterval
             ? (Settings_1.Settings.rateLimit.minIntervalMs || 5000) : 0;
         if (minInterval > 0 && now - this._lastSentAt < minInterval) return;
+
         const currentLine = playbackState.currentLine;
         const songProgress = playbackState.songProgress;
         const lines = lyrics.lines;
         const offset = Settings_1.Settings.timings.enableAutooffset
             ? this.autooffset.getAverageValue() + 100
             : Settings_1.Settings.timings.sendTimeOffset;
+
+        // Pre-compute mergeWindowMs once per call — used by both skip check and buildMergedLines
+        const mergeWindowMs = Settings_1.Settings.rateLimit.enableMergeLines
+            ? (Settings_1.Settings.rateLimit.mergeWindowMs || 8000) : 0;
+
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const nextLine = lines[i + 1];
+
             if (line.time < (songProgress + offset)) {
                 if (!line.text) continue;
+
+                // Skip stale lines — if the next line is also already due, this one
+                // is not the anchor. Keep scanning forward to the last due line.
+                // buildMergedLines then collects recent unsent lines BEHIND that anchor.
                 if (nextLine && nextLine.time < (songProgress + offset)) continue;
+
+                // Anchor found (last due line). Stop if already sent or already current.
                 if (this.sentLines.some((sentLine) => sentLine.time === line.time)) break;
                 if (line === currentLine) break;
-                const { mergedText, lyricLines, mergedLines } = this.buildMergedLines(lines, i, songProgress, offset);
+
+                const { mergedText, lyricLines, mergedLines } = this.buildMergedLines(lines, i, mergeWindowMs);
                 playbackState.currentLine = line;
                 this._lastSentAt = now;
+
                 let statusText;
                 let emoji;
+
                 if (Settings_1.Settings.view.advanced.enabled) {
                     const template = Settings_1.Settings.view.advanced.customStatus;
                     const fullStatus = this.applyTemplate(template, mergedText, line, playbackState);
-                    if (fullStatus.length <= 128) {
+                    if (cpLen(fullStatus) <= 128) {
                         statusText = fullStatus;
                     } else {
                         const reducedLines = lyricLines.slice();
@@ -158,7 +192,7 @@ class StatusChanger {
                         while (reducedLines.length > 1) {
                             reducedLines.pop();
                             const candidate = this.applyTemplate(template, reducedLines.join(" "), line, playbackState);
-                            if (candidate.length <= 128) { statusText = candidate; fitted = true; break; }
+                            if (cpLen(candidate) <= 128) { statusText = candidate; fitted = true; break; }
                         }
                         if (!fitted) {
                             statusText = this.smartTruncate(
@@ -171,15 +205,16 @@ class StatusChanger {
                 } else {
                     const prefix = `${Settings_1.Settings.view.timestamp ? `[${this.formatSeconds(+(line.time / 1000).toFixed(0))}] ` : ""}${Settings_1.Settings.view.label ? "Song lyrics - " : ""}`;
                     const cleanedLines = lyricLines.map(l => l.replace("\u266a", "\uD83C\uDFB6"));
-                    const limit = 128 - prefix.length;
+                    const limit = 128 - cpLen(prefix);
                     const reduced = cleanedLines.slice();
-                    while (reduced.length > 1 && reduced.join(" ").length > limit) reduced.pop();
-                    const lyricsText = reduced.join(" ").length <= limit
+                    while (reduced.length > 1 && cpLen(reduced.join(" ")) > limit) reduced.pop();
+                    const lyricsText = cpLen(reduced.join(" ")) <= limit
                         ? reduced.join(" ")
                         : this.smartTruncate(reduced[0], limit, null);
                     statusText = prefix + lyricsText;
                     emoji = "\uD83C\uDFB6";
                 }
+
                 this._lastSentText = statusText;
                 Debug_1.Debug.write(`[StatusChanger] Queuing status (${mergedLines.length} line(s) merged): "${statusText}"`);
                 this.changeStatusRequest(statusText, Settings_1.Settings.credentials.token, emoji);
@@ -188,13 +223,16 @@ class StatusChanger {
             }
         }
     }
+
     songChanged() {
         this.sentLines = [];
         this._lastSentAt = Date.now(); // always apply min interval across song boundaries
     }
+
     formatSeconds(s) {
         return (s - (s %= 60)) / 60 + (9 < s ? ':' : ':0') + s;
     }
+
     parseStatusString(status) {
         if (!this.playbackState.currentLine) return this.smartTruncate(status || "", 128, null);
         const line = this.playbackState.currentLine;

@@ -1,6 +1,7 @@
-import express from "express"
+﻿import express from "express"
+import { Debug } from "../Debug"
 import { createServer } from "node:http"
-import { WebSocketServer } from "ws"
+import { WebSocketServer, WebSocket } from "ws"
 import { join } from "node:path"
 import { Settings } from "../Settings"
 import { SpotifyService } from "../SpotifyService"
@@ -24,7 +25,7 @@ export function startServer(): void {
             if (!req.query.refresh_token) return res.sendStatus(401)
 
             const refreshToken = req.query.refresh_token
-            console.log(refreshToken)
+            Debug.write(`[Server] OAuth callback: received refresh token`)
             Settings.credentials.refreshToken = refreshToken as string
             Settings.save()
         } else {
@@ -32,24 +33,24 @@ export function startServer(): void {
 
             const code = req.query.code
             Settings.credentials.code = code as string
-            SpotifyService.exchange().then(() => Settings.save())
+            // FIX: catch exchange failures so a bad OAuth response doesn't crash the server
+            SpotifyService.exchange()
+                .then(() => Settings.save())
+                .catch((e: unknown) => Debug.write(`[Server] SpotifyService.exchange failed: ${e}`))
         }
+
         res.send(`<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
         <title>Spotify authorization complete</title>
         <script>
-            // Try to close the popup window once the callback has been received
             (function () {
                 try {
-                    // If this window was opened by another page, attempt to close it
                     if (window.opener && !window.opener.closed) {
                         window.close();
                     }
-                } catch (e) {
-                    // Ignore cross-origin or other errors
-                }
+                } catch (e) {}
             })();
         </script>
     </head>
@@ -60,26 +61,47 @@ export function startServer(): void {
     })
 
     wss.on("connection", (ws) => {
-        ws.on("message", (data) => {
-            const settings = JSON.parse(data.toString())
-            // Not typed but it's necessary
+        // FIX: catch per-connection errors so a single bad client doesn't take down the server
+        ws.on("error", (err) => {
+            console.error("[Server] WebSocket client error:", err)
+        })
 
-            Settings.credentials = settings.credentials
-            Settings.view = settings.view
-            Settings.timings = settings.timings
-            Settings.update = settings.update
+        ws.on("message", (data) => {
+            // FIX: wrap JSON.parse in try/catch — a malformed payload previously threw
+            // an uncaught exception that propagated to the process-level handler
+            let parsed: any
+            try {
+                parsed = JSON.parse(data.toString())
+            } catch (e) {
+                Debug.write(`[Server] Received malformed JSON from panel, ignoring: ${e}`)
+                return
+            }
+
+            if (!parsed || typeof parsed !== "object") return
+
+            Settings.credentials = parsed.credentials ?? Settings.credentials
+            Settings.view        = parsed.view        ?? Settings.view
+            Settings.timings     = parsed.timings     ?? Settings.timings
+            Settings.update      = parsed.update      ?? Settings.update
+            if (parsed.rateLimit) Settings.rateLimit  = parsed.rateLimit
 
             Settings.save()
         })
 
-        const settings = JSON.stringify({
+        // Send current settings to the newly connected panel
+        const payload = JSON.stringify({
             credentials: Settings.credentials,
-            view: Settings.view,
-            timings: Settings.timings,
-            update: Settings.update
+            view:        Settings.view,
+            timings:     Settings.timings,
+            update:      Settings.update,
+            rateLimit:   Settings.rateLimit
         })
 
-        ws.send(settings)
+        // FIX: check socket is still open before sending the initial payload
+        // (connection could theoretically close in the same tick)
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(payload)
+        }
     })
 
     httpServer.listen(8999)

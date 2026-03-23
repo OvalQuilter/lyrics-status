@@ -5,6 +5,7 @@ export class Settings {
     public static credentials = {
         token: "",
         cookies: "",
+        musixmatchToken: "",
         clientID: "",
         clientSecret: "",
         useExternalAuthServer: "",
@@ -24,7 +25,7 @@ export class Settings {
         }
     }
 
-    public static timings= {
+    public static timings = {
         sendTimeOffset: 500,
         enableAutooffset: true,
         autooffset: 3
@@ -34,12 +35,30 @@ export class Settings {
         enableAutoupdate: true
     }
 
+    public static rateLimit = {
+        enableBackoff: true,
+        enableMinInterval: true,
+        minIntervalMs: 5000,
+        enableMergeLines: true,
+        mergeWindowMs: 8000
+    }
+
+    public static sources = {
+        enableSpotify: true,
+        enableMusixmatch: true,
+        enableLrcLib: true,
+        enableNetEase: true,
+        enableQQMusic: true
+    }
+
     public static save(): void {
         writeFileSync("./settings.json", JSON.stringify({
             credentials: this.credentials,
             view: this.view,
             timings: this.timings,
-            update: this.update
+            update: this.update,
+            rateLimit: this.rateLimit,
+            sources: this.sources
         }))
     }
 
@@ -57,6 +76,8 @@ export class Settings {
             this.view = settings.view || this.view
             this.timings = settings.timings || this.timings
             this.update = settings.update || this.update
+            this.rateLimit = { ...this.rateLimit, ...(settings.rateLimit || {}) }
+            this.sources = { ...this.sources, ...(settings.sources || {}) }
         }
     }
 }

@@ -35,8 +35,7 @@ class PlaybackStateUpdater {
                 if (Settings_1.Settings.credentials.useExternalAuthServer) {
                     SpotifyService_1.SpotifyService.token = (yield ExternalAuthServerAPI_1.ExternalAuthServerAPI.getToken()) || "";
                     Debug_1.Debug.write(`[PlaybackStateUpdater] Got new token from external auth server: ${!!SpotifyService_1.SpotifyService.token}`);
-                }
-                else {
+                } else {
                     Debug_1.Debug.write(`[PlaybackStateUpdater] Calling SpotifyService.refresh()`);
                     return yield SpotifyService_1.SpotifyService.refresh();
                 }
@@ -44,13 +43,24 @@ class PlaybackStateUpdater {
             if (request.status === 200) {
                 const json = yield request.json();
                 const playbackState = this.playbackState;
+
+                // FIX: guard against null item (podcasts, local files, or nothing playing)
+                // json.item is null in these cases and must not be accessed
+                if (!json.item) {
+                    Debug_1.Debug.write(`[PlaybackStateUpdater] json.item is null — skipping song update (podcast or local file?)`);
+                    playbackState.isPlaying = json.is_playing ?? false;
+                    return;
+                }
+
                 playbackState.songProgress = json.progress_ms + (Date.now() - roundTripTimeStart);
                 playbackState.isPlaying = json.is_playing;
-                Debug_1.Debug.write(`[PlaybackStateUpdater] isPlaying:${json.is_playing} | song: "${json.item && json.item.name}" | progress: ${json.progress_ms}ms`);
-                if (playbackState.songId !== (json.item && json.item.id)) {
-                    Debug_1.Debug.write(`[PlaybackStateUpdater] New song detected: "${json.item && json.item.name}" by ${json.item && json.item.artists && json.item.artists[0] && json.item.artists[0].name}`);
+                Debug_1.Debug.write(`[PlaybackStateUpdater] isPlaying:${json.is_playing} | song: "${json.item.name}" | progress: ${json.progress_ms}ms`);
+
+                if (playbackState.songId !== json.item.id) {
+                    // FIX: safe access on artists array with optional chaining and fallback
+                    Debug_1.Debug.write(`[PlaybackStateUpdater] New song detected: "${json.item.name}" by ${json.item.artists?.[0]?.name ?? "Unknown"}`);
                     playbackState.songName = json.item.name.replace(/ \(.+\)/, "");
-                    playbackState.songAuthor = (json.item.artists && json.item.artists[0] && json.item.artists[0].name) || "Unknown";
+                    playbackState.songAuthor = json.item.artists?.[0]?.name ?? "Unknown";
                     playbackState.oldSongId = playbackState.songId;
                     playbackState.songId = json.item.id;
                     playbackState.songDuration = json.item.duration_ms;
@@ -58,6 +68,13 @@ class PlaybackStateUpdater {
                     playbackState.currentLine = null;
                     playbackState.hasLyrics = !!playbackState.lyrics;
                     Debug_1.Debug.write(`[PlaybackStateUpdater] Lyrics fetched: ${playbackState.hasLyrics} | source: ${this.lyricsFetcher.lastFetchedFrom}`);
+                }
+
+                // FIX: retry lyrics if they were never successfully fetched for the current song
+                if (this.lyricsFetcher.lastFetchedFor !== (playbackState.songName + playbackState.songAuthor)) {
+                    Debug_1.Debug.write(`[PlaybackStateUpdater] Lyrics not yet fetched for current song — retrying`);
+                    playbackState.lyrics = yield this.lyricsFetcher.fetchLyrics(playbackState.songName, playbackState.songAuthor);
+                    playbackState.hasLyrics = !!playbackState.lyrics;
                 }
             }
             if (request.status === 204) {

@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "discord-rpc": "^4.0.1",
     "express": "^4.21.2",
     "he": "^1.2.0",
     "node-stream-zip": "^1.15.0",
@@ -13,6 +14,7 @@
     "@types/ws": "^8.5.10"
   },
   "scripts": {
-    "start": "node dist/index"
+    "start": "node dist/index",
+    "rpc": "node rpc/index"
   }
 }
