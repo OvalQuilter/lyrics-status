@@ -1,113 +1,120 @@
-ALL CREDIT GOES TO OVALQUILTER, CREATOR OF LYRICS-STATUS
+# lyrics-status — RamenFighter03 fork
 
-> **This is a fork of [OvalQuilter/lyrics-status](https://github.com/OvalQuilter/lyrics-status).**
-> The purpose of this fork is to refactor and improve several core functions -- including rate limit handling, lyric line merging, smart truncation, null safety, error handling, and the terminal display. See [CHANGELOG.txt](CHANGELOG.txt) for a full breakdown of changes.
+> **Based on [OvalQuilter/lyrics-status](https://github.com/OvalQuilter/lyrics-status) (v3.0.7) — all credit to the original author.**
+> This fork adds Musixmatch support, rate limit handling, smart truncation, line merging, improved terminal display, and various bug fixes. See [CHANGELOG.txt](CHANGELOG.txt) for the full breakdown.
 
 ![Terminal display](res/screenie.png)
 
 ---
 
-# LyricsStatus V3
+## What does it do?
 
-## What is it?
+LyricsStatus polls Spotify every 5 seconds and updates your Discord custom status with the current synced lyric line in real time. It runs on Node.js and serves a settings panel at `localhost:8999`.
 
-LyricsStatus is a tool that changes your Discord status to lyrics of songs you listen to on Spotify!
+---
 
-It is written in TypeScript and runs on Node.js.
+## What's different in this fork?
 
-## Precautions
+- **Musixmatch source** — the same lyrics database Spotify uses internally, now available as a fallback source with the widest catalog of any provider
+- **Per-source toggles** — enable or disable Spotify, Musixmatch, LrcLib, NetEase, and QQ Music individually from the panel
+- **Rate limit handling** — automatic backoff on Discord 429s, configurable minimum send interval, and lyric line merging to reduce total API calls
+- **Smart truncation** — drops whole lines before chopping words; Unicode/emoji safe (code point aware, not byte length)
+- **Song skip detection** — manual skips are detected immediately, clearing stale lyric state for the new song
+- **Improved terminal display** — flicker-free, overwrites in place, shows current/next lyric, rate limit status, and send countdown
+- **Null safety** — guards against missing artists, song metadata, and malformed Spotify responses
 
-Before you proceed to [Setup](#Setup) please read those precautions.
+---
 
-This tool is provided "AS IS" and doesn't have any warranty that it will work on your machine.
+## Requirements
 
-I, creator of the LyricsStatus, am not responsible for any consequences that LyricsStatus can lead to.
+- [Node.js](https://nodejs.org/en) v17 or higher
+- A Spotify account (free or premium)
+- A Discord account
 
-By using it, you agree with the statements above.
+---
 
-## Setup
+## Installation
 
-### Node.js
+**1. Clone this fork**
 
-Firstly, you need to [download](https://nodejs.org/en) Node.js.
-
-LyricsStatus needs version 17.x.x or higher.
-
-### Downloading LyricsStatus
-
-You can download it using Git or going to [Releases](https://github.com/OvalQuilter/lyrics-status/releases) and downloading source code archive. Then unpack it to the place you want.
-
-For Git, use this command:
-
+```bash
+git clone --single-branch --branch v3 https://github.com/RamenFighter03/lyrics-status
+cd lyrics-status
 ```
-git clone --single-branch --branch v3 https://github.com/OvalQuilter/lyrics-status
-```
 
-### Locating to LyricsStatus
+**2. Install dependencies**
 
-#### Windows & Linux
-
-Copy the path to the LyricsStatus folder, often found on top of your File Explorer (`C:\Users\your_profile_name\path\to\LyricsStatus` or `/usr/name/path/to/LyricsStatus` for example).
-
-For Windows, press `Win + R` and type `cmd`, then press `Run`.
-
-For Linux, you need to manually open Terminal from your start menu.
-
-In the opened window type `cd paste_path_you_copied` and press `Enter`.
-
-### Installing modules
-
-Now, you need to install modules. In the command prompt, run the following command:
-
-```
+```bash
 npm install
 ```
 
-Then wait for modules to install.
+**3. Start the app**
 
-### Running and configuring
+```bash
+npm start
+```
 
-Run `npm run start` to start LyricsStatus.
+Then open `http://localhost:8999` in your browser to configure it.
 
-Now you need to configure it. Open `localhost:8999` in your browser, you should see a menu with various settings.
+---
 
-First, you need to get your Discord token. [Here's](https://www.youtube.com/watch?v=LnBnm_tZlyU) a nice video on how to do it.
+## Configuration
 
-After getting your token you need to paste it, head back to the menu and paste it in the `Token` input field. Remove quotes if there are any.
+### Discord token
 
-Second, you need to get your Spotify cookies. Open [Spotify](https://open.spotify.com/) in your browser, then press `F12` or `Ctrl + Alt + I`, depending on your browser.
+You need your Discord user token. [This video](https://www.youtube.com/watch?v=LnBnm_tZlyU) shows how to get it. Paste it into the **Discord token** field and click **Check** to verify.
 
-Head to the `Network` tab or similar, you should see something like this:
+> ⚠️ Never share your Discord token with anyone.
+
+### Spotify cookies
+
+1. Open [open.spotify.com](https://open.spotify.com) in your browser and make sure you're logged in.
+2. Press `F12` to open DevTools and go to the **Network** tab.
+3. Reload the page, then click on any request to `open.spotify.com`.
+4. Find the `Cookie:` header in the request headers and copy the entire value.
+5. Paste it into the **Spotify cookies** field in the panel.
 
 ![Network Tab](res/network_tab.png)
-
-Now reload the page, wait for it to load, and search for something like `open.spotify.com` (often it's appear on top):
-
 ![Request](res/request.png)
-
-Click on it, in the opened window search for `Cookie:`, it's your cookies. Copy and paste them in `Cookie` input field in the menu.
-
-Start some song in Spotify, if it has lyrics, you should see current lyrics in your command prompt as well as in your Discord status.
 
 ### Musixmatch (optional, recommended)
 
-Musixmatch is the same lyrics database that Spotify uses internally -- it has the widest catalog of any source. Adding your token gives the best chance of finding synced lyrics for any song, including ones that Spotify itself doesn't display lyrics for.
+Musixmatch has the widest synced lyrics catalog of any source — including songs that Spotify itself doesn't show lyrics for.
 
 1. Go to [musixmatch.com](https://www.musixmatch.com) and log in or create a free account.
-2. Open DevTools (`F12`) and go to the **Application** tab.
-3. Under **Cookies**, click `https://www.musixmatch.com`.
-4. Find `musixmatchUserToken`, double-click its Value and copy the whole string.
-5. Paste it into the **Musixmatch token** field in the panel at `localhost:8999` -- the token is extracted automatically.
-6. Click **Check** to verify it works.
+2. Open DevTools (`F12`) → **Application** tab → **Cookies** → `https://www.musixmatch.com`.
+3. Find `musixmatchUserToken`, double-click its Value column and copy the whole string.
+4. Paste it into the **Musixmatch token** field in the panel — the token is extracted automatically.
+5. Click **Check** to verify it works.
 
-Leaving this field blank is fine -- the app will fall back to LrcLib, NetEase, and QQMusic automatically.
+Leaving this blank is fine — the app will fall through to LrcLib, NetEase, and QQ Music automatically.
 
-### Troubleshooting
+### Spotify OAuth (optional)
+
+Filling in a **Client ID**, **Client secret**, and **Redirect URI** from a [Spotify developer app](https://developer.spotify.com/dashboard) enables OAuth-based playback access. This is optional — cookies alone are sufficient for lyrics fetching.
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| Panel shows blank page | Restart the app and hard-refresh (`Ctrl+Shift+R`) |
+| No lyrics showing | Check that Spotify cookies are fresh and a song with lyrics is playing |
+| Spotify source "RBAC: access denied" | Cookies have expired — re-paste fresh ones from DevTools |
+| Discord status not updating | Verify your Discord token is correct using the Check button |
+| Rate limited by Discord | Raise the minimum interval in the panel's Rate Limiting section |
 
 #### Windows
-
-Try running command line with administrator privileges or disabling your firewall.
+If the app won't start, try running the command prompt as Administrator or temporarily disabling your firewall.
 
 #### Linux
+Try running the terminal as `su`.
 
-Try running Terminal from `su` user.
+---
+
+## Precautions
+
+This tool is provided "AS IS" with no warranty. The original author (OvalQuilter) and this fork's maintainer are not responsible for any consequences arising from its use. By using it you accept this.
+
+> ⚠️ Use of Discord user tokens is against Discord's Terms of Service. Proceed at your own risk.
