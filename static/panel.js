@@ -18,6 +18,7 @@ const DEFAULTS = {
 // ── Binding map: [ selector, settings path, type ] ───────────────────────────
 const BINDINGS = [
     ["#user-token",              "credentials.token",                   "text"],
+    ["#spotify-cookies",         "credentials.cookies",                 "text"],
     ["#client-id",               "credentials.clientID",                "text"],
     ["#client-secret",           "credentials.clientSecret",            "text"],
     ["#custom-redirect-uri",     "credentials.customRedirectUri",       "text"],
@@ -73,10 +74,6 @@ const HELP = {
 };
 
 // ── Musixmatch token extraction ───────────────────────────────────────────────
-// Accepts either:
-//   (a) a raw cookie string containing musixmatchUserToken=... (full cookie blob)
-//   (b) a plain token string (already extracted) -- passed through as-is
-// Returns the web-desktop-app-v1.0 token string, or "" on any failure.
 function extractMxmToken(input) {
     if (!input || !input.trim()) return "";
     const raw = input.trim();

@@ -375,3 +375,67 @@ TOKEN CHECK PROXY:
   Fixed by adding a /check-mxm GET endpoint in Server.js. The panel now
   calls GET /check-mxm (same origin), Node makes the request with the
   Cookie header intact, and returns { ok: true/false }.
+
+─────────────────────────────────────────────────────────────────────
+17. SONG SKIP DETECTION (March 2026)
+    File: dist/index.js
+─────────────────────────────────────────────────────────────────────
+Previous behaviour: if the user manually skipped a song mid-play,
+the 60fps loop would never call songChanged() because playbackState
+.ended never became true — the skip just replaced the songId.
+sentLines and _lastSentAt from the old song persisted into the new
+one, causing the first lyric of the new song to be skipped or
+silently blocked by the stale min-interval timer.
+
+Fix: a _lastKnownSongId variable is checked every frame. When
+playbackState.songId changes and the value is non-empty, songChanged()
+is called immediately, clearing sentLines and resetting _lastSentAt.
+This fires before changeStatus() in the same tick so the new song's
+first matching lyric is sent on the very next eligible interval.
+
+─────────────────────────────────────────────────────────────────────
+18. RATE LIMIT BODY LOGGING IMPROVEMENT (March 2026)
+    File: dist/StatusChanger.js
+─────────────────────────────────────────────────────────────────────
+Previous behaviour: the HTTP 429 handler called res.json() directly.
+If Discord returned a non-JSON body (e.g. plain text, HTML error
+page, or empty body), the .json() call would throw and the catch
+branch would fall back to 30s — but the raw response body was never
+logged, making it impossible to diagnose the rate limit.
+
+Fix: handler now calls res.text() first and logs the raw body
+unconditionally. JSON.parse() is then attempted on the text with a
+try/catch. If parsing fails, the failure and the raw body are both
+logged and the 30s fallback is applied. This makes every 429
+completely observable in log.txt regardless of body format.
+
+─────────────────────────────────────────────────────────────────────
+FILES MODIFIED
+─────────────────────────────────────────────────────────────────────
+  dist/LyricsFetcher.js
+  dist/PlaybackStateUpdater.js
+  dist/StatusChanger.js
+  dist/Settings.js
+  dist/Panel/Server.js
+  dist/index.js
+  dist/Sources/MusixmatchSource.js  (new)
+  src/StatusChanger.ts
+  src/Settings.ts
+  src/Sources/MusixmatchSource.ts   (new)
+  static/index.html
+  static/panel.js
+  CHANGELOG.txt
+
+  No changes to: package.json, tsconfig.json, VERSION.
+
+─────────────────────────────────────────────────────────────────────
+19. SPOTIFY MANUAL COOKIE FIELD (March 2026)
+    Files: static/panel.js, static/index.html,
+           dist/Sources/SpotifySource.js
+─────────────────────────────────────────────────────────────────────
+Spotify authentication uses a plain manual cookie paste field.
+credentials.cookies maps to a text input in the Authentication
+section, wired into BINDINGS. SpotifySource.request() sends the
+cookie string directly in the Cookie header alongside the OAuth
+Bearer token from SpotifyService — no browser fetch, no token
+caching, no expiry tracking.

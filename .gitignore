@@ -8,3 +8,4 @@
 **/.DS_Store
 /dist/*_patch.txt
 /rpc/
+/CONTEXT.md
