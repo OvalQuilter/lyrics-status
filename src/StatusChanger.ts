@@ -192,8 +192,8 @@ export class StatusChanger {
                 playbackState.currentLine = line
                 this._lastSentAt = now
 
-                let statusText: string
-                let emoji: string
+                let statusText!: string
+                let emoji!: string
 
                 if (Settings.view.advanced.enabled) {
                     const template = Settings.view.advanced.customStatus
