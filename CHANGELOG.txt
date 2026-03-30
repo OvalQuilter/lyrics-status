@@ -483,3 +483,27 @@ checkbox. Dragging reorders the list and immediately rebuilds
 sourceOrder in settings; toggling the checkbox updates the enableXxx
 flag. Both changes save via WebSocket on the spot. Changes take effect
 on next restart.
+
+─────────────────────────────────────────────────────────────────────
+22. BUG FIXES — SOURCE ORDER, CACHE WRITE, DOUBLE SONGCHANGED (March 2026)
+    Files: dist/index.js, dist/LyricsFetcher.js
+─────────────────────────────────────────────────────────────────────
+SOURCE ORDER IGNORED (dist/index.js):
+  dist/index.js used hardcoded if(src.enableXxx) conditionals, so the
+  drag-and-drop sourceOrder saved by the panel had zero effect at runtime.
+  Replaced with SOURCE_MAP + ENABLE_MAP + loop over sourceOrder, matching
+  the src/index.ts logic from entry 21. Falls back to default order if
+  sourceOrder is missing or empty.
+
+CACHE WRITE MASKING FETCH SUCCESS (dist/LyricsFetcher.js):
+  cacheLyrics() was inside the same try block as getLyrics(). On Windows,
+  song names with invalid filename characters (<, >, :, ", |, ?, *) caused
+  writeFileSync to throw. The catch block logged a false source failure and
+  the song was never cached — causing a live re-fetch on every playback.
+  cacheLyrics() is now in its own try/catch after the source try/catch.
+
+DOUBLE SONGCHANGED ON NATURAL END (dist/index.js):
+  On a natural song end, songChanged() fired twice: once from _songEndedFired
+  when ended=true, and again from skip detection when Spotify polling
+  delivered the new songId. Skip detection now only fires songChanged() if
+  _songEndedFired is false (i.e. a true mid-song skip, not a natural end).

@@ -11,6 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LyricsFetcher = void 0;
 const fs_1 = require("fs");
+const Debug_1 = require("./Debug");
 class LyricsFetcher {
     constructor() {
         this.sources = [];
@@ -35,9 +36,16 @@ class LyricsFetcher {
                     this.lastFetchedFor = name + artist;
                     result = yield source.getLyrics(name, artist);
                     this.lastFetchedFrom = source.getAppName();
-                    this.cacheLyrics(name, artist, result, this.lastFetchedFrom);
                 }
-                catch (_a) { }
+                catch (_a) {
+                    Debug_1.Debug.write(`[LyricsFetcher] ${source.getAppName()} failed: ${_a}`);
+                }
+                // Cache write is separate so a filesystem error (e.g. invalid chars in
+                // song name on Windows) never masks a successful lyrics fetch.
+                if (result && !cache) {
+                    try { this.cacheLyrics(name, artist, result, this.lastFetchedFrom); }
+                    catch (_b) { Debug_1.Debug.write(`[LyricsFetcher] Cache write failed for "${name}": ${_b}`); }
+                }
                 if (result)
                     break;
             }
