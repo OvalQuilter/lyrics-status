@@ -1,4 +1,4 @@
-﻿import express from "express"
+import express from "express"
 import { Debug } from "../Debug"
 import { createServer } from "node:http"
 import { WebSocketServer, WebSocket } from "ws"
@@ -33,7 +33,6 @@ export function startServer(): void {
 
             const code = req.query.code
             Settings.credentials.code = code as string
-            // FIX: catch exchange failures so a bad OAuth response doesn't crash the server
             SpotifyService.exchange()
                 .then(() => Settings.save())
                 .catch((e: unknown) => Debug.write(`[Server] SpotifyService.exchange failed: ${e}`))
@@ -61,14 +60,11 @@ export function startServer(): void {
     })
 
     wss.on("connection", (ws) => {
-        // FIX: catch per-connection errors so a single bad client doesn't take down the server
         ws.on("error", (err) => {
             console.error("[Server] WebSocket client error:", err)
         })
 
         ws.on("message", (data) => {
-            // FIX: wrap JSON.parse in try/catch — a malformed payload previously threw
-            // an uncaught exception that propagated to the process-level handler
             let parsed: any
             try {
                 parsed = JSON.parse(data.toString())
@@ -84,21 +80,20 @@ export function startServer(): void {
             Settings.timings     = parsed.timings     ?? Settings.timings
             Settings.update      = parsed.update      ?? Settings.update
             if (parsed.rateLimit) Settings.rateLimit  = parsed.rateLimit
+            if (parsed.sources)   Settings.sources    = parsed.sources
 
             Settings.save()
         })
 
-        // Send current settings to the newly connected panel
         const payload = JSON.stringify({
             credentials: Settings.credentials,
             view:        Settings.view,
             timings:     Settings.timings,
             update:      Settings.update,
-            rateLimit:   Settings.rateLimit
+            rateLimit:   Settings.rateLimit,
+            sources:     Settings.sources
         })
 
-        // FIX: check socket is still open before sending the initial payload
-        // (connection could theoretically close in the same tick)
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(payload)
         }

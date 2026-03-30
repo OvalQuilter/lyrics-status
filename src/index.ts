@@ -3,6 +3,7 @@ import { SpotifySource} from "./Sources/SpotifySource"
 import { NetEaseMusicSource } from "./Sources/NetEaseMusicSource"
 import { LrcLibSource } from "./Sources/LrcLibSource"
 import { QQMusicSource } from "./Sources/QQMusicSource"
+import { MusixmatchSource } from "./Sources/MusixmatchSource"
 import { PlaybackStateUpdater } from "./PlaybackStateUpdater"
 import { PlaybackState } from "./PlaybackState"
 import { StatusChanger } from "./StatusChanger"
@@ -41,10 +42,11 @@ function init(): void {
     SpotifyService.refresh()
 
     const lyricsFetcher = new LyricsFetcher()
-    lyricsFetcher.addSource(new SpotifySource())
-    lyricsFetcher.addSource(new LrcLibSource())
-    lyricsFetcher.addSource(new NetEaseMusicSource())
-    lyricsFetcher.addSource(new QQMusicSource())
+    if (Settings.sources.enableSpotify)    lyricsFetcher.addSource(new SpotifySource())
+    if (Settings.sources.enableLrcLib)     lyricsFetcher.addSource(new LrcLibSource())
+    if (Settings.sources.enableNetEase)    lyricsFetcher.addSource(new NetEaseMusicSource())
+    if (Settings.sources.enableQQMusic)    lyricsFetcher.addSource(new QQMusicSource())
+    if (Settings.sources.enableMusixmatch) lyricsFetcher.addSource(new MusixmatchSource())
 
     const playbackState = new PlaybackState()
     const playbackStateUpdater = new PlaybackStateUpdater(playbackState, lyricsFetcher)

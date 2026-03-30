@@ -439,3 +439,31 @@ section, wired into BINDINGS. SpotifySource.request() sends the
 cookie string directly in the Cookie header alongside the OAuth
 Bearer token from SpotifyService — no browser fetch, no token
 caching, no expiry tracking.
+
+─────────────────────────────────────────────────────────────────────
+20. SOURCE TOGGLE BUG FIX + TS2454 FIX (March 2026)
+    Files: src/index.ts, src/Panel/Server.ts, src/StatusChanger.ts
+─────────────────────────────────────────────────────────────────────
+SOURCE TOGGLES (src/index.ts):
+  Sources were unconditionally added to LyricsFetcher at startup,
+  ignoring Settings.sources entirely. Each addSource() call is now
+  wrapped with the corresponding Settings.sources.enableXxx check.
+  Musixmatch was also missing from index.ts entirely; it is now
+  included with its toggle guard.
+
+PANEL SYNC (src/Panel/Server.ts):
+  The WebSocket message handler did not persist Settings.sources when
+  the panel saved, and the initial payload sent to a connecting panel
+  did not include sources — so toggle state was never shown or saved.
+  Both the inbound handler and the outbound connect payload now include
+  the sources block.
+
+TS2454 (src/StatusChanger.ts):
+  statusText and emoji declared with definite assignment assertion (!)
+  to satisfy TypeScript control flow analysis. Fixes three TS2454
+  errors reported by tsc.
+
+SPOTIFY COOKIE CLARIFICATION:
+  The cookies field requires only the sp_dc cookie from open.spotify.com.
+  In DevTools: Application → Cookies → https://open.spotify.com → copy
+  the value of sp_dc. Paste only that value (not the full cookie string).
