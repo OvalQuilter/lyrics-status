@@ -33,7 +33,6 @@
             overflow-x: hidden;
         }
 
-        /* ── Layout ─────────────────────────────────────── */
         #app {
             max-width: 820px;
             margin: 0 auto;
@@ -49,17 +48,8 @@
             border-bottom: 1px solid var(--border);
         }
 
-        header h1 {
-            font-size: 22px;
-            font-weight: 600;
-            letter-spacing: -.02em;
-        }
-
-        header p {
-            margin-top: 3px;
-            font-size: 12px;
-            color: var(--muted);
-        }
+        header h1 { font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+        header p  { margin-top: 3px; font-size: 12px; color: var(--muted); }
 
         #version {
             font-family: 'DM Mono', monospace;
@@ -71,26 +61,14 @@
             border: 1px solid var(--border);
         }
 
-        /* ── Section ─────────────────────────────────────── */
         .section {
             padding: 20px 0;
             border-bottom: 1px solid var(--border);
         }
         .section:last-of-type { border-bottom: none; }
+        .section-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+        .section-desc  { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
 
-        .section-title {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 3px;
-        }
-
-        .section-desc {
-            font-size: 12px;
-            color: var(--muted);
-            margin-bottom: 14px;
-        }
-
-        /* ── Field Row ───────────────────────────────────── */
         .row {
             display: flex;
             align-items: flex-start;
@@ -107,25 +85,11 @@
             padding-top: 5px;
         }
 
-        .row-field {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
+        .row-field { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .row-inline { display: flex; align-items: center; gap: 8px; }
 
-        .row-inline {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        small.hint { font-size: 11px; color: var(--muted); }
 
-        small.hint {
-            font-size: 11px;
-            color: var(--muted);
-        }
-
-        /* ── Inputs ──────────────────────────────────────── */
         input[type="text"],
         input[type="number"],
         textarea {
@@ -149,18 +113,10 @@
         }
 
         input[type="text"].full, textarea.full { width: 100%; }
-
         input[type="number"] { width: 80px; }
-
-        textarea {
-            resize: vertical;
-            min-height: 64px;
-            line-height: 1.45;
-        }
-
+        textarea { resize: vertical; min-height: 64px; line-height: 1.45; }
         input.invalid { border-color: var(--red) !important; }
 
-        /* ── Checkbox ────────────────────────────────────── */
         .check-row {
             display: inline-flex;
             align-items: center;
@@ -171,13 +127,11 @@
         }
 
         input[type="checkbox"] {
-            width: 15px;
-            height: 15px;
+            width: 15px; height: 15px;
             accent-color: var(--accent);
             cursor: pointer;
         }
 
-        /* ── Buttons ─────────────────────────────────────── */
         button {
             display: inline-flex;
             align-items: center;
@@ -205,24 +159,18 @@
             box-shadow: 0 3px 10px rgba(56,189,248,.3);
         }
         button.primary:hover { background: #0ea5e9; }
-
         button.success { background: rgba(34,197,94,.9); color: #0a0a0a; }
         button.danger  { background: rgba(239,68,68,.9);  color: #fff; }
 
         #btn-authorize { width: 100%; margin-bottom: 6px; }
 
-        /* ── Misc ────────────────────────────────────────── */
         .auth-bottom {
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
-        #spotify-ok {
-            font-size: 11.5px;
-            color: var(--green);
-            display: none;
-        }
+        #spotify-ok { font-size: 11.5px; color: var(--green); display: none; }
         #spotify-ok.show { display: inline; }
 
         .preview-badge {
@@ -248,10 +196,8 @@
         .sub-box.show { display: block; }
 
         .divider { height: 1px; background: var(--border); margin: 12px 0; }
-
         .indent { margin-left: 22px; }
 
-        /* Modal */
         .modal-overlay {
             position: fixed; inset: 0;
             background: rgba(0,0,0,.6);
@@ -278,11 +224,58 @@
         .modal-close { cursor: pointer; opacity: .6; font-size: 16px; line-height: 1; }
         .modal-close:hover { opacity: 1; }
 
-        /* Scrollbar */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.2); }
+
+        /* Source list drag-and-drop */
+        #source-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 4px;
+        }
+
+        #source-list li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 10px;
+            border-radius: var(--radius);
+            background: rgba(255,255,255,.04);
+            border: 1px solid var(--border);
+            cursor: grab;
+            user-select: none;
+            transition: background .12s, border-color .12s;
+        }
+
+        #source-list li.drag-over {
+            border-color: var(--accent);
+            background: rgba(56,189,248,.08);
+        }
+
+        #source-list li.dragging {
+            opacity: .4;
+        }
+
+        .drag-handle {
+            color: var(--muted);
+            font-size: 14px;
+            cursor: grab;
+            line-height: 1;
+        }
+
+        .source-name {
+            flex: 1;
+            font-size: 12.5px;
+        }
+
+        .source-desc {
+            font-size: 11px;
+            color: var(--muted);
+        }
     </style>
 </head>
 <body>
@@ -313,8 +306,8 @@
         <div class="row">
             <span class="row-label">Spotify cookies</span>
             <div class="row-field">
-                <input type="text" id="spotify-cookies" class="full" placeholder="Paste your open.spotify.com cookie string">
-                <small class="hint">Required for the Spotify lyrics source. Get it from DevTools &rarr; Application &rarr; Cookies &rarr; open.spotify.com, then copy all cookies.</small>
+                <input type="text" id="spotify-cookies" class="full" placeholder="Paste your sp_dc cookie value">
+                <small class="hint">Only the <code>sp_dc</code> value is needed. DevTools &rarr; Application &rarr; Cookies &rarr; https://open.spotify.com &rarr; copy the value of <code>sp_dc</code>.</small>
             </div>
         </div>
 
@@ -491,33 +484,13 @@
         </div>
     </section>
 
-
     <!-- Sources -->
     <section class="section">
         <div class="section-title">Lyrics Sources</div>
-        <div class="section-desc">Enable or disable individual lyrics providers. Sources are tried in order: Spotify &rarr; Musixmatch &rarr; LrcLib &rarr; NetEase &rarr; QQMusic.</div>
-
-        <div class="row">
-            <span class="row-label"></span>
-            <label class="check-row"><input type="checkbox" id="enable-spotify" checked><span>Spotify (built-in, requires cookies)</span></label>
-        </div>
-        <div class="row">
-            <span class="row-label"></span>
-            <label class="check-row"><input type="checkbox" id="enable-musixmatch" checked><span>Musixmatch (widest catalog, requires token above)</span></label>
-        </div>
-        <div class="row">
-            <span class="row-label"></span>
-            <label class="check-row"><input type="checkbox" id="enable-lrclib" checked><span>LrcLib (community-contributed, no key required)</span></label>
-        </div>
-        <div class="row">
-            <span class="row-label"></span>
-            <label class="check-row"><input type="checkbox" id="enable-netease" checked><span>NetEase Music (strong Asian coverage)</span></label>
-        </div>
-        <div class="row">
-            <span class="row-label"></span>
-            <label class="check-row"><input type="checkbox" id="enable-qqmusic" checked><span>QQ Music (strong Chinese coverage)</span></label>
-        </div>
-    </section></div>
+        <div class="section-desc">Drag to reorder. Toggle to enable or disable. Order and toggles take effect on next restart.</div>
+        <ul id="source-list"></ul>
+    </section>
+</div>
 
 <script src="jquery.min.js"></script>
 <script src="panel.js"></script>

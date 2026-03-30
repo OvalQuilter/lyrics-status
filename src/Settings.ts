@@ -48,7 +48,8 @@ export class Settings {
         enableMusixmatch: true,
         enableLrcLib: true,
         enableNetEase: true,
-        enableQQMusic: true
+        enableQQMusic: true,
+        sourceOrder: ["Spotify", "Musixmatch", "LrcLib", "NetEase", "QQMusic"] as string[]
     }
 
     public static save(): void {

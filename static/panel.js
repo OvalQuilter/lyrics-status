@@ -12,7 +12,11 @@ const DEFAULTS = {
     timings:  { sendTimeOffset: 500, enableAutooffset: true, autooffset: 3 },
     update:   { enableAutoupdate: true },
     rateLimit:{ enableBackoff: true, enableMinInterval: true, minIntervalMs: 5000, enableMergeLines: true, mergeWindowMs: 8000 },
-    sources:  { enableSpotify: true, enableMusixmatch: true, enableLrcLib: true, enableNetEase: true, enableQQMusic: true }
+    sources:  {
+        enableSpotify: true, enableMusixmatch: true, enableLrcLib: true,
+        enableNetEase: true, enableQQMusic: true,
+        sourceOrder: ["Spotify", "Musixmatch", "LrcLib", "NetEase", "QQMusic"]
+    }
 };
 
 // ── Binding map: [ selector, settings path, type ] ───────────────────────────
@@ -38,12 +42,16 @@ const BINDINGS = [
     ["#min-interval-ms",         "rateLimit.minIntervalMs",             "number"],
     ["#enable-merge-lines",      "rateLimit.enableMergeLines",          "checkbox"],
     ["#merge-window-ms",         "rateLimit.mergeWindowMs",             "number"],
-    ["#enable-spotify",          "sources.enableSpotify",               "checkbox"],
-    ["#enable-musixmatch",       "sources.enableMusixmatch",            "checkbox"],
-    ["#enable-lrclib",           "sources.enableLrcLib",                "checkbox"],
-    ["#enable-netease",          "sources.enableNetEase",               "checkbox"],
-    ["#enable-qqmusic",          "sources.enableQQMusic",               "checkbox"],
 ];
+
+// ── Source metadata ───────────────────────────────────────────────────────────
+const SOURCE_META = {
+    Spotify:    { key: "enableSpotify",    desc: "requires cookies" },
+    Musixmatch: { key: "enableMusixmatch", desc: "requires token" },
+    LrcLib:     { key: "enableLrcLib",     desc: "no key required" },
+    NetEase:    { key: "enableNetEase",    desc: "strong Asian coverage" },
+    QQMusic:    { key: "enableQQMusic",    desc: "strong Chinese coverage" }
+};
 
 // ── Help text map ─────────────────────────────────────────────────────────────
 const HELP = {
@@ -145,6 +153,55 @@ function updatePreview() {
     );
 }
 
+// ── Source list (drag-and-drop) ───────────────────────────────────────────────
+function renderSourceList() {
+    const order = (settings.sources && settings.sources.sourceOrder) || Object.keys(SOURCE_META);
+    const ul = document.getElementById("source-list");
+    ul.innerHTML = "";
+
+    for (const name of order) {
+        const meta = SOURCE_META[name];
+        if (!meta) continue;
+        const enabled = settings.sources[meta.key] !== false;
+
+        const li = document.createElement("li");
+        li.dataset.source = name;
+        li.draggable = true;
+        li.innerHTML = `
+            <span class="drag-handle">&#9776;</span>
+            <span class="source-name">${name}</span>
+            <span class="source-desc">${meta.desc}</span>
+            <input type="checkbox" ${enabled ? "checked" : ""}>`;
+
+        li.querySelector("input").addEventListener("change", (e) => {
+            settings.sources[meta.key] = e.target.checked;
+            save();
+        });
+
+        li.addEventListener("dragstart", (e) => {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", name);
+            li.classList.add("dragging");
+        });
+        li.addEventListener("dragend", () => li.classList.remove("dragging"));
+        li.addEventListener("dragover", (e) => { e.preventDefault(); li.classList.add("drag-over"); });
+        li.addEventListener("dragleave", () => li.classList.remove("drag-over"));
+        li.addEventListener("drop", (e) => {
+            e.preventDefault();
+            li.classList.remove("drag-over");
+            const from = e.dataTransfer.getData("text/plain");
+            if (from === name) return;
+            const items = [...ul.querySelectorAll("li")];
+            const fromEl = items.find(el => el.dataset.source === from);
+            ul.insertBefore(fromEl, li);
+            settings.sources.sourceOrder = [...ul.querySelectorAll("li")].map(el => el.dataset.source);
+            save();
+        });
+
+        ul.appendChild(li);
+    }
+}
+
 // ── Load settings into DOM ────────────────────────────────────────────────────
 function applyToDom() {
     try {
@@ -161,6 +218,7 @@ function applyToDom() {
         const ok = !!(settings.credentials && (settings.credentials.refreshToken || settings.credentials.code));
         $("#spotify-ok").toggleClass("show", ok);
         updatePreview();
+        renderSourceList();
     } catch (e) { console.error("applyToDom error:", e); }
     finally { loaded = true; }
 }

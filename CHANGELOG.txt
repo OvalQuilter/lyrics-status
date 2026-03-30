@@ -467,3 +467,19 @@ SPOTIFY COOKIE CLARIFICATION:
   The cookies field requires only the sp_dc cookie from open.spotify.com.
   In DevTools: Application → Cookies → https://open.spotify.com → copy
   the value of sp_dc. Paste only that value (not the full cookie string).
+
+─────────────────────────────────────────────────────────────────────
+21. CONFIGURABLE SOURCE ORDER (March 2026)
+    Files: src/Settings.ts, src/index.ts, static/index.html, static/panel.js
+─────────────────────────────────────────────────────────────────────
+Settings.sources now includes sourceOrder: string[] (default Spotify →
+Musixmatch → LrcLib → NetEase → QQMusic). index.ts replaced the five
+hardcoded addSource() calls with a single loop over sourceOrder,
+mapping name → class via SOURCE_MAP/ENABLE_MAP lookups.
+
+Panel: the five static checkboxes are replaced by a draggable <ul>.
+Each row shows a drag handle, source name, description, and enable
+checkbox. Dragging reorders the list and immediately rebuilds
+sourceOrder in settings; toggling the checkbox updates the enableXxx
+flag. Both changes save via WebSocket on the spot. Changes take effect
+on next restart.

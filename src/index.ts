@@ -1,5 +1,5 @@
 import { LyricsFetcher } from "./LyricsFetcher"
-import { SpotifySource} from "./Sources/SpotifySource"
+import { SpotifySource } from "./Sources/SpotifySource"
 import { NetEaseMusicSource } from "./Sources/NetEaseMusicSource"
 import { LrcLibSource } from "./Sources/LrcLibSource"
 import { QQMusicSource } from "./Sources/QQMusicSource"
@@ -19,55 +19,52 @@ Settings.load()
 
 if (Settings.update.enableAutoupdate) {
     Updater.tryUpdate()
-        .then(() => {
-            init()
-        })
-        .catch((e) => {
-            Debug.write("LyricsStatus failed to update. Error: " + e.stack)
-
-            init()
-        })
+        .then(() => { init() })
+        .catch((e) => { Debug.write("LyricsStatus failed to update. Error: " + e.stack); init() })
 } else {
     init()
+}
+
+const SOURCE_MAP: Record<string, () => any> = {
+    Spotify:    () => new SpotifySource(),
+    Musixmatch: () => new MusixmatchSource(),
+    LrcLib:     () => new LrcLibSource(),
+    NetEase:    () => new NetEaseMusicSource(),
+    QQMusic:    () => new QQMusicSource()
+}
+
+const ENABLE_MAP: Record<string, keyof typeof Settings.sources> = {
+    Spotify:    "enableSpotify",
+    Musixmatch: "enableMusixmatch",
+    LrcLib:     "enableLrcLib",
+    NetEase:    "enableNetEase",
+    QQMusic:    "enableQQMusic"
 }
 
 function init(): void {
     if (!Settings.credentials.uuid) {
         Settings.credentials.uuid = uuidv4()
-
         Settings.save()
     }
     ExternalAuthServerAPI.register()
-
     SpotifyService.refresh()
 
     const lyricsFetcher = new LyricsFetcher()
-    if (Settings.sources.enableSpotify)    lyricsFetcher.addSource(new SpotifySource())
-    if (Settings.sources.enableLrcLib)     lyricsFetcher.addSource(new LrcLibSource())
-    if (Settings.sources.enableNetEase)    lyricsFetcher.addSource(new NetEaseMusicSource())
-    if (Settings.sources.enableQQMusic)    lyricsFetcher.addSource(new QQMusicSource())
-    if (Settings.sources.enableMusixmatch) lyricsFetcher.addSource(new MusixmatchSource())
+    for (const name of Settings.sources.sourceOrder) {
+        if (Settings.sources[ENABLE_MAP[name]]) lyricsFetcher.addSource(SOURCE_MAP[name]())
+    }
 
     const playbackState = new PlaybackState()
     const playbackStateUpdater = new PlaybackStateUpdater(playbackState, lyricsFetcher)
-
     const statusChanger = new StatusChanger(playbackState)
 
-    setInterval(() => {
-        playbackStateUpdater.update()
-
-        //console.log(playbackState)
-        //console.log(statusChanger, playbackStateUpdater, SpotifyAccessToken)
-    }, 5000)
+    setInterval(() => { playbackStateUpdater.update() }, 5000)
 
     let now = Date.now()
     setInterval(() => {
         statusChanger.changeStatus()
-
         playbackState.songProgress += Date.now() - now
-
         if (playbackState.ended) statusChanger.songChanged()
-
         console.clear()
         console.log(`
     Song: ${playbackState.songName || "Not listening"}
@@ -76,7 +73,6 @@ function init(): void {
     Current lyrics: ${(playbackState.currentLine && playbackState.currentLine.text) || "Not available"}
     Lyrics fetched from: ${lyricsFetcher.lastFetchedFrom}
     `)
-
         now = Date.now()
     }, 1000 / 60)
 
@@ -85,8 +81,5 @@ function init(): void {
 
 process.on("uncaughtException", (e) => {
     Debug.write(e.stack + "\n" + e.cause)
-
-    if (!e.message.includes("fetch failed")) {
-        process.exit(1)
-    }
+    if (!e.message.includes("fetch failed")) process.exit(1)
 })
