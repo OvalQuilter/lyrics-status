@@ -535,3 +535,22 @@ QQMusic: json.data.song.itemlist access had no null check; crashes if
 API returns unexpected shape. Full chain now guarded.
 NetEase: json.result.songCount/.songs access unguarded. Replaced with
 full null check on result and songs array.
+
+─────────────────────────────────────────────────────────────────────
+25. SPOTIFY TOKEN — MANUAL PASTE + EXPIRY FIX (March 2026)
+    Files: static/index.html, static/panel.js,
+           dist/Panel/Server.js, dist/Sources/SpotifySource.js
+─────────────────────────────────────────────────────────────────────
+
+panel.js: #spotify-web-token wired into BINDINGS
+(credentials.spotifyWebToken). updateSpotifyTokenStatus() simplified
+to show "✓ Set" / "Not set" — no expiry display.
+
+Server.js: /fetch-spotify-token route removed. refreshSpotifyWebToken()
+at startup kept (uses stored sp_dc cookies, no-ops silently on failure).
+
+SpotifySource.js: getBearerToken() previously rejected the manually
+pasted token because it checked Date.now() < spotifyWebTokenExpiry —
+which is always false for manually pasted tokens (expiry field is 0
+or undefined). Expiry check removed; any non-empty spotifyWebToken
+is now used directly, falling back to SpotifyService.token if unset.

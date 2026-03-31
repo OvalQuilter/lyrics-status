@@ -11,6 +11,46 @@ const node_path_1 = require("node:path");
 const Settings_1 = require("../Settings");
 const SpotifyService_1 = require("../SpotifyService");
 const Debug_1 = require("../Debug");
+// Fetches a Spotify web player token using stored sp_dc cookies.
+// Called at startup and refreshed automatically before expiry.
+function refreshSpotifyWebToken() {
+    const cookies = Settings_1.Settings.credentials.cookies;
+    if (!cookies || !cookies.trim()) return;
+    fetch("https://open.spotify.com/get_access_token?reason=transport&productType=web_player", {
+        headers: {
+            "accept": "*/*",
+            "accept-language": "en-US,en;q=0.9",
+            "app-platform": "WebPlayer",
+            "x-requested-with": "XMLHttpRequest",
+            "cookie": cookies,
+            "Referer": "https://open.spotify.com/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+        }
+    })
+    .then(r => r.json())
+    .then(j => {
+        const token = j && j.accessToken;
+        if (!token || typeof token !== "string") {
+            Debug_1.Debug.write("[SpotifyToken] Auto-refresh failed: no accessToken in response: " + JSON.stringify(j).slice(0, 200));
+            return;
+        }
+        const expiry = (typeof j.accessTokenExpirationTimestampMs === "number" && j.accessTokenExpirationTimestampMs > Date.now())
+            ? j.accessTokenExpirationTimestampMs
+            : Date.now() + 3600000;
+        Settings_1.Settings.credentials.spotifyWebToken = token;
+        Settings_1.Settings.credentials.spotifyWebTokenExpiry = expiry;
+        Settings_1.Settings.save();
+        Debug_1.Debug.write("[SpotifyToken] Auto-refreshed web token, expires " + new Date(expiry).toISOString());
+        // Schedule next refresh 5 minutes before expiry
+        const refreshIn = Math.max(60000, expiry - Date.now() - 300000);
+        setTimeout(refreshSpotifyWebToken, refreshIn);
+    })
+    .catch(e => {
+        Debug_1.Debug.write("[SpotifyToken] Auto-refresh error: " + e + " — will retry in 60s");
+        setTimeout(refreshSpotifyWebToken, 60000);
+    });
+}
+
 function startServer() {
     const app = (0, express_1.default)();
     const httpServer = (0, node_http_1.createServer)(app);
@@ -112,4 +152,5 @@ function startServer() {
         }
     });
     httpServer.listen(8999);
+    refreshSpotifyWebToken();
 }

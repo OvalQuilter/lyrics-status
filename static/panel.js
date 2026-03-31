@@ -23,6 +23,7 @@ const DEFAULTS = {
 const BINDINGS = [
     ["#user-token",              "credentials.token",                   "text"],
     ["#spotify-cookies",         "credentials.cookies",                 "text"],
+    ["#spotify-web-token",       "credentials.spotifyWebToken",         "text"],
     ["#client-id",               "credentials.clientID",                "text"],
     ["#client-secret",           "credentials.clientSecret",            "text"],
     ["#custom-redirect-uri",     "credentials.customRedirectUri",       "text"],
@@ -217,6 +218,7 @@ function applyToDom() {
         $("#enable-timestamp, #enable-label").prop("disabled", adv);
         const ok = !!(settings.credentials && (settings.credentials.refreshToken || settings.credentials.code));
         $("#spotify-ok").toggleClass("show", ok);
+        updateSpotifyTokenStatus();
         updatePreview();
         renderSourceList();
     } catch (e) { console.error("applyToDom error:", e); }
@@ -260,6 +262,7 @@ function bindAll() {
                 }
                 setPath(settings, path, v);
                 save();
+                if (sel === "#spotify-web-token") updateSpotifyTokenStatus();
             });
         }
     }
@@ -306,6 +309,17 @@ $("#check-token").on("click", function () {
         }
     });
 });
+
+// ── Spotify token status display ──────────────────────────────────────────────
+function updateSpotifyTokenStatus() {
+    const token = settings.credentials && settings.credentials.spotifyWebToken;
+    const el = $("#spotify-token-status");
+    if (!token || !token.trim()) {
+        el.css("color", "var(--muted)").text("Not set");
+    } else {
+        el.css("color", "var(--green)").text("✓ Set");
+    }
+}
 
 // ── Check Musixmatch token ────────────────────────────────────────────────────
 $("#check-mxm-token").on("click", function () {

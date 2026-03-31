@@ -307,7 +307,17 @@
             <span class="row-label">Spotify cookies</span>
             <div class="row-field">
                 <input type="text" id="spotify-cookies" class="full" placeholder="Paste your sp_dc cookie value">
-                <small class="hint">Only the <code>sp_dc</code> value is needed. DevTools &rarr; Application &rarr; Cookies &rarr; https://open.spotify.com &rarr; copy the value of <code>sp_dc</code>.</small>
+                <small class="hint">Only the <code>sp_dc</code> value is needed. DevTools &rarr; Application &rarr; Cookies &rarr; https://open.spotify.com &rarr; copy value of <code>sp_dc</code>.</small>
+            </div>
+        </div>
+        <div class="row">
+            <span class="row-label">Spotify token</span>
+            <div class="row-field">
+                <div class="row-inline">
+                    <input type="text" id="spotify-web-token" class="full" placeholder="Paste accessToken from open.spotify.com/api/token">
+                    <span id="spotify-token-status" style="font-size:12px;color:var(--muted);white-space:nowrap"></span>
+                </div>
+                <small class="hint">DevTools &rarr; open a new tab to <code>open.spotify.com/api/token</code> (while logged in) &rarr; copy the <code>accessToken</code> value &rarr; paste here.</small>
             </div>
         </div>
 
