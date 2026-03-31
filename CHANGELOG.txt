@@ -507,3 +507,31 @@ DOUBLE SONGCHANGED ON NATURAL END (dist/index.js):
   when ended=true, and again from skip detection when Spotify polling
   delivered the new songId. Skip detection now only fires songChanged() if
   _songEndedFired is false (i.e. a true mid-song skip, not a natural end).
+
+─────────────────────────────────────────────────────────────────────
+23. SPOTIFY SOURCE FIX + AUTO WEB TOKEN (March 2026)
+    Files: dist/Sources/SpotifySource.js, dist/Panel/Server.js
+─────────────────────────────────────────────────────────────────────
+SpotifySource: added getBearerToken() preferring spotifyWebToken over
+SpotifyService.token. Added null guards on player and lyrics responses
+(json.lyrics was accessed without checking if the property existed,
+causing silent TypeError crashes). Errors now throw descriptively so
+LyricsFetcher logs the real reason instead of a generic failure.
+
+Server.js: refreshSpotifyWebToken() extracted as a standalone function
+and called at startup. Uses stored cookies to fetch a web player token
+from open.spotify.com/get_access_token, saves it to credentials, then
+schedules the next refresh 5 minutes before expiry. Retries in 60s on
+error. No-op if cookies are empty.
+
+─────────────────────────────────────────────────────────────────────
+24. SOURCE NULL GUARDS + LRCLIB REGEX FIX (March 2026)
+    Files: dist/Sources/LrcLibSource.js, QQMusicSource.js, NetEaseMusicSource.js
+─────────────────────────────────────────────────────────────────────
+LrcLib: regex had /g flag declared outside the per-line loop, making
+lastIndex stateful — timestamps on all lines after the first were
+skipped. Moved regexp declaration inside the loop.
+QQMusic: json.data.song.itemlist access had no null check; crashes if
+API returns unexpected shape. Full chain now guarded.
+NetEase: json.result.songCount/.songs access unguarded. Replaced with
+full null check on result and songs array.

@@ -41,10 +41,10 @@ class LrcLibSource extends BaseSource_1.BaseSource {
         const result = { lines: [] };
         const lines = lyrics.split("\n");
         // it should be: [mm:ss.xx] text
-        const regexp = /\[(\d\d):(\d\d)(?:\.(\d\d))?]/g;
         for (let line of lines) {
             if (!line.trim())
                 continue;
+            const regexp = /\[(\d\d):(\d\d)(?:\.(\d\d))?]/g;
             const timestamps = [];
             let match;
             while ((match = regexp.exec(line)) !== null) {

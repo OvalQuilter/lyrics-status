@@ -27,8 +27,8 @@ class NetEaseMusicSource extends BaseSource_1.BaseSource {
             const request = yield this.request(`https://music.163.com/api/search/get?s=${encodeURIComponent(`${name}-${artist}`)}&type=1&offset=0&sub=false&limit=5
             `);
             const json = yield request.json();
-            if (json.result.songCount <= 0)
-                throw "Song not found";
+            if (!json || !json.result || !json.result.songs || json.result.songs.length === 0)
+                throw new Error("NetEase: song not found");
             return json.result.songs[0].id;
         });
     }
@@ -59,6 +59,11 @@ class NetEaseMusicSource extends BaseSource_1.BaseSource {
                 line = line.replace(regexp, "");
                 timestamps.push((60 * m + s) * 1000 + ms);
             }
+            // Strip Chinese metadata lines (作词/作曲/编曲/制作人 etc.)
+            // and section labels like [Verse], [Chorus], [Bridge], [Intro], [Outro]
+            const isMetadata = /^\s*(作词|作曲|编曲|制作人|录音|混音|母带|出品|发行|OP|SP|制作)\s*[：:]/u.test(line);
+            const isSection = /^\s*\[(verse|chorus|bridge|intro|outro|hook|pre-chorus|refrain|interlude|outro|drop|build|break|skit|spoken|rap|instrumental|ad.?lib)\s*\d*\]\s*$/i.test(line);
+            if (isMetadata || isSection) continue;
             for (const timestamp of timestamps) {
                 result.lines.push({
                     time: timestamp,

@@ -26,8 +26,8 @@ class QQMusicSource extends BaseSource_1.BaseSource {
         return __awaiter(this, void 0, void 0, function* () {
             const request = yield this.request(`https://c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg?inCharset=utf-8&outCharset=utf-8&key=${encodeURIComponent(`${name}-${artist}`)}`);
             const json = yield request.json();
-            if (json.count <= 0)
-                throw "Song not found";
+            if (!json || !json.data || !json.data.song || !json.data.song.itemlist || json.data.song.itemlist.length === 0)
+                throw new Error("QQMusic: song not found");
             return json.data.song.itemlist[0].mid;
         });
     }
