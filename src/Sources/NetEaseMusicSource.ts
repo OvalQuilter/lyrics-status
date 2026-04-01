@@ -28,8 +28,7 @@ export class NetEaseMusicSource extends BaseSource {
 
     public async getSongId(name: string, artist: string): Promise<number> {
         const request = await this.request(
-            `https://music.163.com/api/search/get?s=${encodeURIComponent(`${name}-${artist}`)}&type=1&offset=0&sub=false&limit=5
-            `)
+            `https://music.163.com/api/search/get?s=${encodeURIComponent(`${name}-${artist}`)}&type=1&offset=0&sub=false&limit=5`)
         const json = await request.json() as SearchResponse
 
         if (json.result.songCount <= 0) throw "Song not found"
@@ -64,12 +63,17 @@ export class NetEaseMusicSource extends BaseSource {
             for (let match = line.match(regexp); match; match = line.match(regexp)) {
                 const m = +match[1]
                 const s = +match[3]
-                const ms = +match[4]
+                const ms = match[4] ? parseInt(String(match[4]).padEnd(3, "0")) : 0
 
                 line = line.replace(regexp, "")
 
                 timestamps.push((60 * m + s) * 1000 + ms)
             }
+
+            // Strip Chinese metadata lines and section labels
+            const isMetadata = /^\s*(作词|作曲|编曲|制作人|录音|混音|母带|出品|发行|OP|SP|制作)\s*[：:]/u.test(line)
+            const isSection = /^\s*\[(verse|chorus|bridge|intro|outro|hook|pre-chorus|refrain|interlude|drop|build|break|skit|spoken|rap|instrumental|ad.?lib)\s*\d*\]\s*$/i.test(line)
+            if (isMetadata || isSection) continue
 
             for (const timestamp of timestamps) {
                 result.lines.push({

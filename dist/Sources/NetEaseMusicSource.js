@@ -24,8 +24,7 @@ class NetEaseMusicSource extends BaseSource_1.BaseSource {
     }
     getSongId(name, artist) {
         return __awaiter(this, void 0, void 0, function* () {
-            const request = yield this.request(`https://music.163.com/api/search/get?s=${encodeURIComponent(`${name}-${artist}`)}&type=1&offset=0&sub=false&limit=5
-            `);
+            const request = yield this.request(`https://music.163.com/api/search/get?s=${encodeURIComponent(`${name}-${artist}`)}&type=1&offset=0&sub=false&limit=5`);
             const json = yield request.json();
             if (!json || !json.result || !json.result.songs || json.result.songs.length === 0)
                 throw new Error("NetEase: song not found");
@@ -55,7 +54,7 @@ class NetEaseMusicSource extends BaseSource_1.BaseSource {
             for (let match = line.match(regexp); match; match = line.match(regexp)) {
                 const m = +match[1];
                 const s = +match[3];
-                const ms = +match[4];
+                const ms = match[4] ? parseInt(String(match[4]).padEnd(3, "0")) : 0;
                 line = line.replace(regexp, "");
                 timestamps.push((60 * m + s) * 1000 + ms);
             }

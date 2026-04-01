@@ -20,6 +20,7 @@ export class LyricsFetcher {
 
     public async fetchLyrics(name: string, artist: string): Promise<SongLyrics | null> {
         this.lastFetchedFrom = "Not fetched"
+        this.lastFetchedFor = name + artist
 
         const cache = this.fetchCachedLyrics(name, artist)
 
@@ -33,7 +34,6 @@ export class LyricsFetcher {
             }
 
             try {
-                this.lastFetchedFor = name + artist
 
                 result = await source.getLyrics(name, artist)
 

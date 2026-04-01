@@ -312,6 +312,56 @@ via PowerShell byte-level rewrite. dist/StatusChanger.js confirmed
 clean on this write.
 
 ─────────────────────────────────────────────────────────────────────
+26. BUG FIXES — MUSIXMATCH DOUBLE-AWAIT, NETEASE MS/URL/JUNK,
+    STATUSCHANGER 429 SYNC, LYRICSFETCHER REFETCH LOOP (April 2026)
+    Files: dist/Sources/MusixmatchSource.js, src/Sources/MusixmatchSource.ts,
+           dist/Sources/NetEaseMusicSource.js, src/Sources/NetEaseMusicSource.ts,
+           src/StatusChanger.ts, src/LyricsFetcher.ts
+─────────────────────────────────────────────────────────────────────
+MUSIXMATCH DOUBLE-AWAIT (critical — source never worked):
+  request() was wrapped in __awaiter, making it return
+  Promise<Promise<Response>>. Callers yielded once, receiving the
+  inner Promise instead of the Response. res.ok was always undefined
+  (falsy), so every request threw "Musixmatch search HTTP undefined"
+  and the source silently fell through on every song lookup.
+  Additionally, MusixmatchSource.js was missing entirely from the
+  running instance's dist/Sources/ — copied across.
+  Fix: request() made synchronous (returns fetch() directly), matching
+  the original TS intent.
+
+NETEASE MS NORMALIZATION:
+  match[4] (millisecond digits) was cast with +match[4] raw. A 2-digit
+  value like "12" was treated as 12ms instead of 120ms, causing all
+  NetEase lyrics to be off by ~100ms per line.
+  Fix: parseInt(match[4].padEnd(3, "0")) — same fix already applied
+  to MusixmatchSource in entry 15.
+
+NETEASE URL NEWLINE:
+  Template literal in getSongId() contained a literal newline +
+  indentation whitespace before the closing backtick, producing a
+  malformed URL. Fetch may silently succeed but the trailing whitespace
+  could cause 400s or cache misses depending on the server.
+  Fix: URL collapsed to a single line.
+
+NETEASE JUNK LINE FILTER (src sync):
+  dist/NetEaseMusicSource.js had filters for Chinese metadata lines
+  (作词/作曲/etc.) and section labels ([Verse]/[Chorus]/etc.) but
+  src/NetEaseMusicSource.ts did not. CONTEXT.md claimed the filter
+  existed in parseLyrics() — now true in both files.
+
+STATUSCHANGER 429 SYNC (src):
+  src/StatusChanger.ts still used res.json() for 429 handling. Synced
+  to match dist: res.text() first, raw body logged unconditionally,
+  JSON.parse() attempted with try/catch, fallback to 30s on failure.
+
+LYRICSFETCHER REFETCH LOOP (src):
+  src/LyricsFetcher.ts set lastFetchedFor only inside the live-source
+  try block, not on cache hits. PlaybackStateUpdater's mismatch guard
+  (lastFetchedFor !== songName+artist) triggered on every 5s poll for
+  cached songs, causing a redundant fetchLyrics() call each tick.
+  Fix: lastFetchedFor = name + artist moved to top of fetchLyrics(),
+  before cache check, matching dist/LyricsFetcher.js.
+─────────────────────────────────────────────────────────────────────
 FILES MODIFIED
 ─────────────────────────────────────────────────────────────────────
   dist/LyricsFetcher.js
@@ -409,6 +459,56 @@ try/catch. If parsing fails, the failure and the raw body are both
 logged and the 30s fallback is applied. This makes every 429
 completely observable in log.txt regardless of body format.
 
+─────────────────────────────────────────────────────────────────────
+26. BUG FIXES — MUSIXMATCH DOUBLE-AWAIT, NETEASE MS/URL/JUNK,
+    STATUSCHANGER 429 SYNC, LYRICSFETCHER REFETCH LOOP (April 2026)
+    Files: dist/Sources/MusixmatchSource.js, src/Sources/MusixmatchSource.ts,
+           dist/Sources/NetEaseMusicSource.js, src/Sources/NetEaseMusicSource.ts,
+           src/StatusChanger.ts, src/LyricsFetcher.ts
+─────────────────────────────────────────────────────────────────────
+MUSIXMATCH DOUBLE-AWAIT (critical — source never worked):
+  request() was wrapped in __awaiter, making it return
+  Promise<Promise<Response>>. Callers yielded once, receiving the
+  inner Promise instead of the Response. res.ok was always undefined
+  (falsy), so every request threw "Musixmatch search HTTP undefined"
+  and the source silently fell through on every song lookup.
+  Additionally, MusixmatchSource.js was missing entirely from the
+  running instance's dist/Sources/ — copied across.
+  Fix: request() made synchronous (returns fetch() directly), matching
+  the original TS intent.
+
+NETEASE MS NORMALIZATION:
+  match[4] (millisecond digits) was cast with +match[4] raw. A 2-digit
+  value like "12" was treated as 12ms instead of 120ms, causing all
+  NetEase lyrics to be off by ~100ms per line.
+  Fix: parseInt(match[4].padEnd(3, "0")) — same fix already applied
+  to MusixmatchSource in entry 15.
+
+NETEASE URL NEWLINE:
+  Template literal in getSongId() contained a literal newline +
+  indentation whitespace before the closing backtick, producing a
+  malformed URL. Fetch may silently succeed but the trailing whitespace
+  could cause 400s or cache misses depending on the server.
+  Fix: URL collapsed to a single line.
+
+NETEASE JUNK LINE FILTER (src sync):
+  dist/NetEaseMusicSource.js had filters for Chinese metadata lines
+  (作词/作曲/etc.) and section labels ([Verse]/[Chorus]/etc.) but
+  src/NetEaseMusicSource.ts did not. CONTEXT.md claimed the filter
+  existed in parseLyrics() — now true in both files.
+
+STATUSCHANGER 429 SYNC (src):
+  src/StatusChanger.ts still used res.json() for 429 handling. Synced
+  to match dist: res.text() first, raw body logged unconditionally,
+  JSON.parse() attempted with try/catch, fallback to 30s on failure.
+
+LYRICSFETCHER REFETCH LOOP (src):
+  src/LyricsFetcher.ts set lastFetchedFor only inside the live-source
+  try block, not on cache hits. PlaybackStateUpdater's mismatch guard
+  (lastFetchedFor !== songName+artist) triggered on every 5s poll for
+  cached songs, causing a redundant fetchLyrics() call each tick.
+  Fix: lastFetchedFor = name + artist moved to top of fetchLyrics(),
+  before cache check, matching dist/LyricsFetcher.js.
 ─────────────────────────────────────────────────────────────────────
 FILES MODIFIED
 ─────────────────────────────────────────────────────────────────────

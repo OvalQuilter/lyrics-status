@@ -48,15 +48,23 @@ export class StatusChanger {
         request.then((res) => {
             const elapsed = Date.now() - now
             if (res.status === 429) {
-                res.json().then((body: any) => {
-                    const retryAfter = body.retry_after || 30
+                res.text().then((raw: string) => {
+                    Debug.write(\[StatusChanger] Rate limited (HTTP 429) | body: \\)
+                    let retryAfter = 30
+                    try {
+                        const body = JSON.parse(raw)
+                        if (typeof body.retry_after === "number" && body.retry_after > 0) retryAfter = body.retry_after
+                    } catch (e) {
+                        Debug.write(\[StatusChanger] Failed to parse rate limit body, defaulting to \s: \\)
+                    }
                     if (Settings.rateLimit.enableBackoff) {
                         this._rateLimitedUntil = Date.now() + (retryAfter * 1000)
-                        Debug.write(`[StatusChanger] Rate limited! Backing off ${retryAfter}s`)
+                        Debug.write(\[StatusChanger] Backing off \s\)
                     } else {
-                        Debug.write(`[StatusChanger] Rate limited (backoff disabled): ${retryAfter}s suggested`)
+                        Debug.write(\[StatusChanger] Rate limit (backoff disabled): \s suggested\)
                     }
-                }).catch(() => {
+                }).catch((e: any) => {
+                    Debug.write(\[StatusChanger] Rate limited but failed to read response body: \\)
                     if (Settings.rateLimit.enableBackoff) this._rateLimitedUntil = Date.now() + 30000
                 })
             } else if (res.status === 200) {
@@ -229,6 +237,10 @@ export class StatusChanger {
                     emoji = "🎶"
                 }
 
+                if (statusText === this._lastSentText) {
+                    for (const ml of mergedLines) this.sentLines.push(ml)
+                    break
+                }
                 this._lastSentText = statusText
                 Debug.write(`[StatusChanger] Queuing status (${mergedLines.length} line(s) merged): "${statusText}"`)
                 this.changeStatusRequest(statusText, Settings.credentials.token, emoji)

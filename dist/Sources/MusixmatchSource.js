@@ -22,14 +22,12 @@ const Debug_1 = require("../Debug");
  */
 class MusixmatchSource extends BaseSource_1.BaseSource {
     request(url) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const token = Settings_1.Settings.credentials.musixmatchToken;
-            return fetch(url, {
-                headers: {
-                    "authority": "apic-desktop.musixmatch.com",
-                    "cookie": `x-mxm-token-guid=${token}`
-                }
-            });
+        const token = Settings_1.Settings.credentials.musixmatchToken;
+        return fetch(url, {
+            headers: {
+                "authority": "apic-desktop.musixmatch.com",
+                "cookie": `x-mxm-token-guid=${token}`
+            }
         });
     }
 
@@ -69,11 +67,17 @@ class MusixmatchSource extends BaseSource_1.BaseSource {
                 `?track_id=${trackId}&subtitle_format=lrc&app_id=web-desktop-app-v1.0&usertoken=${token}`;
 
             const res = yield this.request(url);
-            if (!res.ok) throw new Error(`Musixmatch subtitle HTTP ${res.status}`);
+            if (!res.ok) {
+                const body = yield res.text().catch(() => "");
+                throw new Error(`Musixmatch subtitle HTTP ${res.status}: ${body.slice(0, 200)}`);
+            }
 
             const json = yield res.json();
+            const statusCode = json?.message?.header?.status_code;
             const subtitleBody = json?.message?.body?.subtitle?.subtitle_body;
-            if (!subtitleBody || !subtitleBody.trim()) throw new Error("Musixmatch: no synced lyrics");
+            if (!subtitleBody || !subtitleBody.trim()) {
+                throw new Error(`Musixmatch: no synced lyrics (api status=${statusCode})`);
+            }
 
             Debug_1.Debug.write(`[MusixmatchSource] Got synced lyrics for "${name}"`);
             return this.parseLyrics(subtitleBody);
