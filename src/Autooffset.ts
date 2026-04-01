@@ -1,40 +1,24 @@
 export class Autooffset {
     public keys: number[]
-
     public limit: number
 
     constructor() {
         this.keys = []
-
         this.limit = 0
     }
 
     public addValue(value: number): void {
-        this.keys.pop()
-
+        if (this.keys.length >= this.limit && this.limit > 0) this.keys.pop()
         this.keys.unshift(value)
     }
 
     public getAverageValue(): number {
-        // FIX: guard against empty keys array to avoid NaN propagating into offset
         if (this.keys.length === 0) return 0
-
-        let value = 0
-
-        for (const key of this.keys) {
-            value += key
-        }
-
-        return value / this.keys.length
+        return this.keys.reduce((a, b) => a + b, 0) / this.keys.length
     }
 
     public setLimit(limit: number): void {
         this.limit = limit
-
-        this.keys.splice(limit)
-
-        for (let i = limit; i > this.keys.length; i--) {
-            this.keys.push(0)
-        }
+        if (this.keys.length > limit) this.keys.splice(limit)
     }
 }

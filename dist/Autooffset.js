@@ -1,30 +1,24 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Autooffset = void 0;
+
 class Autooffset {
     constructor() {
         this.keys = [];
         this.limit = 0;
     }
     addValue(value) {
-        this.keys.pop();
+        if (this.keys.length >= this.limit && this.limit > 0) this.keys.pop();
         this.keys.unshift(value);
     }
     getAverageValue() {
-        // FIX: guard against empty keys — prevents NaN propagating into offset
         if (this.keys.length === 0) return 0;
-        let value = 0;
-        for (const key of this.keys) {
-            value += key;
-        }
-        return value / this.keys.length;
+        return this.keys.reduce((a, b) => a + b, 0) / this.keys.length;
     }
     setLimit(limit) {
         this.limit = limit;
-        this.keys.splice(limit);
-        for (let i = limit; i > this.keys.length; i--) {
-            this.keys.push(0);
-        }
+        // Trim excess entries if limit shrunk; never pad with zeros
+        if (this.keys.length > limit) this.keys.splice(limit);
     }
 }
 exports.Autooffset = Autooffset;

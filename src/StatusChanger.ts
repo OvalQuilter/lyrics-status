@@ -4,9 +4,6 @@ import { LyricsLine } from "./Sources/BaseSource"
 import { Autooffset } from "./Autooffset"
 import { Debug } from "./Debug"
 
-// Count by Unicode code points, not UTF-16 code units.
-// Emoji use surrogate pairs and have .length === 2 but are 1 code point.
-// Discord's 128-char status limit is by code point, so we must count the same way.
 function cpLen(s: string): number { return [...s].length; }
 function cpSlice(s: string, n: number): string { return [...s].slice(0, n).join(""); }
 
@@ -31,15 +28,10 @@ export class StatusChanger {
 
         const request = fetch("https://discordapp.com/api/v8/users/@me/settings", {
             method: "PATCH",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": token
-            },
+            headers: { "Content-Type": "application/json", "Authorization": token },
             body: JSON.stringify({
                 custom_status: {
-                    text,
-                    emoji_id: null,
-                    emoji_name: emoji,
+                    text, emoji_id: null, emoji_name: emoji,
                     expires_at: new Date(Date.now() + 60000).toISOString()
                 }
             })
@@ -49,22 +41,22 @@ export class StatusChanger {
             const elapsed = Date.now() - now
             if (res.status === 429) {
                 res.text().then((raw: string) => {
-                    Debug.write(\[StatusChanger] Rate limited (HTTP 429) | body: \\)
+                    Debug.write(`[StatusChanger] Rate limited (HTTP 429) | body: ${raw}`)
                     let retryAfter = 30
                     try {
                         const body = JSON.parse(raw)
                         if (typeof body.retry_after === "number" && body.retry_after > 0) retryAfter = body.retry_after
                     } catch (e) {
-                        Debug.write(\[StatusChanger] Failed to parse rate limit body, defaulting to \s: \\)
+                        Debug.write(`[StatusChanger] Failed to parse rate limit body, defaulting to ${retryAfter}s: ${e}`)
                     }
                     if (Settings.rateLimit.enableBackoff) {
                         this._rateLimitedUntil = Date.now() + (retryAfter * 1000)
-                        Debug.write(\[StatusChanger] Backing off \s\)
+                        Debug.write(`[StatusChanger] Backing off ${retryAfter}s`)
                     } else {
-                        Debug.write(\[StatusChanger] Rate limit (backoff disabled): \s suggested\)
+                        Debug.write(`[StatusChanger] Rate limit (backoff disabled): ${retryAfter}s suggested`)
                     }
                 }).catch((e: any) => {
-                    Debug.write(\[StatusChanger] Rate limited but failed to read response body: \\)
+                    Debug.write(`[StatusChanger] Rate limited but failed to read response body: ${e}`)
                     if (Settings.rateLimit.enableBackoff) this._rateLimitedUntil = Date.now() + 30000
                 })
             } else if (res.status === 200) {
@@ -102,14 +94,6 @@ export class StatusChanger {
         return cpSlice(text, limit - 3) + "..."
     }
 
-    // Collects the anchor line and any unsent lines within mergeWindowMs BEHIND it.
-    // Lines are returned in chronological order (oldest first) so the merged text
-    // reads naturally and the truncation reduction loop drops the newest lines first.
-    //
-    // Why backward? The skip logic in changeStatus() always positions i at the LAST
-    // due line (where nextLine is not yet due). Looking forward from there finds
-    // nothing — all future lines are not yet due. Looking backward collects the
-    // recent past within the configurable window, which is exactly what merging means.
     public buildMergedLines(lines: LyricsLine[], anchorIndex: number, mergeWindowMs: number): { mergedText: string, lyricLines: string[], mergedLines: LyricsLine[] } {
         const anchor = lines[anchorIndex]
         let lyricLines: string[] = [anchor.text || ""]
@@ -120,7 +104,6 @@ export class StatusChanger {
                 const gapFromAnchor = anchor.time - lines[j].time
                 if (gapFromAnchor > mergeWindowMs) break
                 if (!lines[j].text) continue
-                // Skip lines already sent in a previous interval
                 if (this.sentLines.some(s => s.time === lines[j].time)) continue
                 lyricLines.unshift(lines[j].text)
                 mergedLines.unshift(lines[j])
@@ -176,7 +159,6 @@ export class StatusChanger {
             ? this.autooffset.getAverageValue() + 100
             : Settings.timings.sendTimeOffset
 
-        // Pre-compute mergeWindowMs once per call — used by both skip check and buildMergedLines
         const mergeWindowMs = Settings.rateLimit.enableMergeLines
             ? (Settings.rateLimit.mergeWindowMs || 8000) : 0
 
@@ -186,13 +168,7 @@ export class StatusChanger {
 
             if (line.time < (songProgress + offset)) {
                 if (!line.text) continue
-
-                // Skip stale lines — if the next line is also already due, this one
-                // is not the anchor. Keep scanning forward to the last due line.
-                // buildMergedLines then collects recent unsent lines BEHIND that anchor.
                 if (nextLine && nextLine.time < (songProgress + offset)) continue
-
-                // Anchor found (last due line). Stop if already sent or already current.
                 if (this.sentLines.some((sentLine) => sentLine.time === line.time)) break
                 if (line === currentLine) break
 
@@ -218,8 +194,7 @@ export class StatusChanger {
                         }
                         if (!fitted) {
                             statusText = this.smartTruncate(
-                                this.applyTemplate(template, lyricLines[0], line, playbackState),
-                                128, null
+                                this.applyTemplate(template, lyricLines[0], line, playbackState), 128, null
                             )
                         }
                     }
@@ -258,31 +233,5 @@ export class StatusChanger {
 
     public formatSeconds(s: number): string {
         return (s - (s %= 60)) / 60 + (9 < s ? ':' : ':0') + s
-    }
-
-    public parseStatusString(status: string): string {
-        if (!this.playbackState.currentLine) return this.smartTruncate(status || "", 128, null)
-        const line = this.playbackState.currentLine
-        const name = this.playbackState.songName || ""
-        const author = this.playbackState.songAuthor || ""
-        status = (status || "")
-            .replace("{lyrics}", line.text || "")
-            .replace("{lyrics_upper}", (line.text || "").toUpperCase())
-            .replace("{lyrics_lower}", (line.text || "").toLowerCase())
-            .replace("{lyrics_letters_only}", (line.text || "").replace(/['",\.]/gi, ""))
-            .replace("{lyrics_upper_letters_only}", (line.text || "").toUpperCase().replace(/['",\.]/gi, ""))
-            .replace("{lyrics_lower_letters_only}", (line.text || "").toLowerCase().replace(/['",\.]/gi, ""))
-            .replace("♪", "🎶")
-            .replace("{timestamp}", this.formatSeconds(+(line.time / 1000).toFixed()))
-            .replace("{song_name}", name)
-            .replace("{song_name_upper}", name.toUpperCase())
-            .replace("{song_name_lower}", name.toLowerCase())
-            .replace("{song_name_cropped}", name.replace(/( ?- ?.+)|(\(.+\))/gi, ""))
-            .replace("{song_name_upper_cropped}", name.toUpperCase().replace(/( ?- ?.+)|(\(.+\))/gi, ""))
-            .replace("{song_name_lower_cropped}", name.toLowerCase().replace(/( ?- ?.+)|(\(.+\))/gi, ""))
-            .replace("{song_author}", author)
-            .replace("{song_author_upper}", author.toUpperCase())
-            .replace("{song_author_lower}", author.toLowerCase())
-        return this.smartTruncate(status, 128, null)
     }
 }
