@@ -717,3 +717,18 @@ Bug found post-commit and fixed:
   sufficient. QQMusic source will silently fall through until a cookie
   auth mechanism is added. No code fix applied — documented as a known
   limitation requiring credentials support.
+
+─────────────────────────────────────────────────────────────────────
+22. REFACTOR — dead code removal, async cleanup, autooffset fix
+    Files: dist/StatusChanger.js, src/StatusChanger.ts,
+           dist/PlaybackStateUpdater.js, dist/SpotifyService.js,
+           dist/Sources/SpotifySource.js, dist/Sources/NetEaseMusicSource.js,
+           dist/Sources/MusixmatchSource.js, dist/Autooffset.js, src/Autooffset.ts
+─────────────────────────────────────────────────────────────────────
+- Removed dead parseStatusString() from StatusChanger (never called).
+- Converted all remaining __awaiter/yield generator wrappers to native
+  async/await in dist (PlaybackStateUpdater, SpotifyService, SpotifySource,
+  NetEaseMusicSource, MusixmatchSource). src was already native async.
+- Fixed Autooffset zero-padding: setLimit() no longer pre-fills slots
+  with 0; addValue() trims to limit before unshift. Average now reflects
+  only real measurements, preventing underestimated offsets early in session.
