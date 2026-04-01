@@ -16,7 +16,8 @@ const DEFAULTS = {
         enableSpotify: true, enableMusixmatch: true, enableLrcLib: true,
         enableNetEase: true, enableQQMusic: true,
         sourceOrder: ["Spotify", "Musixmatch", "LrcLib", "NetEase", "QQMusic"]
-    }
+    },
+    chineseConversion: "off"
 };
 
 // ── Binding map: [ selector, settings path, type ] ───────────────────────────
@@ -43,6 +44,7 @@ const BINDINGS = [
     ["#min-interval-ms",         "rateLimit.minIntervalMs",             "number"],
     ["#enable-merge-lines",      "rateLimit.enableMergeLines",          "checkbox"],
     ["#merge-window-ms",         "rateLimit.mergeWindowMs",             "number"],
+    ["#chinese-conversion",      "chineseConversion",                   "select"],
 ];
 
 // ── Source metadata ───────────────────────────────────────────────────────────
@@ -211,7 +213,7 @@ function applyToDom() {
             const val = getPath(settings, path);
             if (val == null) continue;
             if (type === "checkbox") el.prop("checked", !!val);
-            else                     el.val(val);
+            else                     el.val(val != null ? val : "");
         }
         const adv = settings.view.advanced.enabled;
         $("#advanced-swt").toggleClass("show", adv);
@@ -240,6 +242,8 @@ function bindAll() {
                 if (sel === "#enable-timestamp" || sel === "#enable-label") updatePreview();
                 save();
             });
+        } else if (type === "select") {
+            el.on("change", () => { setPath(settings, path, el.val()); save(); });
         } else if (type === "number") {
             el.on("input", () => {
                 const v = parseFloat(el.val());

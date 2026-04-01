@@ -654,3 +654,43 @@ pasted token because it checked Date.now() < spotifyWebTokenExpiry —
 which is always false for manually pasted tokens (expiry field is 0
 or undefined). Expiry check removed; any non-empty spotifyWebToken
 is now used directly, falling back to SpotifyService.token if unset.
+
+─────────────────────────────────────────────────────────────────────
+27. CHINESE SCRIPT CONVERSION (April 2026)
+    Files: dist/LyricsFetcher.js, src/LyricsFetcher.ts,
+           dist/Settings.js, src/Settings.ts,
+           dist/Panel/Server.js, static/panel.js, static/index.html
+─────────────────────────────────────────────────────────────────────
+Adds optional Simplified ↔ Traditional Chinese conversion applied to
+lyric lines at fetch time (before caching), using opencc-js.
+
+New setting: display.chineseConversion (string, default "off").
+Possible values: "off", "toTraditional", "toSimplified".
+
+Settings.js / Settings.ts: chineseConversion added to display block
+defaults, save(), and load() spread.
+
+LyricsFetcher.js / LyricsFetcher.ts: opencc-js required at top.
+Two converters (cn→tw, tw→cn) initialised once at module level inside
+a try/catch — if opencc-js is not installed the module loads normally
+and conversion is silently skipped. After a live-source fetch succeeds
+(cache misses only), each line.text is run through the active converter
+before the result is cached. Cache hits are not re-converted; changing
+the setting takes effect on the next song that is not already cached
+(or after clearing the cache/ folder).
+
+Logic flaw accounted for: conversion is skipped when the setting is
+"off", when opencc-js failed to load, or when line.text is null/empty.
+No conversion is applied to cache hits to avoid double-converting if
+the setting is toggled after a song was already cached.
+
+Panel (static/index.html, static/panel.js): a <select> with three
+options (Off / Simplified→Traditional / Traditional→Simplified) is
+added to the Lyrics Sources section. Wired into BINDINGS as
+"display.chineseConversion" / "select". Saved live via WebSocket like
+all other settings. A restart is not required — takes effect on the
+next uncached song fetch.
+
+Server.js (dist/Panel/Server.js): display block added to the WebSocket
+payload (both outbound on connect and inbound save handler) so the
+panel reads and writes the setting correctly.

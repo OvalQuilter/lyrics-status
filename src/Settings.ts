@@ -52,6 +52,8 @@ export class Settings {
         sourceOrder: ["Spotify", "Musixmatch", "LrcLib", "NetEase", "QQMusic"] as string[]
     }
 
+    public static chineseConversion: "off" | "toTraditional" | "toSimplified" = "off"
+
     public static save(): void {
         writeFileSync("./settings.json", JSON.stringify({
             credentials: this.credentials,
@@ -59,7 +61,8 @@ export class Settings {
             timings: this.timings,
             update: this.update,
             rateLimit: this.rateLimit,
-            sources: this.sources
+            sources: this.sources,
+            chineseConversion: this.chineseConversion
         }))
     }
 
@@ -79,6 +82,7 @@ export class Settings {
             this.update = settings.update || this.update
             this.rateLimit = { ...this.rateLimit, ...(settings.rateLimit || {}) }
             this.sources = { ...this.sources, ...(settings.sources || {}) }
+            if (settings.chineseConversion) this.chineseConversion = settings.chineseConversion
         }
     }
 }

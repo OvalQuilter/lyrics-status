@@ -499,6 +499,18 @@
         <div class="section-title">Lyrics Sources</div>
         <div class="section-desc">Drag to reorder. Toggle to enable or disable. Order and toggles take effect on next restart.</div>
         <ul id="source-list"></ul>
+
+        <div class="row" style="margin-top:14px">
+            <span class="row-label">Chinese script</span>
+            <div class="row-field">
+                <select id="chinese-conversion" style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'DM Sans',sans-serif;font-size:12.5px;padding:5px 9px;outline:none;">
+                    <option value="off">Off</option>
+                    <option value="toTraditional">Simplified → Traditional</option>
+                    <option value="toSimplified">Traditional → Simplified</option>
+                </select>
+                <small class="hint">Converts Chinese lyrics on fetch. Applies to new songs only — delete cache to reprocess existing ones.</small>
+            </div>
+        </div>
     </section>
 </div>
 

@@ -11,7 +11,8 @@ class Settings {
             timings: this.timings,
             update: this.update,
             rateLimit: this.rateLimit,
-            sources: this.sources
+            sources: this.sources,
+            chineseConversion: this.chineseConversion
         }));
     }
     static load() {
@@ -29,6 +30,7 @@ class Settings {
             this.update = settings.update || this.update;
             this.rateLimit = { ...this.rateLimit, ...(settings.rateLimit || {}) };
             this.sources = { ...this.sources, ...(settings.sources || {}) };
+            if (settings.chineseConversion) this.chineseConversion = settings.chineseConversion;
         }
     }
 }
@@ -37,6 +39,8 @@ Settings.credentials = {
     token: "",
     cookies: "",
     musixmatchToken: "",
+    spotifyWebToken: "",
+    spotifyWebTokenExpiry: 0,
     clientID: "",
     clientSecret: "",
     useExternalAuthServer: "",
@@ -76,3 +80,4 @@ Settings.sources = {
     enableNetEase: true,
     enableQQMusic: true
 };
+Settings.chineseConversion = "off";

@@ -12,6 +12,40 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LyricsFetcher = void 0;
 const fs_1 = require("fs");
 const Debug_1 = require("./Debug");
+const Settings_1 = require("./Settings");
+let _opencc = null;
+let _openccMode = null;
+let _toTraditional = null;
+let _toSimplified = null;
+function getConverter(mode) {
+    if (mode === "off") return null;
+    try {
+        if (!_opencc) _opencc = require("opencc-js");
+        if (mode === "toTraditional") {
+            if (!_toTraditional) _toTraditional = _opencc.Converter({ from: "cn", to: "tw" });
+            return _toTraditional;
+        }
+        if (mode === "toSimplified") {
+            if (!_toSimplified) _toSimplified = _opencc.Converter({ from: "tw", to: "cn" });
+            return _toSimplified;
+        }
+    } catch (e) {
+        Debug_1.Debug.write("[LyricsFetcher] opencc-js not available: " + e);
+    }
+    return null;
+}
+function applyConversion(lyrics) {
+    const mode = Settings_1.Settings.chineseConversion || "off";
+    if (mode === "off" || !lyrics || !Array.isArray(lyrics.lines)) return lyrics;
+    const convert = getConverter(mode);
+    if (!convert) return lyrics;
+    try {
+        return { ...lyrics, lines: lyrics.lines.map(l => ({ ...l, text: convert(l.text || "") })) };
+    } catch (e) {
+        Debug_1.Debug.write("[LyricsFetcher] Conversion error: " + e);
+        return lyrics;
+    }
+}
 class LyricsFetcher {
     constructor() {
         this.sources = [];
@@ -30,6 +64,7 @@ class LyricsFetcher {
                 if (cache) {
                     this.lastFetchedFor = name + artist;
                     this.lastFetchedFrom = `Cache (${cache.appName})`;
+                    result = applyConversion(cache);
                     break;
                 }
                 try {
@@ -42,6 +77,7 @@ class LyricsFetcher {
                 }
                 // Cache write is separate so a filesystem error (e.g. invalid chars in
                 // song name on Windows) never masks a successful lyrics fetch.
+                if (result) result = applyConversion(result);
                 if (result && !cache) {
                     try { this.cacheLyrics(name, artist, result, this.lastFetchedFrom); }
                     catch (_b) { Debug_1.Debug.write(`[LyricsFetcher] Cache write failed for "${name}": ${_b}`); }

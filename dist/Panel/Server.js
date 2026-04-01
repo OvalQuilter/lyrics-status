@@ -135,6 +135,7 @@ function startServer() {
             Settings_1.Settings.update      = parsed.update      ?? Settings_1.Settings.update;
             if (parsed.rateLimit) Settings_1.Settings.rateLimit = parsed.rateLimit;
             if (parsed.sources)   Settings_1.Settings.sources   = parsed.sources;
+            if (parsed.chineseConversion != null) Settings_1.Settings.chineseConversion = parsed.chineseConversion;
             Settings_1.Settings.save();
         });
         const payload = JSON.stringify({
@@ -142,8 +143,9 @@ function startServer() {
             view:        Settings_1.Settings.view,
             timings:     Settings_1.Settings.timings,
             update:      Settings_1.Settings.update,
-            rateLimit:   Settings_1.Settings.rateLimit,
-            sources:     Settings_1.Settings.sources
+            rateLimit:          Settings_1.Settings.rateLimit,
+            sources:            Settings_1.Settings.sources,
+            chineseConversion:  Settings_1.Settings.chineseConversion
         });
         // FIX: check socket is still open before sending initial settings payload
         // (connection could theoretically close in the same event-loop tick it opens)
