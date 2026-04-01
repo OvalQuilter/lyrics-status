@@ -694,3 +694,26 @@ next uncached song fetch.
 Server.js (dist/Panel/Server.js): display block added to the WebSocket
 payload (both outbound on connect and inbound save handler) so the
 panel reads and writes the setting correctly.
+
+Bug found post-commit and fixed:
+
+  ERR_REQUIRE_ESM: opencc-js ships with "type":"module" in its own
+  package.json, causing Node to treat all its .js files as ESM even
+  though the UMD file has a CJS-compatible wrapper. require("opencc-js")
+  always threw ERR_REQUIRE_ESM; the try/catch silently swallowed it and
+  conversion was a permanent no-op. Fixed by replacing require() with
+  a cached dynamic import() promise (getOpencc()). applyConversion() and
+  getConverter() made async; all call sites await them.
+
+  QQMusic ms normalisation: QQMusicSource.parseLyrics() used +match[4]
+  raw, identical to the NetEase bug in entry 26. 2-digit ms values were
+  off by ~100ms. Fix: parseInt(String(match[4]).padEnd(3, "0")).
+  Files: dist/Sources/QQMusicSource.js
+
+  QQMusic dead endpoints: c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg
+  and c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg now return
+  retcode -1310 (access denied) without a valid QQ Music session cookie.
+  Tencent locked these endpoints; a Referer header alone is no longer
+  sufficient. QQMusic source will silently fall through until a cookie
+  auth mechanism is added. No code fix applied — documented as a known
+  limitation requiring credentials support.

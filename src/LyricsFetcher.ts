@@ -2,32 +2,44 @@ import { BaseSource, CachedSongLyrics, SongLyrics } from "./Sources/BaseSource"
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs"
 import { Settings } from "./Settings"
 
-let _opencc: any = null
+// opencc-js has "type":"module" so require() throws ERR_REQUIRE_ESM. Use dynamic import().
+let _openccPromise: Promise<any> | null = null
 let _toTraditional: ((s: string) => string) | null = null
 let _toSimplified: ((s: string) => string) | null = null
 
-function getConverter(mode: string): ((s: string) => string) | null {
+function getOpencc(): Promise<any> {
+    if (!_openccPromise) {
+        _openccPromise = import("opencc-js").catch(e => {
+            console.error("[LyricsFetcher] opencc-js failed to load:", e)
+            return null
+        })
+    }
+    return _openccPromise!
+}
+
+async function getConverter(mode: string): Promise<((s: string) => string) | null> {
     if (mode === "off") return null
+    const opencc = await getOpencc()
+    if (!opencc) return null
     try {
-        if (!_opencc) _opencc = require("opencc-js")
         if (mode === "toTraditional") {
-            if (!_toTraditional) _toTraditional = _opencc.Converter({ from: "cn", to: "tw" })
+            if (!_toTraditional) _toTraditional = opencc.Converter({ from: "cn", to: "tw" })
             return _toTraditional
         }
         if (mode === "toSimplified") {
-            if (!_toSimplified) _toSimplified = _opencc.Converter({ from: "tw", to: "cn" })
+            if (!_toSimplified) _toSimplified = opencc.Converter({ from: "tw", to: "cn" })
             return _toSimplified
         }
     } catch (e) {
-        console.error("[LyricsFetcher] opencc-js not available:", e)
+        console.error("[LyricsFetcher] opencc-js Converter init failed:", e)
     }
     return null
 }
 
-function applyConversion(lyrics: SongLyrics | null): SongLyrics | null {
+async function applyConversion(lyrics: SongLyrics | null): Promise<SongLyrics | null> {
     const mode = Settings.chineseConversion || "off"
     if (mode === "off" || !lyrics || !Array.isArray((lyrics as any).lines)) return lyrics
-    const convert = getConverter(mode)
+    const convert = await getConverter(mode)
     if (!convert) return lyrics
     try {
         return { ...(lyrics as any), lines: (lyrics as any).lines.map((l: any) => ({ ...l, text: convert(l.text || "") })) }
@@ -65,7 +77,7 @@ export class LyricsFetcher {
         for (const source of this.sources) {
             if (cache) {
                 this.lastFetchedFrom = `Cache (${cache.appName})`
-                result = applyConversion(cache) as SongLyrics
+                result = await applyConversion(cache) as SongLyrics
                 break
             }
 
@@ -74,11 +86,11 @@ export class LyricsFetcher {
                 this.lastFetchedFrom = source.getAppName()
             } catch {}
 
-            if (result) result = applyConversion(result) as SongLyrics
             if (result) {
                 try { this.cacheLyrics(name, artist, result, this.lastFetchedFrom) }
                 catch (e) { console.error(`[LyricsFetcher] Cache write failed for "${name}":`, e) }
             }
+            if (result) result = await applyConversion(result) as SongLyrics
             if (result) break
         }
 

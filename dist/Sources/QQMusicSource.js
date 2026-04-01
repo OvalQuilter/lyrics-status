@@ -55,7 +55,7 @@ class QQMusicSource extends BaseSource_1.BaseSource {
                 continue;
             const m = +match[1];
             const s = +match[3];
-            const ms = +match[4];
+            const ms = parseInt(String(match[4]).padEnd(3, "0"));
             const text = line.replace(regexp, "");
             result.lines.push({
                 time: (60 * m + s) * 1000 + ms,

@@ -13,31 +13,42 @@ exports.LyricsFetcher = void 0;
 const fs_1 = require("fs");
 const Debug_1 = require("./Debug");
 const Settings_1 = require("./Settings");
-let _opencc = null;
-let _openccMode = null;
+// opencc-js has "type":"module" in its package.json, so require() throws ERR_REQUIRE_ESM.
+// We must use dynamic import() and cache the result in a promise.
+let _openccPromise = null;
 let _toTraditional = null;
 let _toSimplified = null;
-function getConverter(mode) {
+function getOpencc() {
+    if (!_openccPromise) {
+        _openccPromise = import("opencc-js").catch(e => {
+            Debug_1.Debug.write("[LyricsFetcher] opencc-js failed to load: " + e);
+            return null;
+        });
+    }
+    return _openccPromise;
+}
+async function getConverter(mode) {
     if (mode === "off") return null;
+    const opencc = await getOpencc();
+    if (!opencc) return null;
     try {
-        if (!_opencc) _opencc = require("opencc-js");
         if (mode === "toTraditional") {
-            if (!_toTraditional) _toTraditional = _opencc.Converter({ from: "cn", to: "tw" });
+            if (!_toTraditional) _toTraditional = opencc.Converter({ from: "cn", to: "tw" });
             return _toTraditional;
         }
         if (mode === "toSimplified") {
-            if (!_toSimplified) _toSimplified = _opencc.Converter({ from: "tw", to: "cn" });
+            if (!_toSimplified) _toSimplified = opencc.Converter({ from: "tw", to: "cn" });
             return _toSimplified;
         }
     } catch (e) {
-        Debug_1.Debug.write("[LyricsFetcher] opencc-js not available: " + e);
+        Debug_1.Debug.write("[LyricsFetcher] opencc-js Converter init failed: " + e);
     }
     return null;
 }
-function applyConversion(lyrics) {
+async function applyConversion(lyrics) {
     const mode = Settings_1.Settings.chineseConversion || "off";
     if (mode === "off" || !lyrics || !Array.isArray(lyrics.lines)) return lyrics;
-    const convert = getConverter(mode);
+    const convert = await getConverter(mode);
     if (!convert) return lyrics;
     try {
         return { ...lyrics, lines: lyrics.lines.map(l => ({ ...l, text: convert(l.text || "") })) };
@@ -64,7 +75,7 @@ class LyricsFetcher {
                 if (cache) {
                     this.lastFetchedFor = name + artist;
                     this.lastFetchedFrom = `Cache (${cache.appName})`;
-                    result = applyConversion(cache);
+                    result = await applyConversion(cache);
                     break;
                 }
                 try {
@@ -75,13 +86,13 @@ class LyricsFetcher {
                 catch (_a) {
                     Debug_1.Debug.write(`[LyricsFetcher] ${source.getAppName()} failed: ${_a}`);
                 }
-                // Cache write is separate so a filesystem error (e.g. invalid chars in
-                // song name on Windows) never masks a successful lyrics fetch.
-                if (result) result = applyConversion(result);
+                // Cache the raw result before conversion so changing the setting
+                // later re-applies correctly from the original text.
                 if (result && !cache) {
                     try { this.cacheLyrics(name, artist, result, this.lastFetchedFrom); }
                     catch (_b) { Debug_1.Debug.write(`[LyricsFetcher] Cache write failed for "${name}": ${_b}`); }
                 }
+                if (result) result = await applyConversion(result);
                 if (result)
                     break;
             }
