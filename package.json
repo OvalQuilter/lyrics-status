@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@stef-0012/synclyrics": "^2.5.10",
     "discord-rpc": "^4.0.1",
     "express": "^4.21.2",
     "he": "^1.2.0",

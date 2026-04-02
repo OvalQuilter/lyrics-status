@@ -78,6 +78,7 @@ Settings.sources = {
     enableMusixmatch: true,
     enableLrcLib: true,
     enableNetEase: true,
-    enableQQMusic: true
+    enableQQMusic: true,
+    sourceOrder: ["Spotify", "Musixmatch", "LrcLib", "NetEase", "QQMusic"]
 };
 Settings.chineseConversion = "off";

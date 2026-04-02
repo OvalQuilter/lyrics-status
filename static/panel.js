@@ -29,7 +29,6 @@ const BINDINGS = [
     ["#client-secret",           "credentials.clientSecret",            "text"],
     ["#custom-redirect-uri",     "credentials.customRedirectUri",       "text"],
     ["#use-external-auth-server","credentials.useExternalAuthServer",   "checkbox"],
-    ["#musixmatch-token",        "credentials.musixmatchToken",         "text"],
     ["#enable-timestamp",        "view.timestamp",                      "checkbox"],
     ["#enable-label",            "view.label",                          "checkbox"],
     ["#enable-advanced-swt",     "view.advanced.enabled",               "checkbox"],
@@ -50,7 +49,7 @@ const BINDINGS = [
 // ── Source metadata ───────────────────────────────────────────────────────────
 const SOURCE_META = {
     Spotify:    { key: "enableSpotify",    desc: "requires cookies" },
-    Musixmatch: { key: "enableMusixmatch", desc: "requires token" },
+    Musixmatch: { key: "enableMusixmatch", desc: "auto token" },
     LrcLib:     { key: "enableLrcLib",     desc: "no key required" },
     NetEase:    { key: "enableNetEase",    desc: "strong Asian coverage" },
     QQMusic:    { key: "enableQQMusic",    desc: "strong Chinese coverage" }
@@ -73,35 +72,7 @@ const HELP = {
         <code>{lyrics}</code>, <code>{lyrics_upper}</code>, <code>{lyrics_lower}</code>, <code>{lyrics_letters_only}</code><br>
         <code>{song_name}</code>, <code>{song_name_cropped}</code>, <code>{song_author}</code>, <code>{timestamp}</code><br><br>
         Status is automatically cropped to 128 characters.`,
-    "#musixmatch-token-help": `
-        <strong>Musixmatch cookie</strong> — paste your full Musixmatch cookie string here.<br><br>
-        The token is extracted automatically from <code>musixmatchUserToken</code>.<br><br>
-        To get it:<br>
-        1. Go to <a href="https://www.musixmatch.com" target="_blank" style="color:var(--accent)">musixmatch.com</a> and log in.<br>
-        2. Open DevTools (F12) &rarr; Application tab &rarr; Cookies &rarr; <code>https://www.musixmatch.com</code>.<br>
-        3. Find <code>musixmatchUserToken</code>, double-click its Value column and copy the whole string.<br>
-        4. Paste it into this field &mdash; the token is extracted and saved automatically.<br><br>
-        Musixmatch is the database that powers Spotify's own lyrics &mdash; it has the widest coverage.`,
 };
-
-// ── Musixmatch token extraction ───────────────────────────────────────────────
-function extractMxmToken(input) {
-    if (!input || !input.trim()) return "";
-    const raw = input.trim();
-    const cookieMatch = raw.match(/(?:^|;\s*)musixmatchUserToken=([^;]+)/);
-    if (cookieMatch) {
-        try {
-            const decoded = decodeURIComponent(cookieMatch[1]);
-            const parsed = JSON.parse(decoded);
-            const token = parsed && parsed.tokens && parsed.tokens["web-desktop-app-v1.0"];
-            if (token && typeof token === "string") return token;
-        } catch (e) {
-            console.warn("Failed to parse musixmatchUserToken cookie:", e);
-        }
-        return "";
-    }
-    return raw;
-}
 
 // ── Deep path helpers ─────────────────────────────────────────────────────────
 function getPath(obj, path) {
@@ -260,10 +231,6 @@ function bindAll() {
                     if (isNaN(n)) return;
                     v = n;
                 }
-                if (sel === "#musixmatch-token") {
-                    v = extractMxmToken(v);
-                    el.val(v);
-                }
                 setPath(settings, path, v);
                 save();
                 if (sel === "#spotify-web-token") updateSpotifyTokenStatus();
@@ -324,27 +291,6 @@ function updateSpotifyTokenStatus() {
         el.css("color", "var(--green)").text("✓ Set");
     }
 }
-
-// ── Check Musixmatch token ────────────────────────────────────────────────────
-$("#check-mxm-token").on("click", function () {
-    const btn = $(this), orig = btn.text();
-    const token = settings.credentials.musixmatchToken;
-    if (!token) {
-        btn.removeClass("success danger").addClass("danger").text("\u2717");
-        setTimeout(() => btn.removeClass("success danger").text(orig), 3000);
-        return;
-    }
-    btn.prop("disabled", true).text("...");
-    $.get("/check-mxm", (data) => {
-        const ok = !!(data && data.ok);
-        btn.prop("disabled", false).removeClass("success danger")
-           .addClass(ok ? "success" : "danger").text(ok ? "\u2713" : "\u2717");
-        setTimeout(() => btn.removeClass("success danger").text(orig), 3000);
-    }).fail(() => {
-        btn.prop("disabled", false).removeClass("success danger").addClass("danger").text("\u2717");
-        setTimeout(() => btn.removeClass("success danger").text(orig), 3000);
-    });
-});
 
 // ── Authorize Spotify ─────────────────────────────────────────────────────────
 $("#btn-authorize").on("click", () => {
