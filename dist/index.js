@@ -131,6 +131,16 @@ function init() {
         const mergeWindowSec = ((Settings_1.Settings.rateLimit?.mergeWindowMs || 0) / 1000).toFixed(1);
         const minIntervalSec = ((Settings_1.Settings.rateLimit?.minIntervalMs || 0) / 1000).toFixed(1);
 
+        const ENABLE_KEY_MAP = {
+            "Spotify": "enableSpotify", "Musixmatch": "enableMusixmatch",
+            "LrcLib": "enableLrcLib", "NetEase": "enableNetEase", "QQMusic": "enableQQMusic"
+        };
+        const sourceOrder = (Settings_1.Settings.sources?.sourceOrder?.length)
+            ? Settings_1.Settings.sources.sourceOrder
+            : ["Spotify", "Musixmatch", "LrcLib", "NetEase", "QQMusic"];
+        const enabledSources = sourceOrder.filter(n => Settings_1.Settings.sources[ENABLE_KEY_MAP[n]] !== false);
+        const sourcesLine = enabledSources.map((n, i) => `${i + 1}.${n}`).join("  ");
+
         const rateStatus = rateLimitRemaining
             ? `\x1b[31mRATE LIMITED - resumes in ${rateLimitRemaining}s\x1b[0m`
             : nextSendIn <= 0 ? `\x1b[32mReady to send\x1b[0m`
@@ -146,6 +156,7 @@ function init() {
             `  \x1b[1mProgress:\x1b[0m   ${statusChanger.formatSeconds(+(progress / 1000).toFixed(0))} / ${statusChanger.formatSeconds(+(playbackState.songDuration / 1000).toFixed(0))}`,
             `  \x1b[1mStatus:\x1b[0m     ${playbackState.isPlaying ? "\x1b[32mPlaying\x1b[0m" : "\x1b[33mPaused\x1b[0m"}`,
             `  \x1b[1mLyrics:\x1b[0m     ${playbackState.hasLyrics ? `\x1b[32mYes\x1b[0m (${lyricsFetcher.lastFetchedFrom})` : "\x1b[31mNo\x1b[0m"}`,
+            `  \x1b[1mSources:\x1b[0m    ${sourcesLine}`,
             ``,
             `  \x1b[1m-- Lyrics --------------------------------------------------\x1b[0m`,
             `  \x1b[1mNow:\x1b[0m        ${dueLine}`,

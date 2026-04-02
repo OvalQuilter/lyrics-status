@@ -713,6 +713,16 @@ Bug found post-commit and fixed:
   limitation requiring credentials support.
 
 ─────────────────────────────────────────────────────────────────────
+29. TERMINAL DISPLAY — active source order (April 2026)
+    File: dist/index.js
+─────────────────────────────────────────────────────────────────────
+Added a Sources line to the 1s terminal display showing only enabled
+sources in their configured order, e.g. "1.Spotify  2.LrcLib  3.NetEase".
+Reads Settings.sources.sourceOrder and filters by the corresponding
+enableXxx flags at display time, so changes via the panel are reflected
+on the next display tick without restart.
+
+─────────────────────────────────────────────────────────────────────
 28. REFACTOR — dead code removal, async cleanup, autooffset fix
     Files: dist/StatusChanger.js, src/StatusChanger.ts,
            dist/PlaybackStateUpdater.js, dist/SpotifyService.js,
