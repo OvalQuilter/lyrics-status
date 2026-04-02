@@ -493,6 +493,15 @@ but rotation is automatic rather than requiring user intervention.
 LrcLib remains the recommended primary stable source.
 
 ─────────────────────────────────────────────────────────────────────
+30. SPOTIFY TOKEN FIELD HINT TEXT (April 2026)
+    File: static/index.html
+─────────────────────────────────────────────────────────────────────
+Hint text updated to clarify the Spotify token field is optional —
+the token is auto-fetched from cookies on startup. Manual paste only
+needed if auto-fetch fails. Previous hint directed users to a DevTools
+step that is unnecessary in normal operation.
+
+─────────────────────────────────────────────────────────────────────
 FILES MODIFIED
 ─────────────────────────────────────────────────────────────────────
   dist/LyricsFetcher.js
