@@ -7,12 +7,15 @@ class PlaybackState {
         this.songAuthor = "";
         this.songId = "";
         this.oldSongId = "";
+        this.songUri = "";
+        this.albumArt = "";
         this.songDuration = 0;
         this.songProgress = 0;
         this.lyrics = null;
         this.currentLine = null;
         this.hasLyrics = false;
         this.isPlaying = false;
+        this.spotifyConnected = true; // Assume connected until proven otherwise
     }
     get ended() {
         return this.songDuration < this.songProgress;

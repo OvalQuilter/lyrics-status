@@ -1,16 +1,8 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LyricsFetcher = void 0;
 const fs_1 = require("fs");
+const Debug_1 = require("./Debug");
 class LyricsFetcher {
     constructor() {
         this.sources = [];
@@ -20,28 +12,60 @@ class LyricsFetcher {
     addSource(source) {
         this.sources.push(source);
     }
-    fetchLyrics(name, artist) {
-        return __awaiter(this, void 0, void 0, function* () {
-            this.lastFetchedFrom = "Not fetched";
-            const cache = this.fetchCachedLyrics(name, artist);
-            let result = cache;
-            for (const source of this.sources) {
-                if (cache) {
-                    this.lastFetchedFrom = `Cache (${cache.appName})`;
-                    break;
+    async fetchLyrics(name, artist) {
+        this.lastFetchedFrom = "Not fetched";
+        const cache = this.fetchCachedLyrics(name, artist);
+        const cacheHasSpotifyWords = !!cache && cache.appName === "Spotify" && this.hasWordTimings(cache);
+        let result = null;
+        for (const source of this.sources) {
+            try {
+                this.lastFetchedFor = name + artist;
+                const sourceName = source.getAppName();
+                if (cache && cache.appName === sourceName) {
+                    if (sourceName === "Spotify" && cacheHasSpotifyWords) {
+                        result = this.normalizeLyrics(cache);
+                        this.lastFetchedFrom = `Cache (${cache.appName})`;
+                        break;
+                    }
+                    if (sourceName !== "Spotify") {
+                        const normalizedCache = this.normalizeLyrics(cache);
+                        result = sourceName === "LrcLib" ? this.stripWordTimings(normalizedCache) : normalizedCache;
+                        this.lastFetchedFrom = `Cache (${cache.appName})`;
+                        break;
+                    }
                 }
-                try {
-                    this.lastFetchedFor = name + artist;
-                    result = yield source.getLyrics(name, artist);
-                    this.lastFetchedFrom = source.getAppName();
-                    this.cacheLyrics(name, artist, result, this.lastFetchedFrom);
+                const fetched = this.normalizeLyrics(await source.getLyrics(name, artist));
+                if (sourceName === "Spotify") {
+                    if (!this.hasWordTimings(fetched)) {
+                        Debug_1.Debug.write("Spotify lyrics missing word timings, falling back to other sources");
+                        continue;
+                    }
+                    result = fetched;
                 }
-                catch (_a) { }
-                if (result)
-                    break;
+                else if (sourceName === "LrcLib") {
+                    result = this.stripWordTimings(fetched);
+                }
+                else {
+                    result = fetched;
+                }
+                this.lastFetchedFrom = sourceName;
+                this.cacheLyrics(name, artist, result, this.lastFetchedFrom);
             }
-            return result;
-        });
+            catch (error) {
+                Debug_1.Debug.write(`Lyrics fetch error from ${source.getAppName()}: ${error.message}`);
+            }
+            if (result)
+                break;
+        }
+        if (!result && cache) {
+            if (cache.appName === "Spotify" && !this.hasWordTimings(cache)) {
+                return null;
+            }
+            this.lastFetchedFrom = `Cache (${cache.appName})`;
+            const normalizedCache = this.normalizeLyrics(cache);
+            result = cache.appName === "LrcLib" ? this.stripWordTimings(normalizedCache) : normalizedCache;
+        }
+        return result;
     }
     fetchCachedLyrics(name, artist) {
         const path = `./cache/${name}-${artist}.json`;
@@ -49,13 +73,64 @@ class LyricsFetcher {
         try {
             lyrics = JSON.parse((0, fs_1.readFileSync)(path).toString());
         }
-        catch (_a) { }
+        catch { }
         return lyrics;
     }
     cacheLyrics(name, artist, lyrics, appName) {
         if (!(0, fs_1.existsSync)("./cache"))
             (0, fs_1.mkdirSync)("./cache");
-        (0, fs_1.writeFileSync)(`./cache/${name}-${artist}.json`, JSON.stringify(Object.assign(Object.assign({}, lyrics), { appName })));
+        (0, fs_1.writeFileSync)(`./cache/${name}-${artist}.json`, JSON.stringify({
+            ...lyrics,
+            appName
+        }));
+    }
+    normalizeLyrics(lyrics) {
+        const lines = [...lyrics.lines].sort((a, b) => a.time - b.time);
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const nextLine = lines[i + 1];
+            if (!line.endTime || line.endTime <= line.time) {
+                if (nextLine && nextLine.time > line.time) {
+                    line.endTime = nextLine.time;
+                }
+            }
+            if (line.words && line.words.length > 0) {
+                line.words = line.words
+                    .filter(word => Number.isFinite(word.startTime) && !!word.text)
+                    .sort((a, b) => a.startTime - b.startTime);
+                for (let w = 0; w < line.words.length; w++) {
+                    const word = line.words[w];
+                    if (!word.endTime || word.endTime <= word.startTime) {
+                        const nextWord = line.words[w + 1];
+                        if (nextWord?.startTime && nextWord.startTime > word.startTime) {
+                            word.endTime = nextWord.startTime;
+                        }
+                        else if (line.endTime && line.endTime > word.startTime) {
+                            word.endTime = line.endTime;
+                        }
+                    }
+                }
+            }
+        }
+        return {
+            ...lyrics,
+            lines
+        };
+    }
+    hasWordTimings(lyrics) {
+        return lyrics.lines.some(line => line.words && line.words.length > 0);
+    }
+    stripWordTimings(lyrics) {
+        const lines = lyrics.lines.map(line => {
+            if (!line.words)
+                return line;
+            const { words, ...rest } = line;
+            return rest;
+        });
+        return {
+            ...lyrics,
+            lines
+        };
     }
 }
 exports.LyricsFetcher = LyricsFetcher;

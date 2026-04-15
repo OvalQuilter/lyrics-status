@@ -1,4 +1,4 @@
-import { BaseSource, SongLyrics } from "./BaseSource"
+import { BaseSource, LyricsWord, SongLyrics } from "./BaseSource"
 
 interface LyricsResponse {
     id: number
@@ -38,39 +38,75 @@ export class LrcLibSource extends BaseSource {
         /**
          * Convert the response to the .json format we use
          */
-        private parseLyrics(lyrics: string): SongLyrics {
-            const result: SongLyrics = { lines: [] }
-            const lines = lyrics.split("\n")
+    private parseLyrics(lyrics: string): SongLyrics {
+        const result: SongLyrics = { lines: [] }
+        const lines = lyrics.split("\n")
 
-            // it should be: [mm:ss.xx] text
-            const regexp = /\[(\d\d):(\d\d)(?:\.(\d\d))?]/g
+        // it should be: [mm:ss.xx] text
+        const regexp = /\[(\d{2}):(\d{2})(?:\.(\d{1,3}))?]/g
+        const wordRegexp = /<(\d{2}):(\d{2})(?:\.(\d{1,3}))?>/g
 
-            for (let line of lines) {
-                if (!line.trim()) continue
+        for (let line of lines) {
+            if (!line.trim()) continue
 
-                    const timestamps: number[] = []
-                    let match: RegExpExecArray | null
+                const timestamps: number[] = []
+                let match: RegExpExecArray | null
 
-                    while ((match = regexp.exec(line)) !== null) {
-                        const min = parseInt(match[1])
-                        const sec = parseInt(match[2])
-                        const ms = match[3] ? parseInt(match[3]) * 10 : 0
-                        timestamps.push((min * 60 + sec) * 1000 + ms)
+                regexp.lastIndex = 0
+                while ((match = regexp.exec(line)) !== null) {
+                    const min = parseInt(match[1])
+                    const sec = parseInt(match[2])
+                    const msRaw = match[3] ? parseInt(match[3]) : 0
+                    const ms = match[3]
+                        ? (match[3].length === 3 ? msRaw : match[3].length === 2 ? msRaw * 10 : msRaw * 100)
+                        : 0
+                    timestamps.push((min * 60 + sec) * 1000 + ms)
+                }
+
+                const lineWithWordTags = line.replace(regexp, "").trim()
+                const words = this.parseWordTimings(lineWithWordTags, wordRegexp)
+                const text = lineWithWordTags.replace(wordRegexp, "").replace(/\s+/g, " ").trim()
+                if (!text) continue
+
+                    for (const time of timestamps.length ? timestamps : [0]) {
+                        result.lines.push({ time, text, words })
                     }
+        }
 
-                    const text = line.replace(regexp, "").trim()
-                    if (!text) continue
+        result.lines.sort((a, b) => a.time - b.time)
+        return result
+    }
 
-                        for (const time of timestamps.length ? timestamps : [0]) {
-                            result.lines.push({ time, text })
-                        }
+    private parseWordTimings(line: string, wordRegexp: RegExp): LyricsWord[] | undefined {
+        wordRegexp.lastIndex = 0
+        const matches = [...line.matchAll(wordRegexp)]
+        if (!matches.length) return undefined
+
+        const words: LyricsWord[] = []
+
+        for (let i = 0; i < matches.length; i++) {
+            const match = matches[i]
+            const min = parseInt(match[1])
+            const sec = parseInt(match[2])
+            const msRaw = match[3] ? parseInt(match[3]) : 0
+            const ms = match[3]
+                ? (match[3].length === 3 ? msRaw : match[3].length === 2 ? msRaw * 10 : msRaw * 100)
+                : 0
+            const startTime = (min * 60 + sec) * 1000 + ms
+
+            const startIndex = (match.index ?? 0) + match[0].length
+            const endIndex = i + 1 < matches.length ? (matches[i + 1].index ?? line.length) : line.length
+            const wordText = line.slice(startIndex, endIndex).replace(wordRegexp, "").trim()
+
+            if (wordText) {
+                words.push({ startTime, text: wordText })
             }
-
-            result.lines.sort((a, b) => a.time - b.time)
-            return result
         }
 
-        public getAppName(): string {
-            return "LrcLib"
-        }
+        return words.length ? words : undefined
+    }
+
+    public getAppName(): string {
+        return "LrcLib"
+    }
 }

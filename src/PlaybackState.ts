@@ -6,6 +6,8 @@ export class PlaybackState {
 
     public songId: string
     public oldSongId: string
+    public songUri: string  // Spotify URI for playback
+    public albumArt: string // Album cover image URL
 
     public songDuration: number
     public songProgress: number
@@ -15,6 +17,7 @@ export class PlaybackState {
     public hasLyrics: boolean
 
     public isPlaying: boolean
+    public spotifyConnected: boolean  // Track connection state
 
     constructor() {
         this.songName = ""
@@ -22,6 +25,8 @@ export class PlaybackState {
 
         this.songId = ""
         this.oldSongId = ""
+        this.songUri = ""
+        this.albumArt = ""
 
         this.songDuration = 0
         this.songProgress = 0
@@ -31,6 +36,7 @@ export class PlaybackState {
         this.hasLyrics = false
 
         this.isPlaying = false
+        this.spotifyConnected = true  // Assume connected until proven otherwise
     }
 
     get ended(): boolean {
