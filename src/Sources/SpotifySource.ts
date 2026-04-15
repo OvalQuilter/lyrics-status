@@ -1,4 +1,4 @@
-import { BaseSource, SongLyrics } from "./BaseSource"
+import { BaseSource, LyricsWord, SongLyrics } from "./BaseSource"
 import { Settings } from "../Settings"
 import { SpotifyService } from "../SpotifyService"
 
@@ -15,6 +15,8 @@ interface LyricsResponse {
         lines: {
             startTimeMs: string
             words: string
+            endTimeMs?: string
+            syllables?: unknown
         }[]
     }
 }
@@ -63,13 +65,49 @@ export class SpotifySource extends BaseSource {
         }
 
         for (const line of lines) {
+            const lineStart = +line.startTimeMs
+            const lineEnd = line.endTimeMs ? +line.endTimeMs : undefined
+            const wordTimings = this.parseWordTimings(line, lineStart)
+
             result.lines.push({
-                time: +line.startTimeMs,
-                text: line.words
+                time: lineStart,
+                text: line.words,
+                endTime: Number.isFinite(lineEnd) ? lineEnd : undefined,
+                words: wordTimings
             })
         }
 
         return result
+    }
+
+    private parseWordTimings(line: LyricsResponse["lyrics"]["lines"][number], lineStart: number): LyricsWord[] | undefined {
+        const syllables = (line as { syllables?: unknown }).syllables
+        if (!Array.isArray(syllables) || syllables.length === 0) return undefined
+
+        const words: LyricsWord[] = []
+
+        for (const syl of syllables as Array<Record<string, unknown>>) {
+            if (typeof syl !== "object" || !syl) continue
+            const textValue = syl["text"] ?? syl["word"]
+            const rawText = typeof textValue === "string" ? textValue.trim() : (textValue != null ? String(textValue).trim() : "")
+            if (!rawText) continue
+
+            const startValue = syl["startTimeMs"] ?? syl["startTime"]
+            const rawStart = typeof startValue === "number" || typeof startValue === "string" ? Number(startValue) : NaN
+            if (!Number.isFinite(rawStart)) continue
+
+            const endValue = syl["endTimeMs"] ?? syl["endTime"]
+            const rawEnd = typeof endValue === "number" || typeof endValue === "string" ? Number(endValue) : NaN
+
+            const startTime = (rawStart < lineStart - 1000 && lineStart > 0) ? (lineStart + rawStart) : rawStart
+            const endTime = Number.isFinite(rawEnd)
+                ? ((rawEnd < lineStart - 1000 && lineStart > 0) ? (lineStart + rawEnd) : rawEnd)
+                : undefined
+
+            words.push({ startTime, endTime, text: rawText })
+        }
+
+        return words.length ? words : undefined
     }
 
     public getAppName(): string {

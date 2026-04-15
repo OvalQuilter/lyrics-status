@@ -1,6 +1,14 @@
+export interface LyricsWord {
+    startTime: number
+    endTime?: number
+    text: string
+}
+
 export interface LyricsLine {
     time: number
     text: string
+    endTime?: number
+    words?: LyricsWord[]
 }
 
 export interface SongLyrics {

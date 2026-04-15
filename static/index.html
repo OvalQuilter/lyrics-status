@@ -1,11 +1,1362 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>Panel</title>
-        <script src="jquery.min.js" defer></script>
-        <script src="panel.js" defer></script>
-    </head>
-    <body>
-    </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; font-src 'self' file: https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' file:; img-src 'self' data: file: https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com https://cdn.discordapp.com https://cdn.simpleicons.org; connect-src 'self' http://127.0.0.1:*">
+    <title>LyricsStatus</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles-professional.css">
+    <script src="translations.js"></script>
+</head>
+<body>
+    <!-- Loading Screen - Professional -->
+    <div class="loading-screen" id="loading-screen" style="background: var(--bg-primary); display: flex; align-items: center; justify-content: center;">
+        <div style="text-align: center; max-width: 320px; padding: 40px;">
+            <div style="width: 64px; height: 64px; background: var(--accent); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                </svg>
+            </div>
+            <h1 style="font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">LyricsStatus</h1>
+            <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 32px;" id="loading-greeting">Loading...</p>
+            <div style="height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden; margin-bottom: 16px;">
+                <div id="loading-progress" style="height: 100%; background: var(--accent); border-radius: 2px; width: 0%; transition: width 0.3s ease;"></div>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted);" id="loading-status">Initializing...</p>
+        </div>
+    </div>
+
+    <!-- Setup Wizard -->
+    <div class="setup-wizard" id="setup-wizard" style="display: none;">
+        <div class="setup-container">
+            <div class="setup-header">
+                <div class="setup-logo">
+                    <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                    </svg>
+                </div>
+                <h1 class="setup-title" data-i18n="setup.welcome">Welcome to LyricsStatus</h1>
+                <p class="setup-subtitle" data-i18n="setup.subtitle">Let's get you set up in just a few steps</p>
+            </div>
+
+            <div class="setup-steps">
+                <div class="setup-step active" data-step="1">
+                    <div class="step-indicator">1</div>
+                    <span>Discord</span>
+                </div>
+                <div class="setup-step" data-step="2">
+                    <div class="step-indicator">2</div>
+                    <span>Spotify</span>
+                </div>
+                <div class="setup-step" data-step="3">
+                    <div class="step-indicator">3</div>
+                    <span>Finish</span>
+                </div>
+            </div>
+
+            <!-- Step 1: Discord Token -->
+            <div class="setup-content" id="setup-step-1">
+                <div class="setup-icon discord-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/>
+                    </svg>
+                </div>
+                <h2 data-i18n="setup.connectDiscord">Connect Discord</h2>
+                <p class="setup-description" data-i18n="setup.discordDescription">Enter your Discord token to update your status with lyrics</p>
+                
+                <!-- Language Selection -->
+                <div class="setup-language-selector">
+                    <label data-i18n="setup.selectLanguage">Select Language</label>
+                    <div class="language-options">
+                        <button class="language-btn active" data-lang="en">
+                            <span class="lang-flag">🇬🇧</span>
+                            <span class="lang-name">English</span>
+                        </button>
+                        <button class="language-btn" data-lang="de">
+                            <span class="lang-flag">🇩🇪</span>
+                            <span class="lang-name">Deutsch</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="setup-input-group">
+                    <label data-i18n="setup.discordToken">Discord Token</label>
+                    <div class="token-auto-detect">
+                        <button class="setup-btn auto-detect-btn" id="setup-auto-detect-token">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                            </svg>
+                            <span data-i18n="setup.autoDetect">Auto-detect Token</span>
+                        </button>
+                        <button class="setup-btn debug-btn" id="setup-dump-leveldb" title="Create diagnostic dump for debugging">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                            <span>Debug</span>
+                        </button>
+                        <span class="token-status" id="token-detect-status"></span>
+                    </div>
+                    <input type="password" id="setup-discord-token" class="setup-input" placeholder="Enter your Discord token" data-i18n-placeholder="setup.enterToken">
+                    <p class="setup-hint" data-i18n="setup.tokenHint">Your token is stored locally and never shared</p>
+                </div>
+                <div class="setup-buttons">
+                    <button class="setup-btn secondary" id="setup-skip-discord" data-i18n="setup.skip">Skip for now</button>
+                    <button class="setup-btn primary" id="setup-next-1" data-i18n="setup.continue">Continue</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Spotify -->
+            <div class="setup-content" id="setup-step-2" style="display: none;">
+                <div class="setup-icon spotify-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                    </svg>
+                </div>
+                <h2 data-i18n="setup.connectSpotify">Connect Spotify</h2>
+                <p class="setup-description" data-i18n="setup.spotifyDescription">Link your Spotify account to fetch song lyrics</p>
+                <div class="setup-input-group">
+                    <label data-i18n="setup.clientId">Client ID</label>
+                    <input type="text" id="setup-client-id" class="setup-input" placeholder="Spotify Client ID">
+                </div>
+                <div class="setup-input-group">
+                    <label data-i18n="setup.clientSecret">Client Secret</label>
+                    <input type="password" id="setup-client-secret" class="setup-input" placeholder="Spotify Client Secret">
+                </div>
+                <div class="setup-checkbox">
+                    <input type="checkbox" id="setup-external-auth">
+                    <label for="setup-external-auth" data-i18n="setup.useExternalAuth">Use external auth server (easier setup)</label>
+                </div>
+                <div class="setup-buttons">
+                    <button class="setup-btn secondary" id="setup-back-2" data-i18n="setup.back">Back</button>
+                    <button class="setup-btn primary" id="setup-next-2" data-i18n="setup.authorizeSpotify">Authorize Spotify</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Finish -->
+            <div class="setup-content" id="setup-step-3" style="display: none;">
+                <div class="setup-icon finish-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                </div>
+                <h2 data-i18n="setup.allSet">You're All Set!</h2>
+                <p class="setup-description" data-i18n="setup.finishDescription">LyricsStatus is ready to sync your music to Discord</p>
+                <div class="setup-summary">
+                    <div class="summary-item">
+                        <span class="summary-icon">✓</span>
+                        <span data-i18n="setup.discordConnected">Discord status updates enabled</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-icon">✓</span>
+                        <span data-i18n="setup.spotifyConnected">Spotify integration active</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-icon">✓</span>
+                        <span data-i18n="setup.readyToSync">Real-time lyrics syncing ready</span>
+                    </div>
+                </div>
+                <div class="setup-buttons">
+                    <button class="setup-btn primary large" id="setup-finish" data-i18n="setup.startUsing">Start Using LyricsStatus</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content - Professional Layout -->
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                        </svg>
+                    </div>
+                    <span>LyricsStatus</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-tab="dashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="9" rx="1"/>
+                        <rect x="14" y="3" width="7" height="5" rx="1"/>
+                        <rect x="14" y="12" width="7" height="9" rx="1"/>
+                        <rect x="3" y="16" width="7" height="5" rx="1"/>
+                    </svg>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-tab="lyrics">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 18V5l12-2v13"/>
+                        <circle cx="6" cy="18" r="3"/>
+                        <circle cx="18" cy="16" r="3"/>
+                    </svg>
+                    <span>Lyrics</span>
+                </button>
+                <button class="nav-item" data-tab="search">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.35-4.35"/>
+                    </svg>
+                    <span>Search</span>
+                </button>
+                <button class="nav-item" data-tab="settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 1v4m0 14v4M4.22 4.22l2.83 2.83m10 10l2.83 2.83M1 12h4m14 0h4M4.22 19.78l2.83-2.83m10-10l2.83-2.83"/>
+                    </svg>
+                    <span>Settings</span>
+                </button>
+                <button class="nav-item" data-tab="history">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <span>History</span>
+                </button>
+                <button class="nav-item" data-tab="playlists">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 18V5l12-2v13"/>
+                        <circle cx="6" cy="18" r="3"/>
+                        <circle cx="18" cy="16" r="3"/>
+                    </svg>
+                    <span>Playlists</span>
+                </button>
+                <button class="nav-item" data-tab="about">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <span>About</span>
+                </button>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-mini" id="sidebar-user">
+                    <div class="user-mini-avatar">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="color: var(--text-muted);">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="user-mini-name" id="sidebar-username">Guest</div>
+                        <div class="user-mini-status">Not connected</div>
+                    </div>
+                </div>
+                <button class="close-app-btn" id="close-app-btn" title="Exit LyricsStatus">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                </button>
+            </div>
+        </aside>
+        
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Content Scroll Area -->
+            <div class="content-scroll">
+            <!-- Dashboard Tab -->
+            <section class="tab-content active" id="dashboard-tab">
+                <div class="dashboard-grid">
+                    <!-- Now Playing Card -->
+                    <div class="card now-playing-card">
+                        <div class="card-header">
+                            <span class="card-title">Now Playing</span>
+                            <span class="status-badge" id="status-badge">
+                                <span class="status-dot"></span>
+                                <span id="status-text">Stopped</span>
+                            </span>
+                        </div>
+                        <div class="now-playing-content">
+                            <img class="track-artwork" id="album-art" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect fill='%231f1f23' width='120' height='120'/%3E%3Cpath fill='%236b6b85' d='M60 35v35c-2-1-4-2-6-2-5 0-9 4-9 9s4 9 9 9 9-4 9-9V45h9V35h-12z'/%3E%3C/svg%3E" alt="Album Art">
+                            <div class="track-info">
+                                <div class="track-name" id="song-title">Not Playing</div>
+                                <div class="track-artist" id="song-artist">Connect Spotify to start</div>
+                                <div class="progress-container">
+                                    <div class="progress-bar" id="progress-bar">
+                                        <div class="progress-fill" id="progress-fill" style="width: 0%;"></div>
+                                    </div>
+                                    <div class="progress-time">
+                                        <span id="current-time">0:00</span>
+                                        <span id="total-time">0:00</span>
+                                    </div>
+                                </div>
+                                <div class="playback-controls">
+                                    <button class="control-btn" id="like-btn" title="Like">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                                        </svg>
+                                    </button>
+                                    <button class="control-btn" id="prev-btn" title="Previous">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                                        </svg>
+                                    </button>
+                                    <button class="control-btn primary" id="play-pause-btn" title="Play/Pause">
+                                        <svg id="play-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                            <polygon points="5 3 19 12 5 21 5 3"/>
+                                        </svg>
+                                        <svg id="pause-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+                                            <rect x="6" y="4" width="4" height="16"/>
+                                            <rect x="14" y="4" width="4" height="16"/>
+                                        </svg>
+                                    </button>
+                                    <button class="control-btn" id="next-btn" title="Next">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                                        </svg>
+                                    </button>
+                                    <button class="control-btn" id="volume-btn" title="Volume">
+                                        <svg id="volume-high" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                        </svg>
+                                        <svg id="volume-muted" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                            <line x1="23" y1="9" x2="17" y2="15"/>
+                                            <line x1="17" y1="9" x2="23" y2="15"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lyrics Card -->
+                    <div class="card lyrics-card">
+                        <div class="card-header">
+                            <span class="card-title">Lyrics</span>
+                            <span class="lyrics-source" id="lyrics-source">Waiting...</span>
+                        </div>
+                        <div class="lyrics-display">
+                            <div class="current-lyric" id="current-lyric">Start playing music to see lyrics</div>
+                            <div class="next-lyric" id="next-lyric"></div>
+                        </div>
+                    </div>
+
+                    <!-- Control Panel -->
+                    <div class="card control-card">
+                        <div class="card-header">
+                            <span class="card-title">Control</span>
+                        </div>
+                        <div class="control-section">
+                            <button class="main-toggle-btn start" id="toggle-btn">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <polygon points="5 3 19 12 5 21 5 3"/>
+                                </svg>
+                                <span id="toggle-text">Start Sync</span>
+                            </button>
+                            <div class="status-preview-box">
+                                <div class="status-preview-label">Discord Status Preview</div>
+                                <div class="status-preview-text" id="status-preview">🎵 [0:00] Waiting for playback...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Statistics -->
+                    <div class="card stats-card">
+                        <div class="card-header">
+                            <span class="card-title">Statistics</span>
+                        </div>
+                        <div class="stats-grid">
+                            <div class="stat-box">
+                                <div class="stat-value" id="songs-today">0</div>
+                                <div class="stat-label">Songs Today</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" id="cached-songs">0</div>
+                                <div class="stat-label">Cached</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" id="status-changes">0</div>
+                                <div class="stat-label">Updates</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Lyrics Tab -->
+            <section class="tab-content" id="lyrics-tab">
+                <div class="lyrics-page">
+                    <div class="page-header">
+                        <h1>Lyrics</h1>
+                        <p>Live lyrics with synced highlighting</p>
+                    </div>
+                    <div class="card lyrics-card full-lyrics-card">
+                        <div class="card-header">
+                            <span class="card-title">Lyrics</span>
+                            <span class="lyrics-source" id="lyrics-tab-source">Waiting...</span>
+                        </div>
+                        <div class="full-lyrics-display" id="full-lyrics-display">
+                            <div class="lyrics-empty-state">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                                    <path d="M9 18V5l12-2v13"/>
+                                    <circle cx="6" cy="18" r="3"/>
+                                    <circle cx="18" cy="16" r="3"/>
+                                </svg>
+                                <p>Start playing music to see lyrics</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Search Tab -->
+            <section class="tab-content" id="search-tab">
+                <div class="search-page">
+                    <div class="page-header">
+                        <h1>Search</h1>
+                        <p>Find tracks or artists on Spotify</p>
+                    </div>
+                    <div class="card search-card">
+                        <div class="card-header">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"/>
+                                <path d="m21 21-4.35-4.35"/>
+                            </svg>
+                            <h2>Search Spotify</h2>
+                        </div>
+                        <div class="search-container">
+                            <div class="search-tabs">
+                                <button class="search-tab active" data-search-type="tracks">Tracks</button>
+                                <button class="search-tab" data-search-type="artists">Artists</button>
+                            </div>
+                            <div class="search-input-row">
+                                <input type="text" id="spotify-search-input" class="search-input" placeholder="Search for songs, artists...">
+                                <button class="btn primary" id="spotify-search-btn">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="11" cy="11" r="8"/>
+                                        <path d="m21 21-4.35-4.35"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <!-- Genre Recommendations -->
+                            <div class="genre-recommendations">
+                                <h3 class="recommendations-title">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                    Recommended for You
+                                </h3>
+                                <div class="genre-chips" id="genre-chips">
+                                    <button class="genre-chip" data-genre="pop">🎵 Pop</button>
+                                    <button class="genre-chip" data-genre="rock">🎸 Rock</button>
+                                    <button class="genre-chip" data-genre="hip-hop">🎤 Hip Hop</button>
+                                    <button class="genre-chip" data-genre="electronic">🎹 Electronic</button>
+                                    <button class="genre-chip" data-genre="indie">🌟 Indie</button>
+                                    <button class="genre-chip" data-genre="rnb">🎷 R&B</button>
+                                    <button class="genre-chip" data-genre="kpop">💫 K-Pop</button>
+                                    <button class="genre-chip" data-genre="metal">🤘 Metal</button>
+                                    <button class="genre-chip" data-genre="classical">🎻 Classical</button>
+                                    <button class="genre-chip" data-genre="jazz">🎺 Jazz</button>
+                                    <button class="genre-chip" data-genre="lofi">☕ Lo-Fi</button>
+                                    <button class="genre-chip" data-genre="country">🤠 Country</button>
+                                </div>
+                            </div>
+                            <div class="search-results" id="search-results">
+                                <div class="search-placeholder">Enter a search term to find music</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Tab -->
+            <section class="tab-content" id="settings-tab">
+                <div class="settings-page">
+                    <div class="page-header">
+                        <h1 data-i18n="settings.title">Settings</h1>
+                        <p data-i18n="settings.subtitle">Configure your LyricsStatus experience</p>
+                    </div>
+
+                    <!-- Settings Sub-Navigation -->
+                    <div class="settings-subnav">
+                        <button class="subnav-btn active" data-subtab="credentials">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0110 0v4"/>
+                            </svg>
+                            <span>Credentials</span>
+                        </button>
+                        <button class="subnav-btn" data-subtab="display">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            <span>Display</span>
+                        </button>
+                        <button class="subnav-btn" data-subtab="behavior">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+                            </svg>
+                            <span>Behavior</span>
+                        </button>
+                    </div>
+
+                    <!-- Credentials Sub-Tab -->
+                    <div class="settings-subtab active" id="subtab-credentials">
+                    <!-- Credentials Section -->
+                    <div class="settings-section">
+                        <h2 class="section-heading">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0110 0v4"/>
+                            </svg>
+                            <span data-i18n="settings.apiCredentials">API Credentials</span>
+                        </h2>
+                        <div class="cards-row">
+                            <div class="card settings-card">
+                                <div class="card-header">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#5865F2">
+                                        <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                                    </svg>
+                                    <span data-i18n="settings.discord">Discord</span>
+                                    <button class="help-btn" id="discord-help-btn" title="How to get Discord Token">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
+                                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="connected-account discord-full-info" id="discord-connected-info" style="display: none;"></div>
+                                <div class="setting-group">
+                                    <label class="setting-label" data-i18n="settings.authToken">Authorization Token</label>
+                                    <div class="token-input-row">
+                                        <div class="input-group" style="flex: 1;">
+                                            <input type="password" id="discord-token" class="setting-input" placeholder="Enter your Discord token..." data-i18n-placeholder="settings.enterToken">
+                                            <button class="input-btn" id="validate-token" data-i18n="settings.validate">Validate</button>
+                                        </div>
+                                        <button class="btn secondary auto-extract-small" id="auto-extract-token" title="Auto-detect token from Discord">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <p class="setting-hint" style="margin-top: 8px; font-size: 11px; color: var(--text-muted);">
+                                        💡 Click the key icon to auto-detect, or the ? button for manual instructions.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="card settings-card">
+                                <div class="card-header">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#1DB954">
+                                        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                                    </svg>
+                                    <span data-i18n="settings.spotify">Spotify</span>
+                                    <button class="help-btn" id="spotify-help-btn" title="How to setup Spotify App">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
+                                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="connected-account" id="spotify-connected-info" style="display: none;"></div>
+                                <div class="setting-group">
+                                    <label class="setting-label" data-i18n="settings.clientId">Client ID</label>
+                                    <input type="text" id="client-id" class="setting-input" placeholder="From Developer Dashboard" data-i18n-placeholder="settings.fromDashboard">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="setting-label" data-i18n="settings.clientSecret">Client Secret</label>
+                                    <input type="password" id="client-secret" class="setting-input" placeholder="From Developer Dashboard" data-i18n-placeholder="settings.fromDashboard">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="setting-label" data-i18n="settings.redirectUri">Redirect URI</label>
+                                    <div class="redirect-uri-display">
+                                        <code>http://127.0.0.1:67/callback</code>
+                                        <button class="copy-btn" id="copy-redirect-uri" title="Copy to clipboard">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="setting-group inline compact">
+                                    <label class="setting-label" data-i18n="settings.useExternalAuth">Use External Auth</label>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="use-external-auth">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <button class="btn primary full-width" id="authorize-spotify">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                                    </svg>
+                                    <span data-i18n="settings.authorizeSpotify">Authorize Spotify</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    </div><!-- End Credentials Sub-Tab -->
+
+                    <!-- Display Sub-Tab -->
+                    <div class="settings-subtab" id="subtab-display">
+                    <!-- Status Display Section -->
+                    <div class="settings-section">
+                        <h2 class="section-heading">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            Status Display
+                        </h2>
+                        <div class="cards-row three-col">
+                            <!-- Discord Profile Preview -->
+                            <div class="card discord-preview-card">
+                                <div class="card-header">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                    <span>Profile Preview</span>
+                                </div>
+                                <div class="discord-profile-card" id="discord-profile-preview">
+                                    <div class="profile-banner" id="preview-banner"></div>
+                                    <!-- Avatar and status bubble row -->
+                                    <div class="profile-header-row">
+                                        <div class="profile-avatar-wrapper">
+                                            <div class="profile-avatar-container" id="preview-avatar-border">
+                                                <img class="profile-avatar" id="preview-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%235865F2'/%3E%3C/svg%3E" alt="">
+                                                <div class="profile-status-dot online"></div>
+                                            </div>
+                                        </div>
+                                        <!-- Status bubble next to avatar -->
+                                        <div class="profile-status-pill" id="preview-status-pill">
+                                            <span class="status-icon"></span>
+                                            <span class="status-text" id="preview-discord-status">[0:00] Song lyrics...</span>
+                                        </div>
+                                    </div>
+                                    <div class="profile-body">
+                                        <div class="profile-name-row">
+                                            <span class="profile-displayname" id="preview-username">Username</span>
+                                        </div>
+                                        <div class="profile-username-row">
+                                            <span class="profile-username" id="preview-handle">username</span>
+                                            <div class="profile-badges-inline" id="preview-badges"></div>
+                                        </div>
+                                        <div class="profile-divider"></div>
+                                        <div class="profile-section about-section" id="preview-about-section" style="display:none;">
+                                            <div class="section-title" data-i18n="profile.aboutMe">About Me:</div>
+                                            <div class="about-text" id="preview-bio"></div>
+                                        </div>
+                                        <div class="profile-section">
+                                            <div class="section-title" data-i18n="profile.listeningToSpotify">Listening to Spotify</div>
+                                            <div class="spotify-activity">
+                                                <img class="activity-icon" id="preview-album-art" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23282828'/%3E%3Ccircle cx='50' cy='50' r='30' fill='%231DB954'/%3E%3C/svg%3E" alt="">
+                                                <div class="activity-info">
+                                                    <div class="activity-name">Spotify</div>
+                                                    <div class="activity-details" id="preview-song-name">Song Name</div>
+                                                    <div class="activity-state" id="preview-artist-name">by Artist</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="profile-section connections-section" id="preview-connections-section" style="display:none;">
+                                            <div class="section-title" data-i18n="profile.connections">Connections</div>
+                                            <div class="connections-list" id="preview-connections"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card settings-card">
+                                <div class="card-header">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                    <span data-i18n="settings.displayOptions">Display Options</span>
+                                </div>
+                                <div class="setting-group inline compact">
+                                    <label class="setting-label" data-i18n="settings.showTimestamp">Show Timestamp</label>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="show-timestamp" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-group inline compact">
+                                    <label class="setting-label" data-i18n="settings.showLabel">Show "Song lyrics" Label</label>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="show-label" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-group inline compact">
+                                    <label class="setting-label" data-i18n="settings.showEmoji">Show Status Emoji</label>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="show-emoji" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-group emoji-settings" id="emoji-settings">
+                                    <label class="setting-label" data-i18n="settings.emojiName">Status Emoji</label>
+                                    <div class="emoji-input-row">
+                                        <input type="text" id="emoji-name" class="setting-input emoji-input" placeholder="🎶" maxlength="2" value="🎶">
+                                        <div class="emoji-help">
+                                            <span class="emoji-hint">Standard emoji or custom emoji name</span>
+                                        </div>
+                                    </div>
+                                    <div class="setting-group custom-emoji-toggle">
+                                        <label class="setting-label" data-i18n="settings.useCustomEmoji">Use Custom/Animated Emoji</label>
+                                        <label class="toggle">
+                                            <input type="checkbox" id="use-custom-emoji">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="custom-emoji-fields" id="custom-emoji-fields" style="display: none;">
+                                        <div class="setting-group">
+                                            <label class="setting-label" data-i18n="settings.emojiId">Emoji ID</label>
+                                            <input type="text" id="emoji-id" class="setting-input" placeholder="1234567890123456789">
+                                            <span class="setting-hint" data-i18n="settings.emojiIdHelp">Right-click emoji in Discord → Copy ID (needs Developer Mode)</span>
+                                        </div>
+                                        <div class="setting-group inline compact">
+                                            <label class="setting-label" data-i18n="settings.emojiAnimated">Animated Emoji</label>
+                                            <label class="toggle">
+                                                <input type="checkbox" id="emoji-animated">
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="setting-group inline compact">
+                                    <label class="setting-label" data-i18n="settings.enableAdvanced">Enable Advanced Mode</label>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="advanced-mode">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="card settings-card">
+                                <div class="card-header">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                    </svg>
+                                    <span data-i18n="settings.customFormat">Custom Format</span>
+                                </div>
+                                <div class="advanced-settings active" id="advanced-settings">
+                                    <div class="setting-group">
+                                        <label class="setting-label">
+                                            <span data-i18n="settings.statusFormat">Status Format</span>
+                                            <span class="setting-hint">{lyrics}, {timestamp}, {song_name}, {song_author}</span>
+                                        </label>
+                                        <textarea id="custom-status" class="setting-textarea" rows="2">[{timestamp}] {lyrics}</textarea>
+                                    </div>
+                                    <div class="presets-section">
+                                        <label class="setting-label" data-i18n="settings.presets">Quick Presets</label>
+                                        <div class="presets-categories">
+                                            <!-- Cute/Hearts -->
+                                            <div class="preset-category">
+                                                <span class="preset-category-label" data-i18n="presets.cute">♡ Cute</span>
+                                                <div class="presets-grid">
+                                                    <button class="preset-btn" data-preset="♡ {lyrics} ♡" title="Hearts"><span class="preset-preview">♡ lyrics ♡</span></button>
+                                                    <button class="preset-btn" data-preset="꒰ {lyrics} ꒱" title="Soft"><span class="preset-preview">꒰ lyrics ꒱</span></button>
+                                                    <button class="preset-btn" data-preset="ʚ {lyrics} ɞ" title="Cute Bees"><span class="preset-preview">ʚ lyrics ɞ</span></button>
+                                                    <button class="preset-btn" data-preset="୨♡୧ {lyrics} ୨♡୧" title="Heart Ribbon"><span class="preset-preview">୨♡୧ lyrics ୨♡୧</span></button>
+                                                    <button class="preset-btn" data-preset="ฅ {lyrics} ฅ" title="Cat Paws"><span class="preset-preview">ฅ lyrics ฅ</span></button>
+                                                    <button class="preset-btn" data-preset="♡⃝ {lyrics} ♡⃝" title="Circle Heart"><span class="preset-preview">♡⃝ lyrics ♡⃝</span></button>
+                                                </div>
+                                            </div>
+                                            <!-- Sparkles/Stars -->
+                                            <div class="preset-category">
+                                                <span class="preset-category-label" data-i18n="presets.sparkles">✧ Sparkles</span>
+                                                <div class="presets-grid">
+                                                    <button class="preset-btn" data-preset="✧ {lyrics} ✧" title="Stars"><span class="preset-preview">✧ lyrics ✧</span></button>
+                                                    <button class="preset-btn" data-preset="⋆｡°✩ {lyrics} ✩°｡⋆" title="Celestial"><span class="preset-preview">⋆｡°✩ lyrics ✩°｡⋆</span></button>
+                                                    <button class="preset-btn" data-preset="✦ {lyrics} ✦" title="Diamond"><span class="preset-preview">✦ lyrics ✦</span></button>
+                                                    <button class="preset-btn" data-preset="✧･ﾟ: {lyrics} :･ﾟ✧" title="Sparkle Dust"><span class="preset-preview">✧･ﾟ: lyrics :･ﾟ✧</span></button>
+                                                    <button class="preset-btn" data-preset="⟡ {lyrics} ⟡" title="Star Diamond"><span class="preset-preview">⟡ lyrics ⟡</span></button>
+                                                </div>
+                                            </div>
+                                            <!-- Musical -->
+                                            <div class="preset-category">
+                                                <span class="preset-category-label" data-i18n="presets.musical">♪ Musical</span>
+                                                <div class="presets-grid">
+                                                    <button class="preset-btn" data-preset="♪ {lyrics} ♪" title="Single Note"><span class="preset-preview">♪ lyrics ♪</span></button>
+                                                    <button class="preset-btn" data-preset="♫ {lyrics} ♫" title="Double Note"><span class="preset-preview">♫ lyrics ♫</span></button>
+                                                    <button class="preset-btn" data-preset="♬ {lyrics} ♬" title="Beamed Notes"><span class="preset-preview">♬ lyrics ♬</span></button>
+                                                    <button class="preset-btn" data-preset="♩ {lyrics} ♩" title="Quarter Note"><span class="preset-preview">♩ lyrics ♩</span></button>
+                                                    <button class="preset-btn" data-preset="🎵 {lyrics} 🎵" title="Music Emoji"><span class="preset-preview">🎵 lyrics 🎵</span></button>
+                                                </div>
+                                            </div>
+                                            <!-- Minimal -->
+                                            <div class="preset-category">
+                                                <span class="preset-category-label" data-i18n="presets.minimal">· Minimal</span>
+                                                <div class="presets-grid">
+                                                    <button class="preset-btn" data-preset="· {lyrics} ·" title="Dots"><span class="preset-preview">· lyrics ·</span></button>
+                                                    <button class="preset-btn" data-preset="— {lyrics} —" title="Dashes"><span class="preset-preview">— lyrics —</span></button>
+                                                    <button class="preset-btn" data-preset="│ {lyrics} │" title="Lines"><span class="preset-preview">│ lyrics │</span></button>
+                                                    <button class="preset-btn" data-preset="• {lyrics} •" title="Bullets"><span class="preset-preview">• lyrics •</span></button>
+                                                    <button class="preset-btn" data-preset="⋄ {lyrics} ⋄" title="Diamonds"><span class="preset-preview">⋄ lyrics ⋄</span></button>
+                                                </div>
+                                            </div>
+                                            <!-- Decorative -->
+                                            <div class="preset-category">
+                                                <span class="preset-category-label" data-i18n="presets.decorative">༺ Decorative</span>
+                                                <div class="presets-grid">
+                                                    <button class="preset-btn" data-preset="༺ {lyrics} ༻" title="Ornate"><span class="preset-preview">༺ lyrics ༻</span></button>
+                                                    <button class="preset-btn" data-preset="『 {lyrics} 』" title="Japanese"><span class="preset-preview">『 lyrics 』</span></button>
+                                                    <button class="preset-btn" data-preset="《 {lyrics} 》" title="Guillemets"><span class="preset-preview">《 lyrics 》</span></button>
+                                                    <button class="preset-btn" data-preset="【 {lyrics} 】" title="Brackets"><span class="preset-preview">【 lyrics 】</span></button>
+                                                    <button class="preset-btn" data-preset="❀ {lyrics} ❀" title="Flowers"><span class="preset-preview">❀ lyrics ❀</span></button>
+                                                </div>
+                                            </div>
+                                            <!-- Kaomoji -->
+                                            <div class="preset-category">
+                                                <span class="preset-category-label" data-i18n="presets.kaomoji">(◕‿◕) Kaomoji</span>
+                                                <div class="presets-grid">
+                                                    <button class="preset-btn" data-preset="૮ {lyrics} ა" title="Bear"><span class="preset-preview">૮ lyrics ა</span></button>
+                                                    <button class="preset-btn" data-preset="(｡･ω･｡) {lyrics} (｡･ω･｡)" title="Cute Face"><span class="preset-preview">(｡･ω･｡) lyrics</span></button>
+                                                    <button class="preset-btn" data-preset="( ´ ˘ ` ) {lyrics} ( ´ ˘ ` )" title="Sleepy"><span class="preset-preview">( ´ ˘ ` ) lyrics</span></button>
+                                                    <button class="preset-btn" data-preset="( ˶ᵔ ᵕ ᵔ˶ ) {lyrics} ( ˶ᵔ ᵕ ᵔ˶ )" title="Happy"><span class="preset-preview">( ˶ᵔ ᵕ ᵔ˶ ) lyrics</span></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </div><!-- End Display Sub-Tab -->
+
+                    <!-- Behavior Sub-Tab -->
+                    <div class="settings-subtab" id="subtab-behavior">
+                    <!-- Timing & General Section -->
+                    <div class="settings-section">
+                        <h2 class="section-heading">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+                            </svg>
+                            <span data-i18n="settings.timingBehavior">Timing & Behavior</span>
+                        </h2>
+                        <div class="cards-row">
+                            <div class="card settings-card">
+                                <div class="card-header">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12 6 12 12 16 14"/>
+                                    </svg>
+                                    <span data-i18n="settings.timing">Timing</span>
+                                </div>
+                                <div class="setting-group">
+                                    <label class="setting-label" data-i18n="settings.sendTimeOffset">Send Time Offset (ms)</label>
+                                    <input type="number" id="time-offset" class="setting-input" value="500" min="0" max="2000">
+                                </div>
+                                <div class="setting-group inline compact">
+                                    <label class="setting-label" data-i18n="settings.autoOffset">Enable Auto-Offset</label>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="auto-offset" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label class="setting-label" data-i18n="settings.offsetSamples">Auto-Offset Samples</label>
+                                    <input type="number" id="offset-samples" class="setting-input" value="3" min="1" max="10">
+                                </div>
+                            </div>
+
+                            <div class="card settings-card">
+                                <div class="card-header">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                                        <line x1="8" y1="21" x2="16" y2="21"/>
+                                        <line x1="12" y1="17" x2="12" y2="21"/>
+                                    </svg>
+                                    <span data-i18n="settings.startup">Startup</span>
+                                </div>
+                                <div class="setting-group inline compact">
+                                    <label class="setting-label" data-i18n="settings.autoStartLaunch">Auto Start on Launch</label>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="auto-start">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-group inline compact">
+                                    <label class="setting-label" data-i18n="settings.startMinimized">Start Minimized</label>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="start-minimized">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-group inline compact">
+                                    <label class="setting-label" data-i18n="settings.minimizeToTray">Minimize to Tray</label>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="minimize-tray" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-group inline compact">
+                                    <label class="setting-label" data-i18n="settings.autoUpdate">Auto Update</label>
+                                    <label class="toggle">
+                                        <input type="checkbox" id="auto-update" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-group inline compact">
+                                    <label class="setting-label" data-i18n="settings.language">Language</label>
+                                    <select class="language-select" id="language-select">
+                                        <option value="en">🇬🇧 English</option>
+                                        <option value="de">🇩🇪 Deutsch</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </div><!-- End Behavior Sub-Tab -->
+
+                    <button class="btn primary save-btn" id="save-settings">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+                            <polyline points="17 21 17 13 7 13 7 21"/>
+                            <polyline points="7 3 7 8 15 8"/>
+                        </svg>
+                        <span data-i18n="settings.saveSettings">Save Settings</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- History Tab -->
+            <section class="tab-content" id="history-tab">
+                <div class="history-page">
+                    <div class="page-header">
+                        <h2 data-i18n="history.title">Song History</h2>
+                        <p>Click any song to play it on Spotify</p>
+                    </div>
+                    <div class="card history-card">
+                        <div class="card-header">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                            <span class="card-title">Recently Played</span>
+                            <button class="btn secondary btn-sm" id="clear-history">Clear</button>
+                        </div>
+                        <div class="history-list" id="history-list">
+                            <div class="history-empty">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12 6 12 12 16 14"/>
+                                </svg>
+                                <p>No songs in history yet</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Playlists Tab -->
+            <section class="tab-content" id="playlists-tab">
+                <div class="playlists-page">
+                    <div class="page-header">
+                        <h2>Your Playlists</h2>
+                        <p>All your Spotify playlists in one place</p>
+                    </div>
+                    <div class="card playlists-card">
+                        <div class="card-header">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 18V5l12-2v13"/>
+                                <circle cx="6" cy="18" r="3"/>
+                                <circle cx="18" cy="16" r="3"/>
+                            </svg>
+                            <span class="card-title">My Playlists</span>
+                            <button class="btn secondary btn-sm" id="refresh-playlists-btn">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                                </svg>
+                                Refresh
+                            </button>
+                        </div>
+                        <div class="playlists-grid" id="playlists-grid">
+                            <div class="playlists-empty">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M9 18V5l12-2v13"/>
+                                    <circle cx="6" cy="18" r="3"/>
+                                    <circle cx="18" cy="16" r="3"/>
+                                </svg>
+                                <p>Connect Spotify to see your playlists</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playlist Detail Modal -->
+                <div class="playlist-modal" id="playlist-modal" style="display: none;">
+                    <div class="playlist-modal-content">
+                        <div class="card playlist-detail-card">
+                            <div class="card-header playlist-detail-header">
+                                <button class="back-btn" id="playlist-back-btn">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                                    </svg>
+                                </button>
+                                <div class="playlist-detail-info">
+                                    <img class="playlist-detail-cover" id="playlist-modal-cover" src="" alt="">
+                                    <div class="playlist-detail-text">
+                                        <h2 id="playlist-modal-name">Playlist Name</h2>
+                                        <p id="playlist-modal-tracks">0 tracks</p>
+                                    </div>
+                                </div>
+                                <button class="btn primary btn-sm" id="play-playlist-btn">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                        <polygon points="5 3 19 12 5 21 5 3"/>
+                                    </svg>
+                                    Play
+                                </button>
+                            </div>
+                            <div class="playlist-tracks-list" id="playlist-tracks">
+                                <!-- Tracks will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- About Tab -->
+            <section class="tab-content" id="about-tab">
+                <div class="about-container">
+                    <div class="about-hero">
+                        <div class="about-logo theme-logo">
+                            <div class="logo-inner">
+                                <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" class="theme-icon">
+                                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <h1 class="about-title">LyricsStatus</h1>
+                        <p class="about-tagline" data-i18n="about.tagline">✨ Your music, your status, your vibe ✨</p>
+                        <div class="version-badge">v4.0.0</div>
+                    </div>
+
+                    <div class="about-description">
+                        <p data-i18n="about.description">Transform your Discord presence with real-time synced lyrics from Spotify. Let your friends see what you're vibing to!</p>
+                    </div>
+
+                    <div class="about-features">
+                        <div class="feature-item">
+                            <div class="feature-inner">
+                                <span class="feature-icon">🎵</span>
+                                <span data-i18n="about.feature1">Real-time Lyrics</span>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-inner">
+                                <span class="feature-icon">⚡</span>
+                                <span data-i18n="about.feature2">Fast & Accurate</span>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-inner">
+                                <span class="feature-icon">🎨</span>
+                                <span data-i18n="about.feature3">Beautiful UI</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="about-links">
+                        <button class="about-btn github" id="github-link">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                            </svg>
+                            <span data-i18n="about.github">View on GitHub</span>
+                        </button>
+                        <button class="about-btn bug" id="report-bug">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                            <span data-i18n="about.reportBug">Report Issue</span>
+                        </button>
+                    </div>
+
+                    <div class="about-credits">
+                        <div class="credits-card">
+                            <div class="credits-inner">
+                                <h3 data-i18n="about.madeWithLove">💜 Made with love</h3>
+                                <div class="credit-item main-credit">
+                                    <span class="credit-name">NightGTA</span>
+                                    <span class="credit-role" data-i18n="about.creatorRole">Creator & Developer</span>
+                                </div>
+                                <div class="credit-divider"></div>
+                                <p class="credit-thanks" data-i18n="about.forkHelp">With the help of the original fork</p>
+                                <div class="credit-divider"></div>
+                                <h4 class="special-thanks-title" data-i18n="about.specialThanks">Special Thanks</h4>
+                                <div class="special-thanks">
+                                    <div class="thanks-item">
+                                        <span class="thanks-name">OvalQuilter</span>
+                                        <span class="thanks-role">@OvalQuilter</span>
+                                    </div>
+                                    <div class="thanks-item">
+                                        <span class="thanks-name">aashleyy</span>
+                                        <span class="thanks-role">@Twelve0001</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lyrics-sources">
+                        <p data-i18n="about.lyricsPowered">🎤 Lyrics powered by</p>
+                        <div class="source-list">
+                            <span class="source-badge">Spotify</span>
+                            <span class="source-badge">LrcLib</span>
+                            <span class="source-badge">NetEase</span>
+                            <span class="source-badge">QQ Music</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            </div><!-- /content-scroll -->
+        </main>
+    </div>
+
+    <!-- Help Modals -->
+    <div class="help-modal-overlay" id="discord-help-modal" style="display: none;">
+        <div class="help-modal help-modal-lg">
+            <div class="help-modal-header">
+                <h2>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="#5865F2">
+                        <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                    </svg>
+                    <span data-i18n="help_discord_title">How to Get Your Discord Token</span>
+                </h2>
+                <button class="help-modal-close" id="discord-help-close">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="help-modal-content">
+                <!-- Quick Method Banner -->
+                <div class="help-quick-method">
+                    <div class="quick-icon">⚡</div>
+                    <div class="quick-content">
+                        <h3>Easiest Method: Auto-Detect</h3>
+                        <p>Just click the <strong>"Auto-Detect from Discord"</strong> button in settings. It automatically finds your token if Discord is installed!</p>
+                    </div>
+                </div>
+
+                <div class="help-divider">
+                    <span>Or manually get your token</span>
+                </div>
+
+                <a href="https://youtu.be/Qr_iR9oZy4c" target="_blank" class="help-video-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                    <span data-i18n="help_watch_video">📺 Watch Video Tutorial (2 min)</span>
+                </a>
+                
+                <div class="help-warning">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <div>
+                        <strong data-i18n="help_important">⚠️ Security Warning:</strong>
+                        <span data-i18n="help_discord_warning">Your token gives full access to your account. NEVER share it with anyone!</span>
+                    </div>
+                </div>
+                
+                <div class="help-steps">
+                    <div class="help-step">
+                        <span class="step-number">1</span>
+                        <div class="step-content">
+                            <h3 data-i18n="help_discord_step1_title">Open Developer Tools</h3>
+                            <p>In Discord (app or web), press:</p>
+                            <div class="key-combo">
+                                <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>I</kbd>
+                            </div>
+                            <p class="step-note">On Mac: <kbd>⌘</kbd> + <kbd>Option</kbd> + <kbd>I</kbd></p>
+                        </div>
+                    </div>
+                    <div class="help-step">
+                        <span class="step-number">2</span>
+                        <div class="step-content">
+                            <h3 data-i18n="help_discord_step3_title">Go to Network Tab</h3>
+                            <p>Click on the <span class="highlight-text">Network</span> tab at the top of the developer tools panel.</p>
+                        </div>
+                    </div>
+                    <div class="help-step">
+                        <span class="step-number">3</span>
+                        <div class="step-content">
+                            <h3 data-i18n="help_discord_step4_title">Filter Requests</h3>
+                            <p>In the filter box, type <code>/api</code> then press <kbd>Ctrl</kbd> + <kbd>R</kbd> to reload.</p>
+                        </div>
+                    </div>
+                    <div class="help-step">
+                        <span class="step-number">4</span>
+                        <div class="step-content">
+                            <h3 data-i18n="help_discord_step5_title">Find Your Token</h3>
+                            <p>Click any request → <span class="highlight-text">Headers</span> tab → scroll to find:</p>
+                            <code class="token-example">authorization: YOUR_TOKEN_HERE</code>
+                            <p class="step-note">Copy the entire token value (starts with a letter or number)</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="help-tip">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1DB954" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 16v-4M12 8h.01"/>
+                    </svg>
+                    <div>
+                        <strong>💡 Pro Tip:</strong> Your token changes when you change your password or enable 2FA. You'll need to get it again if that happens.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="help-modal-overlay" id="spotify-help-modal" style="display: none;">
+        <div class="help-modal help-modal-lg">
+            <div class="help-modal-header">
+                <h2>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="#1DB954">
+                        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                    </svg>
+                    <span data-i18n="help_spotify_title">How to Setup Spotify App</span>
+                </h2>
+                <button class="help-modal-close" id="spotify-help-close">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="help-modal-content">
+                <!-- Time Estimate -->
+                <div class="help-time-estimate">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <span>Setup takes about 3-5 minutes</span>
+                </div>
+                
+                <a href="https://youtu.be/0fhkkkRuUxw" target="_blank" class="help-video-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                    <span data-i18n="help_watch_video">📺 Watch Video Tutorial</span>
+                </a>
+                
+                <div class="help-steps">
+                    <div class="help-step">
+                        <span class="step-number">1</span>
+                        <div class="step-content">
+                            <h3 data-i18n="help_spotify_step1_title">Go to Spotify Developer Dashboard</h3>
+                            <p>Open your browser and go to:</p>
+                            <a href="https://developer.spotify.com/dashboard" target="_blank" class="help-link-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                                developer.spotify.com/dashboard
+                            </a>
+                            <p class="step-note">Log in with your Spotify account</p>
+                        </div>
+                    </div>
+                    <div class="help-step">
+                        <span class="step-number">2</span>
+                        <div class="step-content">
+                            <h3 data-i18n="help_spotify_step2_title">Create a New App</h3>
+                            <p>Click the green <span class="highlight-text">"Create app"</span> button</p>
+                            <ul class="help-list">
+                                <li><strong>App name:</strong> LyricsStatus (or anything you like)</li>
+                                <li><strong>App description:</strong> Lyrics for Discord</li>
+                                <li><strong>Website:</strong> Leave empty or add any URL</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="help-step important-step">
+                        <span class="step-number">3</span>
+                        <div class="step-content">
+                            <h3 data-i18n="help_spotify_step3_title">⚠️ Add Redirect URI (Important!)</h3>
+                            <p>This is the most important step! Add this exact URI:</p>
+                            <div class="copy-code-block">
+                                <code>http://127.0.0.1:67/callback</code>
+                                <button class="copy-inline-btn" onclick="navigator.clipboard.writeText('http://127.0.0.1:67/callback'); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 1500);">Copy</button>
+                            </div>
+                            <p class="step-note">Click "Add" after pasting, then scroll down and check <strong>"Web API"</strong></p>
+                        </div>
+                    </div>
+                    <div class="help-step">
+                        <span class="step-number">4</span>
+                        <div class="step-content">
+                            <h3>Accept Terms & Create</h3>
+                            <p>Check the "I understand" box at the bottom, then click <span class="highlight-text">"Save"</span></p>
+                        </div>
+                    </div>
+                    <div class="help-step">
+                        <span class="step-number">5</span>
+                        <div class="step-content">
+                            <h3 data-i18n="help_spotify_step5_title">Copy Your Credentials</h3>
+                            <p>In your new app, click <span class="highlight-text">"Settings"</span> to find:</p>
+                            <ul class="help-list credentials-list">
+                                <li>
+                                    <span class="credential-label">Client ID</span>
+                                    <span class="credential-hint">Visible on the page</span>
+                                </li>
+                                <li>
+                                    <span class="credential-label">Client Secret</span>
+                                    <span class="credential-hint">Click "View client secret" to reveal</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="help-tip success-tip">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1DB954" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    <div>
+                        <strong>✅ You're all set!</strong> Paste both credentials into LyricsStatus and click "Authorize Spotify"
+                    </div>
+                </div>
+                
+                <div class="help-troubleshoot">
+                    <h4>🔧 Troubleshooting</h4>
+                    <ul>
+                        <li><strong>Can't authorize?</strong> Make sure the Redirect URI is exactly <code>http://127.0.0.1:67/callback</code></li>
+                        <li><strong>No songs showing?</strong> Make sure Spotify is playing music, not paused</li>
+                        <li><strong>Premium required?</strong> No! Free accounts work, but playback controls may be limited</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
 </html>

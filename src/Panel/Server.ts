@@ -1,14 +1,24 @@
 import express from "express"
-import { createServer } from "node:http"
+import { createServer, Server } from "node:http"
 import { WebSocketServer } from "ws"
 import { join } from "node:path"
 import { Settings } from "../Settings"
 import { SpotifyService } from "../SpotifyService"
 
+let httpServer: Server | null = null
+let wss: WebSocketServer | null = null
+
+// Event emitter for auth completion - will be set by main.ts
+let onAuthComplete: (() => void) | null = null
+
+export function setAuthCompleteCallback(callback: () => void): void {
+    onAuthComplete = callback
+}
+
 export function startServer(): void {
     const app = express()
-    const httpServer = createServer(app)
-    const wss = new WebSocketServer({
+    httpServer = createServer(app)
+    wss = new WebSocketServer({
         server: httpServer,
         path: "/ws"
     })
@@ -19,44 +29,32 @@ export function startServer(): void {
         res.sendFile(join(__dirname, "../../static/index.html"))
     })
 
-    app.get("/callback", (req, res) => {
+    app.get("/callback", async (req, res) => {
         if (Settings.credentials.useExternalAuthServer) {
             if (!req.query.refresh_token) return res.sendStatus(401)
 
             const refreshToken = req.query.refresh_token
-            console.log(refreshToken)
+            console.log("External auth refresh token received:", refreshToken)
             Settings.credentials.refreshToken = refreshToken as string
             Settings.save()
+            console.log("Settings saved with refresh token")
         } else {
             if (!req.query.code) return res.sendStatus(401)
 
             const code = req.query.code
             Settings.credentials.code = code as string
-            SpotifyService.exchange().then(() => Settings.save())
+            console.log("Authorization code received, exchanging...")
+            await SpotifyService.exchange()
+            console.log("Token exchanged, refresh token:", Settings.credentials.refreshToken ? "present" : "missing")
+            // exchange() now calls Settings.save() internally
         }
-        res.send(`<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <title>Spotify authorization complete</title>
-        <script>
-            // Try to close the popup window once the callback has been received
-            (function () {
-                try {
-                    // If this window was opened by another page, attempt to close it
-                    if (window.opener && !window.opener.closed) {
-                        window.close();
-                    }
-                } catch (e) {
-                    // Ignore cross-origin or other errors
-                }
-            })();
-        </script>
-    </head>
-    <body>
-        <p>Authorization complete. This window should close automatically. If it doesn't, you can close it now.</p>
-    </body>
-    </html>`)
+
+        // Notify that auth is complete
+        if (onAuthComplete) {
+            onAuthComplete()
+        }
+
+        res.send("<html><body><h1>Success!</h1><p>Spotify connected! You can close this page now.</p><script>window.close();</script></body></html>")
     })
 
     wss.on("connection", (ws) => {
@@ -82,5 +80,40 @@ export function startServer(): void {
         ws.send(settings)
     })
 
-    httpServer.listen(8999)
+    httpServer.listen(67, "127.0.0.1", () => {
+        console.log("Server started on http://127.0.0.1:67")
+    })
+
+    httpServer.on("error", (err: NodeJS.ErrnoException) => {
+        if (err.code === "EADDRINUSE") {
+            console.error("Port 67 is already in use. Trying port 6700...")
+            httpServer?.listen(6700, "127.0.0.1", () => {
+                console.log("Server started on http://127.0.0.1:6700")
+            })
+        } else if (err.code === "EACCES") {
+            console.error("Port 67 requires elevated privileges. Trying port 6700...")
+            httpServer?.listen(6700, "127.0.0.1", () => {
+                console.log("Server started on http://127.0.0.1:6700")
+            })
+        } else {
+            console.error("Server error:", err)
+        }
+    })
+}
+
+export function stopServer(): void {
+    if (wss) {
+        // Close all WebSocket connections
+        wss.clients.forEach((client) => {
+            client.terminate()
+        })
+        wss.close()
+        wss = null
+    }
+    if (httpServer) {
+        // Close all connections and stop listening
+        httpServer.closeAllConnections()
+        httpServer.close()
+        httpServer = null
+    }
 }

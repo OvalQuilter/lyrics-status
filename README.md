@@ -1,92 +1,329 @@
-# LyricsStatus V3
+<p align="center">
+  <img src="res/icon.png" alt="LyricsStatus Logo" width="120" height="120">
+</p>
 
-## What is it?
+<h1 align="center">🎵 LyricsStatus</h1>
 
-LyricsStatus is a tool that changes your Discord status to lyrics of songs you listen to on Spotify!
+<p align="center">
+  <strong>Display real-time Spotify lyrics as your Discord status</strong>
+</p>
 
-It is written in TypeScript and runs on Node.js.
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#setup-guide">Setup Guide</a> •
+  <a href="#configuration">Configuration</a> •
+  <a href="#faq">FAQ</a> •
+  <a href="#contributing">Contributing</a>
+</p>
 
-## Precautions
+<p align="center">
+  <img src="https://img.shields.io/badge/version-4.0.0-purple?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/platform-Windows-blue?style=for-the-badge" alt="Platform">
+  <img src="https://img.shields.io/badge/electron-28.0.0-teal?style=for-the-badge" alt="Electron">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="License">
+</p>
 
-Before you proceed to [Setup](#Setup) please read those precautions.
+---
 
-This tool is provided "AS IS" and doesn't have any warranty that it will work on your machine.
+## ✨ Features
 
-I, creator of the LyricsStatus, am not responsible for any consequences that LyricsStatus can lead to.
+- 🎤 **Real-time Lyrics** - Display synchronized lyrics from your current Spotify track
+- 💬 **Discord Status Integration** - Show lyrics directly in your Discord custom status
+- 🎨 **Multiple Themes** - Dark, Light, Spotify, Discord, Ocean, and more
+- 📊 **Statistics** - Track your listening history and stats
+- 🌍 **Multi-language** - English and German support
+- ⚡ **Lightweight** - Minimal resource usage, runs in the background
+- 🔄 **Auto-sync** - Lyrics automatically sync with song progress
+- 📝 **Custom Formats** - Customize how lyrics appear in your status
 
-By using it, you agree with the statements above.
+---
 
-## Setup
+## 📸 Screenshots
 
-### Node.js
+<p align="center">
+  <img src="https://via.placeholder.com/800x500?text=Dashboard+Screenshot" alt="Dashboard" width="80%">
+</p>
 
-Firstly, you need to [download](https://nodejs.org/en) Node.js.
+<p align="center">
+  <img src="https://via.placeholder.com/400x300?text=Discord+Status+Preview" alt="Discord Status" width="45%">
+  <img src="https://via.placeholder.com/400x300?text=Settings+Page" alt="Settings" width="45%">
+</p>
 
-LyricsStatus needs version 17.x.x or higher.
+---
 
-### Downloading LyricsStatus
+## 📥 Installation
 
-You can download it using Git or going to [Releases](https://github.com/OvalQuilter/lyrics-status/releases) and downloading source code archive. Then unpack it to the place you want.
+### Download
 
-For Git, use this command:
+Download the latest release from the [Releases](https://github.com/nightgta/lyrics-status/releases) page:
+
+| File | Description |
+|------|-------------|
+| `LyricsStatus-Portable-4.0.0.exe` | Portable version (recommended) |
+| `LyricsStatus-Setup-4.0.0.exe` | Installer version |
+
+### System Requirements
+
+- **OS:** Windows 10/11 (64-bit)
+- **Spotify:** Premium account required
+- **Discord:** Desktop app installed
+
+---
+
+## 🚀 Setup Guide
+
+### Video Tutorials
+
+For visual learners, we have video tutorials:
+
+| Step | Video |
+|------|-------|
+| Discord Token | [YouTube Tutorial](https://www.youtube.com/watch?v=LnBnm_tZlyU) |
+| Spotify App Setup | [YouTube Tutorial](https://www.youtube.com/watch?v=3RGm4jALukM) |
+
+---
+
+### Step 1: Get Your Discord Token
+
+> ⚠️ **Security Warning:** Never share your Discord token with anyone! It provides full access to your account.
+
+1. Open Discord in your browser or desktop app
+2. Press `Ctrl + Shift + I` to open Developer Tools
+3. Go to the **Network** tab
+4. Type `api` in the filter box
+5. Click on any request (e.g., `science`, `messages`)
+6. In the **Headers** section, find `authorization:`
+7. Copy the value (this is your token)
+
+---
+
+### Step 2: Create a Spotify Developer App
+
+1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+2. Log in with your Spotify account
+3. Click **"Create App"**
+4. Fill in the details:
+   - **App Name:** `LyricsStatus`
+   - **App Description:** `Lyrics Display`
+   - **Redirect URI:** `http://127.0.0.1:67/callback` ⚠️ **Exact match required!**
+   - **APIs:** Select **Web API**
+5. Accept the terms and click **Save**
+6. Copy the **Client ID** and **Client Secret**
+
+---
+
+### Step 3: Configure LyricsStatus
+
+1. Launch `LyricsStatus-Portable-4.0.0.exe`
+2. Select your language (English/Deutsch)
+3. Paste your **Discord Token**
+4. Paste your **Spotify Client ID** and **Client Secret**
+5. Click **"Connect to Spotify"** and authorize the app
+6. Click **"Finish"** - You're ready!
+
+---
+
+### Step 4: Start Using
+
+1. Click the **START** button in the Dashboard
+2. Play any song on Spotify
+3. Watch your Discord status update with lyrics! 🎶
+
+---
+
+## ⚙️ Configuration
+
+### Settings Overview
+
+| Setting | Description |
+|---------|-------------|
+| **Show Timestamp** | Display current position in the song (e.g., `[1:23]`) |
+| **Show Label** | Add a music emoji prefix (🎵) |
+| **Theme** | Choose from multiple visual themes |
+| **Auto-Start** | Launch LyricsStatus on Windows startup |
+| **Start Minimized** | Start in system tray |
+| **Auto-Offset** | Automatically adjust lyrics timing |
+
+### Advanced Custom Status
+
+Enable **Advanced Mode** to customize your status format:
 
 ```
-git clone --single-branch --branch v3 https://github.com/OvalQuilter/lyrics-status
+{timestamp} {lyrics}
 ```
 
-### Locating to LyricsStatus
+**Available Variables:**
+- `{lyrics}` - Current lyric line
+- `{timestamp}` - Song position `[MM:SS]`
+- `{song}` - Song name
+- `{artist}` - Artist name
 
-#### Windows & Linux
-
-Copy the path to the LyricsStatus folder, often found on top of your File Explorer (`C:\Users\your_profile_name\path\to\LyricsStatus` or `/usr/name/path/to/LyricsStatus` for example).
-
-For Windows, press `Win + R` and type `cmd`, then press `Run`.
-
-For Linux, you need to manually open Terminal from your start menu.
-
-In the opened window type `cd paste_path_you_copied` and press `Enter`.
-
-### Installing modules
-
-Now, you need to install modules. In the command prompt, run the following command:
-
+**Examples:**
 ```
+🎵 {lyrics}
+[{timestamp}] {lyrics}
+{song} - {lyrics}
+```
+
+### Themes
+
+| Theme | Description |
+|-------|-------------|
+| `dark` | Default neon dark theme |
+| `light` | Clean light theme |
+| `spotify` | Spotify green accents |
+| `discord` | Discord blurple accents |
+| `ocean` | Cyan/teal ocean theme |
+| `sunset` | Warm orange theme |
+| `matrix` | Green matrix theme |
+| `cherry` | Pink/red theme |
+
+---
+
+## 🔧 Building from Source
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) 18+ 
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/nightgta/lyrics-status.git
+cd lyrics-status
+
+# Install dependencies
 npm install
+
+# Run in development mode
+npm run dev
+
+# Build for production
+npm run dist
 ```
 
-Then wait for modules to install.
+### Available Scripts
 
-### Running and configuring
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Run in development mode |
+| `npm run build` | Compile TypeScript |
+| `npm run start` | Build and run |
+| `npm run dist` | Build portable executable |
+| `npm run dist:installer` | Build installer |
 
-Run `npm run start` to start LyricsStatus.
+---
 
-Now you need to configure it. Open `localhost:8999` in your browser, you should see a menu with various settings.
+## ❓ FAQ
 
-First, you need to get your Discord token. [Here's](https://www.youtube.com/watch?v=LnBnm_tZlyU) a nice video on how to do it.
+### Why doesn't it work with Spotify Free?
 
-After getting your token you need to paste it, head back to the menu and paste it in the `Token` input field. Remove quotes if there are any.
+Spotify Free doesn't provide the necessary API access for real-time playback information. Premium is required.
 
-Second, you need to get your Spotify cookies. Open [Spotify](https://open.spotify.com/) in your browser, then press `F12` or `Ctrl + Alt + I`, depending on your browser.
+### Why are some songs missing lyrics?
 
-Head to the `Network` tab or similar, you should see something like this:
+Not all songs have lyrics available in our database. Instrumental tracks and some newer releases may not have lyrics.
 
-![Network Tab](res/network_tab.png)
+### My Discord status isn't updating
 
-Now reload the page, wait for it to load, and search for something like `open.spotify.com` (often it's appear on top):
+1. Check if your Discord token is still valid
+2. Make sure Discord is running
+3. Verify you clicked "START" in LyricsStatus
+4. Try restarting both Discord and LyricsStatus
 
-![Request](res/request.png)
+### Is my Discord token safe?
 
-Click on it, in the opened window search for `Cookie:`, it's your cookies. Copy and paste them in `Cookie` input field in the menu.
+Your token is stored locally on your computer and is never sent to any external servers. However, always keep your token private.
 
-Start some song in Spotify, if it has lyrics, you should see current lyrics in your command prompt as well as in your Discord status.
+### Can I get banned for using this?
 
-### Troubleshooting
+Using self-bots (which this technically is) is against Discord's Terms of Service. Use at your own risk. The likelihood of being banned is low for personal use, but we cannot guarantee anything.
 
-#### Windows
+### How do I update the app?
 
-Try running command line with administrator privileges or disabling your firewall.
+Simply download the latest release and replace your old executable. Your settings are stored separately and will be preserved.
 
-#### Linux
+---
 
-Try running Terminal from `su` user.
+## 🛠️ Tech Stack
+
+- **Framework:** [Electron](https://www.electronjs.org/) 28
+- **Language:** [TypeScript](https://www.typescriptlang.org/) 5.3
+- **Backend:** [Express](https://expressjs.com/) for OAuth handling
+- **Packaging:** [electron-builder](https://www.electron.build/)
+
+---
+
+## 📁 Project Structure
+
+```
+lyrics-status/
+├── src/                    # TypeScript source files
+│   ├── main.ts            # Electron main process
+│   ├── preload.ts         # Preload script
+│   ├── app/               # Core application logic
+│   ├── Panel/             # Express server
+│   └── ...
+├── static/                 # Frontend files
+│   ├── index.html         # Main UI
+│   ├── styles.css         # Styling
+│   ├── app.js             # Frontend JavaScript
+│   └── translations.js    # i18n
+├── res/                    # Resources (icons)
+├── cache/                  # Lyrics cache
+└── dist/                   # Compiled output
+```
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how you can help:
+
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. **Open** a Pull Request
+
+### Ideas for Contributions
+
+- [ ] Add more themes
+- [ ] Support more languages
+- [ ] Improve lyrics database coverage
+- [ ] Add macOS/Linux support
+- [ ] Create browser extension version
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## ⚠️ Disclaimer
+
+This application is not affiliated with, endorsed by, or connected to Spotify AB or Discord Inc. Use of this application may violate Discord's Terms of Service. Use at your own risk.
+
+---
+
+## 💖 Acknowledgments
+
+- [Spotify](https://www.spotify.com/) for the amazing music platform
+- [Discord](https://discord.com/) for bringing communities together
+- All contributors and users of LyricsStatus
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://github.com/nightgta">nightgta</a>
+</p>
+
+<p align="center">
+  ⭐ Star this repo if you find it useful!
+</p>
 
