@@ -1,7 +1,7 @@
-ï»¿# lyrics-status â€” RamenFighter03 fork
+# lyrics-status — RamenFighter03 fork
 
 > Based on [OvalQuilter/lyrics-status](https://github.com/OvalQuilter/lyrics-status) (v3.0.7). All credit to the original author.
-> Full change history in [CHANGELOG_old.txt](CHANGELOG_old.txt) (entries 1â€“46) and [CHANGELOG.txt](CHANGELOG.txt) (entries 47+).
+> Full change history in [CHANGELOG_old.txt](CHANGELOG_old.txt) (entries 1–46) and [CHANGELOG.txt](CHANGELOG.txt) (entries 47+).
 
 ![Terminal display](res/screenie.png)
 
@@ -11,15 +11,15 @@ Polls Spotify every 5 seconds and updates your Discord custom status with the cu
 
 ## What's new in this fork
 
-- **Musixmatch** â€” widest synced lyrics catalog of any source, including songs Spotify doesn't show lyrics for. Token is fetched automatically, no manual setup needed.
-- **5 lyric sources** â€” Spotify, Musixmatch, LrcLib, NetEase, QQ Music. Toggle and reorder them from the panel. Falls through to the next source automatically.
-- **Discord gateway** â€” sends status via WebSocket op 3 instead of REST, bypassing the ~1/3s REST rate limit entirely.
-- **Status restore** â€” saves your Discord status before the app starts and restores it after music stops.
-- **Rate limit handling** â€” auto backoff on 429s, configurable minimum send interval, lyric line merging to reduce API calls.
-- **Smart truncation** â€” drops whole lines before word-chopping; Unicode/emoji safe.
-- **Song skip detection** â€” detects manual skips immediately and clears stale lyric state.
-- **Template variables** â€” customize the status format with `{lyrics}`, `{timestamp}`, `{source}`, `{progress}`, `{duration}`, `{line_number}`.
-- **Chinese script conversion** â€” optional Simplified â†” Traditional conversion via opencc-js.
+- **Musixmatch** — widest synced lyrics catalog of any source, including songs Spotify doesn't show lyrics for. Token is fetched automatically, no manual setup needed.
+- **5 lyric sources** — Spotify, Musixmatch, LrcLib, NetEase, QQ Music. Toggle and reorder them from the panel. Falls through to the next source automatically.
+- **Discord gateway** — sends status via WebSocket op 3 instead of REST, bypassing the ~1/3s REST rate limit entirely.
+- **Status restore** — saves your Discord status before the app starts and restores it after music stops.
+- **Rate limit handling** — auto backoff on 429s, configurable minimum send interval, lyric line merging to reduce API calls.
+- **Smart truncation** — drops whole lines before word-chopping; Unicode/emoji safe.
+- **Song skip detection** — detects manual skips immediately and clears stale lyric state.
+- **Template variables** — customize the status format with `{lyrics}`, `{timestamp}`, `{source}`, `{progress}`, `{duration}`, `{line_number}`.
+- **Chinese script conversion** — optional Simplified ? Traditional conversion via opencc-js.
 
 ---
 
@@ -50,14 +50,14 @@ Open `http://localhost:8999` to configure.
 
 Get your Discord user token ([how-to video](https://www.youtube.com/watch?v=LnBnm_tZlyU)) and paste it into the **Discord token** field. Click **Check** to verify.
 
-> âš ï¸ Never share your Discord token. Using user tokens is against Discord's ToS â€” proceed at your own risk.
+> ?? Never share your Discord token. Using user tokens is against Discord's ToS — proceed at your own risk.
 
 ### 2. Spotify cookies
 
 The app needs your Spotify `sp_dc` cookie to fetch lyrics.
 
 1. Open [open.spotify.com](https://open.spotify.com) while logged in.
-2. Press `F12` â†’ **Application** tab â†’ **Cookies** â†’ `https://open.spotify.com`.
+2. Press `F12` ? **Application** tab ? **Cookies** ? `https://open.spotify.com`.
 3. Find the `sp_dc` cookie and copy its **value** (just the value, not the full cookie string).
 4. Paste it into the **Spotify cookies** field in the panel.
 
@@ -66,10 +66,10 @@ The app needs your Spotify `sp_dc` cookie to fetch lyrics.
 
 ### 3. Musixmatch (optional)
 
-Musixmatch tokens are fetched and rotated automatically â€” no setup needed. If you want to provide your own token:
+Musixmatch tokens are fetched and rotated automatically — no setup needed. If you want to provide your own token:
 
 1. Go to [musixmatch.com](https://www.musixmatch.com) and log in.
-2. Open DevTools â†’ **Application** â†’ **Cookies** â†’ `https://www.musixmatch.com`.
+2. Open DevTools ? **Application** ? **Cookies** ? `https://www.musixmatch.com`.
 3. Find `musixmatchUserToken`, copy the full value.
 4. Paste it into the **Musixmatch token** field. The token is extracted automatically.
 
@@ -77,11 +77,13 @@ Leaving it blank is fine. The app falls through to LrcLib, NetEase, and QQ Music
 
 ### 4. Spotify OAuth (optional)
 
-A [Spotify developer app](https://developer.spotify.com/dashboard) (**Client ID**, **Client secret**, **Redirect URI**) enables OAuth-based playback access. Cookies alone are sufficient for lyrics â€” this is only needed for playback control.
+A [Spotify developer app](https://developer.spotify.com/dashboard) (**Client ID**, **Client secret**, **Redirect URI**) enables OAuth-based playback access. Cookies alone are sufficient for lyrics — this is only needed for playback control.
 
 ### 5. Gateway (optional, recommended)
 
 Enable **Gateway** in the panel to send status updates via Discord's WebSocket instead of REST. This removes the REST rate limit entirely. If the gateway disconnects, the app falls back to REST automatically.
+
+> **Note:** Gateway status updates (op 3) may not visually appear on all Discord clients — some clients (notably certain mobile versions) display a cached session state and won't show the update locally. However, the status **is** updated server-side and will be visible from everyone else's perspective. This is a Discord client limitation, not a bug in the app. The iOS sync logic described below exists specifically to work around this.
 
 ---
 
@@ -99,7 +101,7 @@ Enable **Gateway** in the panel to send status updates via Discord's WebSocket i
 | Problem | Fix |
 |---|---|
 | No lyrics showing | Check that Spotify cookies are fresh and a song with lyrics is playing |
-| Spotify "RBAC: access denied" | Cookies expired â€” re-paste fresh `sp_dc` from DevTools |
+| Spotify "RBAC: access denied" | Cookies expired — re-paste fresh `sp_dc` from DevTools |
 | Discord status not updating | Verify your Discord token with the Check button |
 | Rate limited (429) | Enable Gateway in the panel, or raise the minimum interval in Rate Limiting settings |
 | Panel shows blank page | Restart the app and hard-refresh (`Ctrl+Shift+R`) |
@@ -115,7 +117,7 @@ Enable **Gateway** in the panel to send status updates via Discord's WebSocket i
 
 ### iOS status sync
 
-The codebase includes REST sync logic (`_iOSSyncPending`, `_onGatewayReady`) that fires after each song change and on gateway reconnect. This exists because Discord's gateway op 3 updates don't persist to iOS â€” the iOS client caches its own session state and misses gateway-only updates. If you don't use Discord on iOS this code is harmless.
+The codebase includes REST sync logic (`_iOSSyncPending`, `_onGatewayReady`) that fires after each song change and on gateway reconnect. This exists because Discord's gateway op 3 updates don't persist to iOS — the iOS client caches its own session state and misses gateway-only updates. If you don't use Discord on iOS this code is harmless.
 
 ---
 
