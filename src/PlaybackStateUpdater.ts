@@ -26,6 +26,17 @@ export class PlaybackStateUpdater {
         this.lyricsFetcher = lyricsFetcher
     }
 
+    // Returns the best available Bearer token.
+    // Mirrors SpotifySource.getBearerToken(): prefers the web token fetched from
+    // the browser (open.spotify.com/api/token) if present and not expired,
+    // then falls back to the OAuth token from SpotifyService.
+    private getBearerToken(): string {
+        const wt  = Settings.credentials.spotifyWebToken
+        const exp = Settings.credentials.spotifyWebTokenExpiry || 0
+        if (wt && Date.now() < exp) return wt
+        return SpotifyService.token
+    }
+
     public async update(): Promise<void> {
         const roundTripTimeStart = Date.now()
 
@@ -34,7 +45,7 @@ export class PlaybackStateUpdater {
         const request = await fetch("https://api.spotify.com/v1/me/player", {
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": "Bearer " + SpotifyService.token
+                "Authorization": "Bearer " + this.getBearerToken()
             }
         })
 
@@ -42,6 +53,15 @@ export class PlaybackStateUpdater {
 
         if (request.status === 401 || request.status === 400) {
             Debug.write(`[PlaybackStateUpdater] Auth error (${request.status}) - refreshing token`)
+            // If the web token was used and returned 401, it has expired mid-session.
+            // Mark it expired so getBearerToken() falls through to OAuth next poll.
+            const wt  = Settings.credentials.spotifyWebToken
+            const exp = Settings.credentials.spotifyWebTokenExpiry || 0
+            if (wt && Date.now() < exp) {
+                Debug.write(`[PlaybackStateUpdater] Web token returned 401 — marking as expired`)
+                Settings.credentials.spotifyWebTokenExpiry = 0
+                return
+            }
             if (Settings.credentials.useExternalAuthServer) {
                 SpotifyService.token = await ExternalAuthServerAPI.getToken() || ""
                 Debug.write(`[PlaybackStateUpdater] Got new token from external auth server: ${!!SpotifyService.token}`)

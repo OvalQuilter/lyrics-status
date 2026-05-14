@@ -1,54 +1,50 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SpotifySource = void 0;
-const BaseSource_1 = require("./BaseSource");
 const Settings_1 = require("../Settings");
 const SpotifyService_1 = require("../SpotifyService");
 
-class SpotifySource extends BaseSource_1.BaseSource {
-    getBearerToken() {
-        const wt = Settings_1.Settings.credentials.spotifyWebToken;
-        if (wt && typeof wt === "string" && wt.trim().length > 0) return wt;
-        return SpotifyService_1.SpotifyService.token;
-    }
-    request(url) {
+class SpotifySource {
+    _req(url) {
         return fetch(url, {
             headers: {
-                "accept": "application/json",
-                "accept-language": "ru",
-                "app-platform": "WebPlayer",
-                "authorization": "Bearer " + this.getBearerToken(),
-                "spotify-app-version": "1.2.40.176.g6d58cb73",
+                "accept": "application/json", "accept-language": "ru",
+                "app-platform": "WebPlayer", "spotify-app-version": "1.2.40.176.g6d58cb73",
+                "authorization": "Bearer " + SpotifyService_1.SpotifyService.getBearerToken(),
                 "Cookie": Settings_1.Settings.credentials.cookies
             },
-            referrer: "https://open.spotify.com/",
-            referrerPolicy: "strict-origin-when-cross-origin",
-            body: null,
-            method: "GET",
+            referrer: "https://open.spotify.com/", referrerPolicy: "strict-origin-when-cross-origin", method: "GET"
         });
     }
-    async getLyrics(name, artist) {
-        const playerRes = await this.request("https://api.spotify.com/v1/me/player");
-        if (!playerRes.ok) throw new Error(`Spotify player HTTP ${playerRes.status}`);
-        const playerJson = await playerRes.json();
-        if (!playerJson || !playerJson.item || !playerJson.item.id)
-            throw new Error("Spotify: no current track in player response");
-        const songId = playerJson.item.id;
-        const lyricsRes = await this.request(`https://spclient.wg.spotify.com/color-lyrics/v2/track/${songId}?format=json&vocalRemoval=false&market=from_token`);
-        if (!lyricsRes.ok) throw new Error(`Spotify lyrics HTTP ${lyricsRes.status}`);
-        const json = await lyricsRes.json();
-        if (!json || !json.lyrics) throw new Error("Spotify: no lyrics object in response");
-        if (json.lyrics.showUpsell) throw new Error("Spotify: lyrics require premium (showUpsell)");
-        if (json.lyrics.syncType === "UNSYNCED") throw new Error("Spotify: only unsynced lyrics available");
-        if (!json.lyrics.lines || json.lyrics.lines.length === 0) throw new Error("Spotify: empty lyrics lines");
-        return this.parseLyrics(json.lyrics.lines);
-    }
-    parseLyrics(lines) {
-        const result = { lines: [] };
-        for (const line of lines) {
-            result.lines.push({ time: +line.startTimeMs, text: line.words });
+    async getLyrics(name, artist, songId) {
+        if (!songId) {
+            const r = await this._req("https://api.spotify.com/v1/me/player");
+            if (r.status === 401) {
+                await SpotifyService_1.SpotifyService.refresh();
+                const r2 = await this._req("https://api.spotify.com/v1/me/player");
+                if (!r2.ok) throw new Error(`Spotify player HTTP ${r2.status}`);
+                const j = await r2.json();
+                if (!j?.item?.id) throw new Error("Spotify: no current track");
+                songId = j.item.id;
+            } else {
+                if (!r.ok) throw new Error(`Spotify player HTTP ${r.status}`);
+                const j = await r.json();
+                if (!j?.item?.id) throw new Error("Spotify: no current track");
+                songId = j.item.id;
+            }
         }
-        return result;
+        let r = await this._req(`https://spclient.wg.spotify.com/color-lyrics/v2/track/${songId}?format=json&vocalRemoval=false&market=from_token`);
+        if (r.status === 401) {
+            await SpotifyService_1.SpotifyService.refresh();
+            r = await this._req(`https://spclient.wg.spotify.com/color-lyrics/v2/track/${songId}?format=json&vocalRemoval=false&market=from_token`);
+        }
+        if (!r.ok) throw new Error(`Spotify lyrics HTTP ${r.status}`);
+        const j = await r.json();
+        if (!j?.lyrics) throw new Error("Spotify: no lyrics object");
+        if (j.lyrics.showUpsell) throw new Error("Spotify: requires premium");
+        if (j.lyrics.syncType === "UNSYNCED") throw new Error("Spotify: unsynced only");
+        if (!j.lyrics.lines?.length) throw new Error("Spotify: empty lines");
+        return { lines: j.lyrics.lines.map(l => ({ time: +l.startTimeMs, text: l.words })) };
     }
     getAppName() { return "Spotify"; }
 }

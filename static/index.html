@@ -4,505 +4,198 @@
     <meta charset="UTF-8">
     <title>Lyrics Status</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --bg:        #111214;
-            --surface:   #1a1c1f;
-            --border:    rgba(255,255,255,.07);
-            --border-hi: rgba(88,166,255,.6);
-            --text:      #e4e4e7;
-            --muted:     #71717a;
-            --accent:    #38bdf8;
-            --accent2:   #818cf8;
-            --green:     #22c55e;
-            --red:       #ef4444;
-            --radius:    6px;
-            --a:         .93;
+            --bg:          #0c0d0f;
+            --surface:     #131518;
+            --surface-hi:  #1a1d21;
+            --border:      rgba(255,255,255,.08);
+            --border-hi:   rgba(99,179,237,.55);
+            --border-focus:rgba(99,179,237,.8);
+            --text:        #e8e9eb;
+            --text-soft:   #a0a3a8;
+            --muted:       #5a5e66;
+            --accent:      #63b3ed;
+            --accent-glow: rgba(99,179,237,.18);
+            --green:       #4ade80;
+            --green-dim:   rgba(74,222,128,.12);
+            --red:         #f87171;
+            --red-dim:     rgba(248,113,113,.12);
+            --amber:       #fbbf24;
+            --radius:      7px;
+            --radius-lg:   10px;
+            --shadow:      0 1px 3px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.25);
+            --shadow-lg:   0 8px 32px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3);
+            --font:        'Geist', system-ui, sans-serif;
+            --mono:        'Geist Mono', 'Courier New', monospace;
         }
 
         html, body { height: 100%; background: var(--bg); }
+        body { font-family: var(--font); color: var(--text); font-size: 13px; line-height: 1.55; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
 
-        body {
-            font-family: 'DM Sans', sans-serif;
-            color: var(--text);
-            font-size: 13px;
-            line-height: 1.5;
-            overflow-x: hidden;
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .025;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            background-size: 128px;
         }
 
-        #app {
-            max-width: 820px;
-            margin: 0 auto;
-            padding: 36px 24px 60px;
-        }
+        #app { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 40px 28px 80px; }
 
-        header {
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            margin-bottom: 28px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border);
-        }
+        header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+        .header-left { display: flex; align-items: center; gap: 14px; }
+        .header-icon { width: 38px; height: 38px; border-radius: 9px; background: linear-gradient(135deg, #1a2a3a 0%, #0f1a28 100%); border: 1px solid rgba(99,179,237,.2); display: flex; align-items: center; justify-content: center; font-size: 17px; box-shadow: 0 0 12px rgba(99,179,237,.1); flex-shrink: 0; }
+        header h1 { font-size: 16px; font-weight: 600; letter-spacing: -.025em; color: var(--text); }
+        header p { margin-top: 1px; font-size: 11.5px; color: var(--muted); letter-spacing: .01em; }
+        .header-right { display: flex; align-items: center; gap: 10px; }
+        #version { font-family: var(--mono); font-size: 10.5px; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.05); color: var(--muted); border: 1px solid var(--border); letter-spacing: .03em; }
 
-        header h1 { font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
-        header p  { margin-top: 3px; font-size: 12px; color: var(--muted); }
+        #status-dot { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.04); border: 1px solid var(--border); }
+        #status-dot .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); transition: background .3s; }
+        #status-dot.connected .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+        #status-dot.error .dot { background: var(--red); box-shadow: 0 0 6px var(--red); }
 
-        #version {
-            font-family: 'DM Mono', monospace;
-            font-size: 11px;
-            padding: 3px 9px;
-            border-radius: 999px;
-            background: rgba(255,255,255,.06);
-            color: var(--muted);
-            border: 1px solid var(--border);
-        }
+        #save-indicator { font-size: 11px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.04); border: 1px solid var(--border); color: var(--muted); transition: all .2s; display: flex; align-items: center; gap: 5px; }
+        #save-indicator .si-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); transition: background .2s; }
+        #save-indicator.pending { border-color: rgba(251,191,36,.3); color: var(--amber); }
+        #save-indicator.pending .si-dot { background: var(--amber); box-shadow: 0 0 5px var(--amber); }
+        #save-indicator.saved { border-color: rgba(74,222,128,.25); color: var(--green); }
+        #save-indicator.saved .si-dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
 
-        .section {
-            padding: 20px 0;
-            border-bottom: 1px solid var(--border);
-        }
-        .section:last-of-type { border-bottom: none; }
-        .section-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
-        .section-desc  { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+        .section { margin-bottom: 6px; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border); overflow: hidden; transition: border-color .15s; }
+        .section:hover { border-color: rgba(255,255,255,.11); }
+        .section-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; cursor: pointer; user-select: none; gap: 12px; }
+        .section-header:hover { background: rgba(255,255,255,.02); }
+        .section-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .section-icon { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; background: rgba(255,255,255,.05); border: 1px solid var(--border); }
+        .section-title { font-size: 13px; font-weight: 600; letter-spacing: -.01em; }
+        .section-desc { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+        .section-chevron { color: var(--muted); font-size: 10px; transition: transform .2s cubic-bezier(.4,0,.2,1); flex-shrink: 0; }
+        .section.open .section-chevron { transform: rotate(180deg); }
+        .section-body { padding: 0 18px 18px; display: none; border-top: 1px solid var(--border); }
+        .section.open .section-body { display: block; }
 
-        .row {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            margin-top: 10px;
-        }
+        .row { display: flex; align-items: flex-start; gap: 14px; margin-top: 13px; }
+        .row-label { width: 165px; min-width: 165px; font-size: 12px; font-weight: 500; color: var(--text-soft); padding-top: 6px; }
+        .row-field { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+        .row-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        small.hint { font-size: 11px; color: var(--muted); line-height: 1.5; }
+        small.hint code { font-family: var(--mono); font-size: 10.5px; background: rgba(255,255,255,.06); padding: 1px 4px; border-radius: 3px; color: var(--text-soft); }
 
-        .row-label {
-            width: 150px;
-            min-width: 150px;
-            font-size: 12px;
-            font-weight: 500;
-            color: var(--text);
-            padding-top: 5px;
-        }
+        input[type=text], input[type=number], textarea, select { background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.1); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 12.5px; padding: 6px 10px; outline: none; transition: border-color .15s, box-shadow .15s, background .15s; }
+        input[type=text]:focus, input[type=number]:focus, textarea:focus, select:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-glow); background: rgba(255,255,255,.075); }
+        input[type=text].full, textarea.full { width: 100%; }
+        input[type=number] { width: 86px; }
+        textarea { resize: vertical; min-height: 68px; line-height: 1.5; }
+        input.invalid { border-color: var(--red) !important; box-shadow: 0 0 0 3px var(--red-dim) !important; }
 
-        .row-field { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-        .row-inline { display: flex; align-items: center; gap: 8px; }
+        select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 28px; background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235a5e66' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; }
+        select:focus { background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2363b3ed' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
 
-        small.hint { font-size: 11px; color: var(--muted); }
+        .check-row { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 12.5px; color: var(--text-soft); }
+        .check-row:hover { color: var(--text); }
+        input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
 
-        input[type="text"],
-        input[type="number"],
-        textarea {
-            background: rgba(255,255,255,.04);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            color: var(--text);
-            font-family: 'DM Sans', sans-serif;
-            font-size: 12.5px;
-            padding: 5px 9px;
-            outline: none;
-            transition: border-color .15s, box-shadow .15s, background .15s;
-        }
-
-        input[type="text"]:focus,
-        input[type="number"]:focus,
-        textarea:focus {
-            border-color: var(--border-hi);
-            box-shadow: 0 0 0 2px rgba(88,166,255,.15);
-            background: rgba(255,255,255,.06);
-        }
-
-        input[type="text"].full, textarea.full { width: 100%; }
-        input[type="number"] { width: 80px; }
-        textarea { resize: vertical; min-height: 64px; line-height: 1.45; }
-        input.invalid { border-color: var(--red) !important; }
-
-        .check-row {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            cursor: pointer;
-            user-select: none;
-            font-size: 13px;
-        }
-
-        input[type="checkbox"] {
-            width: 15px; height: 15px;
-            accent-color: var(--accent);
-            cursor: pointer;
-        }
-
-        button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
-            height: 30px;
-            padding: 0 13px;
-            border: none;
-            border-radius: var(--radius);
-            font-family: 'DM Sans', sans-serif;
-            font-size: 12.5px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background .12s, transform .1s, box-shadow .12s, opacity .12s;
-            background: rgba(255,255,255,.09);
-            color: var(--text);
-        }
-
-        button:hover  { background: rgba(255,255,255,.14); }
+        button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 30px; padding: 0 12px; border: 1px solid rgba(255,255,255,.1); border-radius: var(--radius); font-family: var(--font); font-size: 12px; font-weight: 500; cursor: pointer; transition: background .12s, border-color .12s, transform .08s, box-shadow .12s; background: rgba(255,255,255,.07); color: var(--text-soft); white-space: nowrap; }
+        button:hover { background: rgba(255,255,255,.11); border-color: rgba(255,255,255,.16); color: var(--text); }
         button:active { transform: translateY(1px); }
+        button.primary { background: var(--accent); color: #07111d; border-color: transparent; box-shadow: 0 2px 10px rgba(99,179,237,.3); font-weight: 600; }
+        button.primary:hover { background: #7ec8f5; box-shadow: 0 2px 14px rgba(99,179,237,.45); }
+        button.success { background: var(--green-dim); color: var(--green); border-color: rgba(74,222,128,.25); }
+        button.danger  { background: var(--red-dim); color: var(--red); border-color: rgba(248,113,113,.25); }
+        button.icon-btn { width: 28px; height: 28px; padding: 0; font-size: 13px; color: var(--muted); }
+        button.icon-btn:hover { color: var(--text); }
 
-        button.primary {
-            background: var(--accent);
-            color: #0a0a0a;
-            box-shadow: 0 3px 10px rgba(56,189,248,.3);
-        }
-        button.primary:hover { background: #0ea5e9; }
-        button.success { background: rgba(34,197,94,.9); color: #0a0a0a; }
-        button.danger  { background: rgba(239,68,68,.9);  color: #fff; }
-
-        #btn-authorize { width: 100%; margin-bottom: 6px; }
-
-        .auth-bottom {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
+        .auth-bottom { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
         #spotify-ok { font-size: 11.5px; color: var(--green); display: none; }
         #spotify-ok.show { display: inline; }
 
-        .preview-badge {
-            display: inline-flex;
-            align-items: center;
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            padding: 5px 14px;
-            background: rgba(255,255,255,.03);
-            font-family: 'DM Mono', monospace;
-            font-size: 11.5px;
-            white-space: nowrap;
-        }
+        .preview-badge { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 14px; background: rgba(255,255,255,.03); font-family: var(--mono); font-size: 11.5px; white-space: nowrap; color: var(--text-soft); }
 
-        .sub-box {
-            margin-top: 6px;
-            padding: 10px 14px 12px;
-            border-radius: var(--radius);
-            background: rgba(0,0,0,.25);
-            border: 1px dashed var(--border);
-            display: none;
-        }
+        .sub-box { margin-top: 10px; padding: 12px 14px 14px; border-radius: var(--radius); background: rgba(0,0,0,.2); border: 1px solid var(--border); display: none; }
         .sub-box.show { display: block; }
 
-        .divider { height: 1px; background: var(--border); margin: 12px 0; }
-        .indent { margin-left: 22px; }
+        .divider { height: 1px; background: var(--border); margin: 14px 0; }
+        .indent { margin-left: 24px; }
 
-        .modal-overlay {
-            position: fixed; inset: 0;
-            background: rgba(0,0,0,.6);
-            display: flex; align-items: center; justify-content: center;
-            z-index: 999;
-        }
-        .modal-box {
-            background: #1e2023;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            max-width: 500px;
-            width: 90%;
-            box-shadow: 0 20px 50px rgba(0,0,0,.6);
-            overflow: hidden;
-        }
-        .modal-header {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 14px;
-            background: rgba(0,0,0,.3);
-            border-bottom: 1px solid var(--border);
-            font-size: 13px; font-weight: 600;
-        }
-        .modal-body { padding: 14px; font-size: 13px; line-height: 1.6; color: #c4c4c9; }
-        .modal-close { cursor: pointer; opacity: .6; font-size: 16px; line-height: 1; }
-        .modal-close:hover { opacity: 1; }
+        #source-list { list-style: none; display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+        #source-list li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--radius); background: rgba(255,255,255,.03); border: 1px solid var(--border); cursor: grab; user-select: none; transition: background .12s, border-color .12s, box-shadow .12s; }
+        #source-list li:hover { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.12); }
+        #source-list li.drag-over { border-color: var(--accent); background: var(--accent-glow); box-shadow: 0 0 0 2px var(--accent-glow); }
+        #source-list li.dragging { opacity: .35; }
+        .drag-handle { color: var(--muted); font-size: 13px; cursor: grab; line-height: 1; transition: color .12s; }
+        #source-list li:hover .drag-handle { color: var(--text-soft); }
+        .source-name { flex: 1; font-size: 12.5px; font-weight: 500; }
+        .source-desc { font-size: 11px; color: var(--muted); }
+        .source-badge { font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,.05); border: 1px solid var(--border); color: var(--muted); }
 
-        ::-webkit-scrollbar { width: 8px; }
+        #restore-status-display { font-size: 12.5px; color: var(--muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 999; animation: fadeIn .15s ease; }
+        .modal-box { background: #181b1f; border: 1px solid rgba(255,255,255,.12); border-radius: var(--radius-lg); max-width: 520px; width: 92%; box-shadow: var(--shadow-lg); overflow: hidden; animation: slideUp .2s cubic-bezier(.4,0,.2,1); }
+        .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(255,255,255,.03); border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; letter-spacing: -.01em; }
+        .modal-body { padding: 16px; font-size: 12.5px; line-height: 1.65; color: var(--text-soft); }
+        .modal-body code { font-family: var(--mono); font-size: 11.5px; background: rgba(255,255,255,.07); padding: 1px 5px; border-radius: 3px; color: var(--text); }
+        .modal-body strong { color: var(--text); font-weight: 600; }
+        .modal-body a { color: var(--accent); }
+        .modal-close { cursor: pointer; opacity: .5; font-size: 15px; line-height: 1; color: var(--text); padding: 2px; border-radius: 3px; }
+        .modal-close:hover { opacity: 1; background: rgba(255,255,255,.08); }
+
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+        .toast { display: flex; align-items: center; gap: 9px; padding: 10px 14px; border-radius: var(--radius); background: #1e2125; border: 1px solid rgba(255,255,255,.12); box-shadow: var(--shadow-lg); font-size: 12.5px; color: var(--text); animation: toastIn .25s cubic-bezier(.4,0,.2,1) forwards; min-width: 220px; max-width: 340px; }
+        .toast.out { animation: toastOut .2s ease forwards; }
+        .toast-icon { font-size: 13px; flex-shrink: 0; }
+        .toast.success .toast-icon { color: var(--green); }
+        .toast.error   .toast-icon { color: var(--red); }
+        .toast.info    .toast-icon { color: var(--accent); }
+
+        ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.18); }
 
-        /* Source list drag-and-drop */
-        #source-list {
-            list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin-top: 4px;
-        }
+        @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes toastOut{ from { opacity: 1; transform: translateX(0); }  to { opacity: 0; transform: translateX(16px); } }
 
-        #source-list li {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 7px 10px;
-            border-radius: var(--radius);
-            background: rgba(255,255,255,.04);
-            border: 1px solid var(--border);
-            cursor: grab;
-            user-select: none;
-            transition: background .12s, border-color .12s;
-        }
+        .help-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+        .help-table th { text-align: left; padding: 3px 10px 5px 0; color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+        .help-table td { padding: 4px 10px 4px 0; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: top; }
+        .help-table tr:last-child td { border-bottom: none; }
 
-        #source-list li.drag-over {
-            border-color: var(--accent);
-            background: rgba(56,189,248,.08);
-        }
+        #spotify-token-status { font-size: 12px; color: var(--muted); white-space: nowrap; }
 
-        #source-list li.dragging {
-            opacity: .4;
-        }
-
-        .drag-handle {
-            color: var(--muted);
-            font-size: 14px;
-            cursor: grab;
-            line-height: 1;
-        }
-
-        .source-name {
-            flex: 1;
-            font-size: 12.5px;
-        }
-
-        .source-desc {
-            font-size: 11px;
-            color: var(--muted);
-        }
+        /* Presence status toggle */
+        .presence-toggle { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+        .presence-btn { height: 28px; padding: 0 12px; font-size: 12px; border-radius: var(--radius); border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); color: var(--text-soft); cursor: pointer; transition: background .12s, border-color .12s, color .12s, box-shadow .12s; }
+        .presence-btn:hover { background: rgba(255,255,255,.1); color: var(--text); }
+        .presence-btn.presence-active[data-value="online"] { background: rgba(74,222,128,.15); border-color: rgba(74,222,128,.45); color: var(--green); box-shadow: 0 0 0 2px rgba(74,222,128,.12); }
+        .presence-btn.presence-active[data-value="idle"]   { background: rgba(251,191,36,.15); border-color: rgba(251,191,36,.45); color: var(--amber); box-shadow: 0 0 0 2px rgba(251,191,36,.12); }
+        .presence-btn.presence-active[data-value="dnd"]    { background: rgba(248,113,113,.15); border-color: rgba(248,113,113,.45); color: var(--red);   box-shadow: 0 0 0 2px rgba(248,113,113,.12); }
     </style>
 </head>
 <body>
 <div id="app">
     <header>
-        <div>
-            <h1>Lyrics Status</h1>
-            <p>Configure how your current song is shown as a Discord custom status.</p>
+        <div class="header-left">
+            <div class="header-icon">&#127925;</div>
+            <div>
+                <h1>Lyrics Status</h1>
+                <p>Discord custom status synced to your Spotify playback.</p>
+            </div>
         </div>
-        <span id="version">v3</span>
+        <div class="header-right">
+            <div id="save-indicator"><span class="si-dot"></span><span class="si-label">Saved</span></div>
+            <div id="status-dot"><span class="dot"></span><span class="ws-label">Connecting</span></div>
+            <span id="version">v3</span>
+        </div>
     </header>
-
-    <!-- Authentication -->
-    <section class="section">
-        <div class="section-title">Authentication</div>
-        <div class="section-desc">Credentials are stored locally and only used to communicate with Discord and Spotify.</div>
-
-        <div class="row">
-            <span class="row-label">Discord token</span>
-            <div class="row-field">
-                <div class="row-inline">
-                    <input type="text" id="user-token" class="full" placeholder="Paste your Discord user token">
-                    <button id="check-token">Check</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <span class="row-label">Spotify cookies</span>
-            <div class="row-field">
-                <input type="text" id="spotify-cookies" class="full" placeholder="Paste your sp_dc cookie value">
-                <small class="hint">Only the <code>sp_dc</code> value is needed. DevTools &rarr; Application &rarr; Cookies &rarr; https://open.spotify.com &rarr; copy value of <code>sp_dc</code>.</small>
-            </div>
-        </div>
-        <div class="row">
-            <span class="row-label">Spotify token</span>
-            <div class="row-field">
-                <div class="row-inline">
-                    <input type="text" id="spotify-web-token" class="full" placeholder="Paste accessToken from open.spotify.com/api/token">
-                    <span id="spotify-token-status" style="font-size:12px;color:var(--muted);white-space:nowrap"></span>
-                </div>
-                <small class="hint">Optional &mdash; auto-fetched from your Spotify cookies on startup. Only paste manually if auto-fetch fails.</small>
-            </div>
-        </div>
-
-        <div class="row">
-            <span class="row-label">Spotify client ID</span>
-            <div class="row-field">
-                <input type="text" id="client-id" class="full" placeholder="Your Spotify application client ID">
-            </div>
-        </div>
-
-        <div class="row">
-            <span class="row-label">Client secret</span>
-            <div class="row-field">
-                <input type="text" id="client-secret" class="full" placeholder="Your Spotify application client secret">
-            </div>
-        </div>
-
-        <div class="row">
-            <span class="row-label">Redirect URI</span>
-            <div class="row-field">
-                <input type="text" id="custom-redirect-uri" class="full" placeholder="Must match URI in your Spotify app settings">
-                <small class="hint">Must exactly match one of the redirect URIs configured in your Spotify application.</small>
-            </div>
-        </div>
-
-        <div class="row">
-            <span class="row-label"></span>
-            <div class="row-field">
-                <button id="btn-authorize" class="primary">Authorize Spotify</button>
-                <div class="auth-bottom">
-                    <label class="check-row">
-                        <input type="checkbox" id="use-external-auth-server">
-                        <span>Use external auth server</span>
-                    </label>
-                    <span id="spotify-ok">✓ Authorized</span>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Status Preview -->
-    <section class="section">
-        <div class="section-title">Status preview</div>
-        <div class="section-desc">Choose what appears in your Discord custom status while music is playing.</div>
-
-        <div class="row">
-            <span class="row-label"></span>
-            <div class="row-field">
-                <label class="check-row"><input type="checkbox" id="enable-timestamp" checked><span>Show playback timestamp</span></label>
-            </div>
-        </div>
-        <div class="row">
-            <span class="row-label"></span>
-            <div class="row-field">
-                <label class="check-row"><input type="checkbox" id="enable-label" checked><span>Show label before lyrics</span></label>
-            </div>
-        </div>
-        <div class="row">
-            <span class="row-label">Live preview</span>
-            <div class="row-field">
-                <span class="preview-badge" id="status-preview">[2:17] Song lyrics - La-la-la</span>
-            </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="row">
-            <span class="row-label"></span>
-            <div class="row-field">
-                <label class="check-row"><input type="checkbox" id="enable-advanced-swt"><span>Advanced custom status template</span></label>
-            </div>
-        </div>
-
-        <div class="sub-box" id="advanced-swt">
-            <div class="row" style="margin-top:0">
-                <span class="row-label">Custom emoji</span>
-                <input type="text" id="custom-emoji" style="width:60px" maxlength="4" placeholder="🎶">
-                <button id="custom-emoji-help" class="help-btn" title="Help">?</button>
-            </div>
-            <div class="row">
-                <span class="row-label">Status template</span>
-                <div class="row-field">
-                    <textarea id="custom-status" class="full" placeholder="[{timestamp}] Song lyrics - {lyrics}"></textarea>
-                    <small class="hint">Use {lyrics}, {song_name}, {song_author}, {timestamp}. Cropped to 128 chars.</small>
-                    <button id="custom-status-help" style="align-self:flex-start;margin-top:2px">Template help</button>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Timing -->
-    <section class="section">
-        <div class="section-title">Timing</div>
-        <div class="section-desc">Fine-tune when your status changes relative to the actual lyrics.</div>
-
-        <div class="row">
-            <span class="row-label">Send offset (ms)</span>
-            <div class="row-inline">
-                <input type="text" id="send-time-offset" style="width:72px" maxlength="5" value="500">
-                <button id="send-time-offset-help">?</button>
-            </div>
-        </div>
-        <div class="row">
-            <span class="row-label"></span>
-            <label class="check-row"><input type="checkbox" id="enable-autooffset"><span>Enable Autooffset</span></label>
-            <button id="autooffset-help" style="margin-left:4px">?</button>
-        </div>
-        <div class="row">
-            <span class="row-label">Autooffset samples</span>
-            <div class="row-inline">
-                <input type="text" id="autooffset" style="width:52px" maxlength="2">
-                <span style="font-size:12px;color:var(--muted)">requests</span>
-            </div>
-        </div>
-    </section>
-
-    <!-- Updates -->
-    <section class="section">
-        <div class="section-title">Updates</div>
-        <div class="section-desc">Keep Lyrics Status current with the latest fixes.</div>
-        <div class="row">
-            <span class="row-label"></span>
-            <label class="check-row"><input type="checkbox" id="enable-autoupdate"><span>Automatic update checks</span></label>
-        </div>
-    </section>
-
-    <!-- Rate Limiting -->
-    <section class="section">
-        <div class="section-title">Rate Limiting</div>
-        <div class="section-desc">Discord throttles custom status updates. These options help stay within limits.</div>
-
-        <div class="row">
-            <span class="row-label"></span>
-            <label class="check-row"><input type="checkbox" id="enable-backoff" checked><span>Auto backoff when rate limited</span></label>
-        </div>
-        <div class="row indent">
-            <small class="hint">Pause sending for Discord's suggested retry window when rate limited.</small>
-        </div>
-
-        <div class="row" style="margin-top:12px">
-            <span class="row-label"></span>
-            <label class="check-row"><input type="checkbox" id="enable-min-interval" checked><span>Minimum interval between updates</span></label>
-        </div>
-        <div class="row indent row-inline" style="margin-top:6px">
-            <input type="number" id="min-interval-ms" min="1000" max="60000" step="500" value="5000">
-            <span style="font-size:12px;color:var(--muted)">ms between sends</span>
-        </div>
-        <div class="row indent">
-            <small class="hint">5000 ms (5 s) is a safe default.</small>
-        </div>
-
-        <div class="row" style="margin-top:12px">
-            <span class="row-label"></span>
-            <label class="check-row"><input type="checkbox" id="enable-merge-lines" checked><span>Merge nearby lyric lines</span></label>
-        </div>
-        <div class="row indent row-inline" style="margin-top:6px">
-            <input type="number" id="merge-window-ms" min="1000" max="30000" step="500" value="8000">
-            <span style="font-size:12px;color:var(--muted)">ms merge window</span>
-        </div>
-        <div class="row indent">
-            <small class="hint">Lines closer than this window are joined into one status, reducing total sends.</small>
-        </div>
-    </section>
-
-    <!-- Sources -->
-    <section class="section">
-        <div class="section-title">Lyrics Sources</div>
-        <div class="section-desc">Drag to reorder. Toggle to enable or disable. Order and toggles take effect on next restart.</div>
-        <ul id="source-list"></ul>
-
-        <div class="row" style="margin-top:14px">
-            <span class="row-label">Chinese script</span>
-            <div class="row-field">
-                <select id="chinese-conversion" style="background:#1a1c1f;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'DM Sans',sans-serif;font-size:12.5px;padding:5px 9px;outline:none;appearance:none;-webkit-appearance:none;cursor:pointer;">
-                    <option value="off">Off</option>
-                    <option value="toTraditional">Simplified → Traditional</option>
-                    <option value="toSimplified">Traditional → Simplified</option>
-                </select>
-                <small class="hint">Converts Chinese lyrics on fetch. Applies to new songs only — delete cache to reprocess existing ones.</small>
-            </div>
-        </div>
-    </section>
+    <div id="sections"></div>
 </div>
-
-<script src="jquery.min.js"></script>
+<div id="toast-container"></div>
 <script src="panel.js"></script>
 </body>
 </html>

@@ -1,0 +1,1170 @@
+LYRICS-STATUS — CHANGELOG & MODIFICATION SUMMARY
+=================================================
+Base Version: 3.0.7
+Modified by: suici
+Date: March 2026
+
+This document summarizes all changes made to the lyrics-status project
+(https://github.com/OvalQuilter/lyrics-status) from the original v3.0.7
+source. All changes were applied directly to the compiled JavaScript in
+dist/ and to static/panel.js. No TypeScript source files were modified.
+
+─────────────────────────────────────────────────────────────────────
+1. LOGGING
+   Files: dist/StatusChanger.js, dist/PlaybackStateUpdater.js
+─────────────────────────────────────────────────────────────────────
+The app originally wrote to log.txt only for uncaught exceptions and
+update failures. Logging was extended across both runtime classes.
+
+PlaybackStateUpdater:
+  - Logs every Spotify API poll and HTTP response code
+  - Logs song detection, lyrics fetch result and source
+  - Logs auth errors and token refresh events
+  - Logs HTTP 204 (nothing playing)
+
+StatusChanger:
+  - Logs every Discord API send attempt with text and emoji
+  - Logs HTTP response code and round-trip time
+  - Logs rate limit events including retry_after duration
+  - Logs how many lyric lines were merged per send
+  - Removed 60fps "Song changed" log spam (~60 writes/sec)
+  - Removed 60fps skip log spam when nothing is playing
+
+─────────────────────────────────────────────────────────────────────
+2. BUG FIX — Lyrics mismatch re-fetch loop
+   File: dist/LyricsFetcher.js
+─────────────────────────────────────────────────────────────────────
+Original bug: lastFetchedFor was only set inside the live-source fetch
+path, not on cache hits. This caused PlaybackStateUpdater to detect a
+mismatch on every 5-second Spotify poll and redundantly re-fetch lyrics
+from cache on every single tick.
+
+Fix: lastFetchedFor is now set on the cache hit path before breaking
+out of the source loop. The mismatch re-fetch block in
+PlaybackStateUpdater was removed entirely as it is no longer needed.
+
+─────────────────────────────────────────────────────────────────────
+3. DISCORD RATE LIMIT HANDLING
+   File: dist/StatusChanger.js
+─────────────────────────────────────────────────────────────────────
+The original code had no protection against Discord's custom status
+rate limit (~1 update per 40 seconds under heavy use). Three
+protections were added:
+
+  Auto backoff: When Discord returns HTTP 429, the app reads
+  retry_after from the response body and blocks all sends until that
+  timestamp has passed. Falls back to 30s if the body cannot be
+  parsed. Respects the enableBackoff setting toggle.
+
+  Minimum send interval: A configurable minimum number of milliseconds
+  enforced between any two Discord sends, checked before any other
+  logic in changeStatus().
+
+  Line merging: Consecutive lyric lines that are both already due AND
+  within a configurable time window of each other are joined with a
+  space into a single status update, reducing total API calls. The
+  merge only considers lines whose timestamps have already been
+  reached — it never pre-merges future lines.
+
+  Song boundary protection: songChanged() now always sets _lastSentAt
+  to Date.now() unconditionally so the minimum interval applies on
+  the first send of every new song.
+
+─────────────────────────────────────────────────────────────────────
+4. SMART TRUNCATION
+   File: dist/StatusChanger.js
+─────────────────────────────────────────────────────────────────────
+The original code hard-cut status text at 128 characters with
+.slice(0, 128), which could break mid-word.
+
+Replaced with smartTruncate(text, limit, lyricLines):
+  - Phase 1: If multiple lyric lines were merged, drops whole lines
+    from the end until the joined text fits within the limit
+  - Phase 2: If a single lyric line still exceeds the limit, falls
+    back to word-boundary chopping with "..." appended
+  - Phase 3: If a single word exceeds the limit, hard-cuts with "..."
+  - Guards against null/undefined input, returning "" safely
+
+For advanced template mode, the template is re-rendered with
+progressively fewer lyric lines until it fits, rather than chopping
+the already-rendered string mid-word.
+
+─────────────────────────────────────────────────────────────────────
+5. NULL SAFETY & ERROR HANDLING
+   Files: dist/StatusChanger.js, dist/PlaybackStateUpdater.js
+─────────────────────────────────────────────────────────────────────
+Added defensive null guards to prevent crashes from missing or
+malformed Spotify metadata:
+
+  StatusChanger:
+  - applyTemplate(): songName and songAuthor default to "" if null,
+    preventing .toUpperCase() crashes on missing track metadata
+  - smartTruncate(): returns "" immediately if text is null/undefined
+  - buildMergedLines(): anchor.text defaults to "" if undefined
+  - parseStatusString(): all line.text, songName, songAuthor
+    accesses null-coalesced throughout
+
+  PlaybackStateUpdater:
+  - artists[0].name guarded against empty or missing artists array,
+    falls back to "Unknown"
+
+─────────────────────────────────────────────────────────────────────
+6. RATE LIMIT SETTINGS UI
+   Files: dist/Settings.js, dist/Panel/Server.js, static/panel.js
+─────────────────────────────────────────────────────────────────────
+A new rateLimit block was added to settings with five fields:
+
+  enableBackoff      (bool)   — toggles auto backoff on 429
+  enableMinInterval  (bool)   — toggles the minimum send interval
+  minIntervalMs      (number) — minimum ms between Discord sends
+  enableMergeLines   (bool)   — toggles lyric line merging
+  mergeWindowMs      (number) — ms window for merging adjacent lines
+
+Settings.js: rateLimit added to static defaults, save(), and load()
+Server.js: rateLimit included in WebSocket payload both on connect
+  and on receive so the panel reads and writes it live
+panel.js: New "Rate Limiting" section added to the settings UI with
+  checkboxes for each toggle and number inputs for the two ms values.
+  All five controls wired to saveSettings() and populated correctly
+  in loadSettings().
+
+─────────────────────────────────────────────────────────────────────
+7. TERMINAL DISPLAY
+   File: dist/index.js
+─────────────────────────────────────────────────────────────────────
+The original terminal display showed only song name, author, progress,
+current lyric line (frozen at last Discord send), and lyrics source.
+
+Completely rewritten with two separate intervals:
+
+  60fps loop: runs changeStatus() and advances songProgress only.
+  No rendering occurs here at all.
+
+  1s display loop: independent setInterval that reads shared state
+  and writes the display. Uses ANSI cursor positioning (ESC[H) to
+  overwrite lines in place rather than console.clear(), eliminating
+  the scroll-spam that occurred in Git Bash on Windows.
+
+  Display now shows:
+  - Song / Artist / Progress (MM:SS / MM:SS) / Playing or Paused
+  - Lyrics source and fetch origin
+  - Now: actual current lyric based on real song progress,
+    independent of what was last sent to Discord
+  - Next: upcoming lyric line and seconds until it fires
+  - Last sent: exact text of last Discord status update
+  - Send: green Ready, yellow countdown, or red RATE LIMITED
+    with live seconds remaining
+  - Settings: min interval, merge window, auto backoff — each
+    shown as green (enabled + value) or red (Off)
+
+─────────────────────────────────────────────────────────────────────
+8. PANEL ENCODING FIX
+   File: static/panel.js
+─────────────────────────────────────────────────────────────────────
+panel.js was found to contain a UTF-8 BOM and mojibake emoji
+corruption (e.g. 🎶 rendered as ðŸŽ¶) introduced during file writes.
+The BOM was stripped and all affected characters restored to their
+correct UTF-8 codepoints.
+
+─────────────────────────────────────────────────────────────────────
+9. SOURCE SYNC & SETTINGS FIX (March 2026)
+   Files: src/StatusChanger.ts, src/Settings.ts
+─────────────────────────────────────────────────────────────────────
+src/StatusChanger.ts was stale — synced to match dist/StatusChanger.js.
+Includes all rate limiting, smartTruncate, buildMergedLines,
+applyTemplate, and null-safety additions from entries 3–5.
+
+src/Settings.ts:
+  - rateLimit block added to static defaults
+  - save() now includes rateLimit in the written JSON
+  - load() uses spread merge ({ ...defaults, ...loaded }) instead of
+    || so partial rateLimit objects don't discard missing keys
+
+─────────────────────────────────────────────────────────────────────
+10. PANEL OVERHAUL (March 2026)
+    Files: static/index.html, static/panel.js
+─────────────────────────────────────────────────────────────────────
+All HTML moved from panel.js into index.html. panel.js rewritten from
+~500 lines to ~160 using a data-driven BINDINGS map — one entry per
+setting replaces 40+ individual event handlers. Deep path helpers
+(getPath/setPath) replace repetitive object access. Help modals driven
+by a HELP map. Check token made async. $.extend deep merge replaced
+with explicit DEFAULTS spread for safe fallbacks on load.
+
+─────────────────────────────────────────────────────────────────────
+11. TERMINAL DISPLAY FLICKER FIX (March 2026)
+    File: dist/index.js
+─────────────────────────────────────────────────────────────────────
+The terminal was spamming the screen with repeated border characters
+due to console.clear() being called 60 times per second inside the
+60fps loop. Git Bash on Windows scrolls on clear rather than
+overwriting in place, causing the stacking.
+
+Fix: rendering was fully separated into its own 1s setInterval.
+The 60fps loop now handles only changeStatus() and songProgress
+advancement — no rendering whatsoever. The 1s display loop uses
+ESC[H + ESC[K per line to overwrite in place with zero scroll or
+flicker. A single ESC[2J ESC[H on startup clears the screen once.
+
+─────────────────────────────────────────────────────────────────────
+12. ADDITIONAL NULL SAFETY PASS (March 2026)
+    Files: dist/StatusChanger.js, dist/PlaybackStateUpdater.js,
+           dist/index.js
+─────────────────────────────────────────────────────────────────────
+A second pass of null safety fixes following live testing:
+
+  StatusChanger:
+  - songChanged() now unconditionally sets _lastSentAt = Date.now()
+    so the minimum send interval is respected across song boundaries.
+    Previously the guard (=== 0) meant it only ever fired on the very
+    first song of a session.
+  - parseStatusString() fully null-coalesced throughout.
+
+  PlaybackStateUpdater:
+  - artists[0].name access guarded with optional chaining and
+    fallback to "Unknown" to handle tracks with missing artist data.
+
+  index.js:
+  - Optional chaining on rateLimit?.mergeWindowMs and
+    rateLimit?.minIntervalMs prevents crashes if settings.json is
+    missing the rateLimit block on first load.
+  - next.text in the Next lyric display null-coalesced to "".
+
+─────────────────────────────────────────────────────────────────────
+13. UNICODE CODE POINT TRUNCATION FIX (March 2026)
+    Files: dist/StatusChanger.js, src/StatusChanger.ts
+─────────────────────────────────────────────────────────────────────
+JavaScript's string.length counts UTF-16 code units, not Unicode code
+points. Emoji (e.g. 🎵, 🎶) use surrogate pairs and have .length === 2
+but are a single code point — which is how Discord counts toward its
+128-character status limit.
+
+This caused two bugs:
+  - Lyrics containing emoji were truncated 1 character too early per
+    emoji (over-truncation), wasting space in the status.
+  - The phase 3 hard-cut in smartTruncate used text.slice(0, n), which
+    can land inside a surrogate pair and produce a broken/garbled
+    character at the end of the Discord status (visible as ? or □).
+    This also affects any non-BMP Unicode characters in lyrics from
+    languages such as Japanese, Korean, or Chinese that include
+    characters outside the Basic Multilingual Plane.
+
+Fix: two module-level helpers added to StatusChanger:
+  cpLen(s)     — returns [...s].length  (code point count)
+  cpSlice(s,n) — returns [...s].slice(0,n).join("") (safe substring)
+
+All character-limit checks and slices in smartTruncate() and
+changeStatus() now use cpLen/cpSlice instead of .length/.slice:
+  - smartTruncate(): 4 length checks + 1 hard-cut slice
+  - changeStatus() simple mode: prefix limit calculation,
+    merged line reduction loop, and final length guard
+  - changeStatus() advanced template mode: fullStatus fit check
+    and per-candidate fit check in the reduction loop
+
+Both dist/StatusChanger.js and src/StatusChanger.ts updated.
+
+─────────────────────────────────────────────────────────────────────
+14. MERGE BUG FIX + BOM CLEANUP (March 2026)
+    Files: dist/StatusChanger.js, src/StatusChanger.ts,
+           dist/Settings.js, dist/index.js
+─────────────────────────────────────────────────────────────────────
+MERGE BUG — Root cause: buildMergedLines looked FORWARD from the
+anchor line. The skip logic in changeStatus() always positions the
+anchor at the LAST due line (the one where nextLine is not yet due).
+By definition, nothing ahead of that anchor is yet due, so the forward
+scan always found zero lines to merge. Result: every send was exactly
+one line, regardless of mergeWindowMs.
+
+Fix: buildMergedLines rewritten to look BACKWARD from the anchor.
+It now collects unsent lines within mergeWindowMs behind the anchor
+and returns them in chronological order (oldest first). This aligns
+with the intent of the setting: "merge the last N seconds of lyrics
+into one Discord status update."
+
+  buildMergedLines signature change:
+    Old: (lines, startIndex, songProgress, offset)
+    New: (lines, anchorIndex, mergeWindowMs)
+
+  mergeWindowMs is now pre-computed once per changeStatus() call
+  (from Settings.rateLimit) and passed directly, removing redundant
+  Settings reads inside the function.
+
+  Previously-sent lines in the backward window are skipped (they are
+  already in sentLines from an earlier send). Only fresh unsent lines
+  are collected.
+
+  The intermediate skip-logic tweak introduced during entry #13 was
+  reverted back to the original clean one-liner:
+    if (nextLine && nextLine.time < (songProgress + offset)) continue;
+  This is correct: find the last due line, then merge backward.
+
+EXPECTED BEHAVIOR with minInterval=6s, mergeWindow=4s:
+  - Lines fire every ~3s. Each 6s interval send picks up the most
+    recent ~2 lines (within the 4s window) as a merged status.
+  - Lines older than 4s from the anchor are treated as stale and
+    omitted — they fall outside the merge window by design.
+  - The log now correctly shows "(2 line(s) merged)" on these sends.
+
+BOM CLEANUP: dist/Settings.js and dist/index.js had a UTF-8 BOM
+(EF BB BF) prefix added silently by the file-write tool. Node.js
+tolerates it but it is non-standard. BOMs stripped from both files
+via PowerShell byte-level rewrite. dist/StatusChanger.js confirmed
+clean on this write.
+
+─────────────────────────────────────────────────────────────────────
+15. MUSIXMATCH SOURCE + SOURCE TOGGLES (March 2026)
+    Files: dist/Sources/MusixmatchSource.js (new), src/Sources/MusixmatchSource.ts (new),
+           dist/Settings.js, src/Settings.ts, dist/Panel/Server.js,
+           dist/index.js, static/panel.js, static/index.html
+─────────────────────────────────────────────────────────────────────
+NEW SOURCE — Musixmatch (unofficial API):
+  Same database Spotify uses for its own built-in lyrics. Uses the
+  unofficial desktop API endpoint (apic-desktop.musixmatch.com).
+  Requires musixmatchToken (x-mxm-token-guid cookie from musixmatch.com).
+
+  track.search resolves name+artist to track_id. track.subtitle.get
+  fetches LRC-format synced lyrics. LRC parser with correct 2/3-digit
+  ms normalisation. Throws early if token is empty so LyricsFetcher
+  falls through cleanly to the next source.
+
+SOURCE ORDER TOGGLES:
+  New Settings.sources block: enableSpotify, enableMusixmatch,
+  enableLrcLib, enableNetEase, enableQQMusic (all true by default).
+  index.js reads these at startup; disabled sources are never
+  instantiated. Fixed priority order: Spotify -> Musixmatch ->
+  LrcLib -> NetEase -> QQMusic.
+
+  sources block wired into Settings save/load spread, Server.js
+  WebSocket payload, panel.js DEFAULTS + 5 new BINDINGS, and
+  index.html Sources section + Musixmatch token field.
+
+─────────────────────────────────────────────────────────────────────
+16. MUSIXMATCH COOKIE PASTE + TOKEN CHECK FIX (March 2026)
+    Files: static/panel.js, dist/Panel/Server.js
+─────────────────────────────────────────────────────────────────────
+COOKIE AUTO-EXTRACTION:
+  The Musixmatch token field now accepts a raw browser cookie paste.
+  extractMxmToken() finds musixmatchUserToken=, URL-decodes it, parses
+  the JSON, and saves only the web-desktop-app-v1.0 token. Field updates
+  to show the extracted value so the user knows it worked. Plain token
+  strings still pass through unchanged.
+
+TOKEN CHECK PROXY:
+  The Check button previously sent the validation request directly from
+  the browser. Browsers silently strip the Cookie header on cross-origin
+  requests (forbidden header), so the request always reached Musixmatch
+  unauthenticated and returned a failure.
+
+  Fixed by adding a /check-mxm GET endpoint in Server.js. The panel now
+  calls GET /check-mxm (same origin), Node makes the request with the
+  Cookie header intact, and returns { ok: true/false }.
+
+─────────────────────────────────────────────────────────────────────
+17. SONG SKIP DETECTION (March 2026)
+    File: dist/index.js
+─────────────────────────────────────────────────────────────────────
+Previous behaviour: if the user manually skipped a song mid-play,
+the 60fps loop would never call songChanged() because playbackState
+.ended never became true — the skip just replaced the songId.
+sentLines and _lastSentAt from the old song persisted into the new
+one, causing the first lyric of the new song to be skipped or
+silently blocked by the stale min-interval timer.
+
+Fix: a _lastKnownSongId variable is checked every frame. When
+playbackState.songId changes and the value is non-empty, songChanged()
+is called immediately, clearing sentLines and resetting _lastSentAt.
+This fires before changeStatus() in the same tick so the new song's
+first matching lyric is sent on the very next eligible interval.
+
+─────────────────────────────────────────────────────────────────────
+18. RATE LIMIT BODY LOGGING IMPROVEMENT (March 2026)
+    File: dist/StatusChanger.js
+─────────────────────────────────────────────────────────────────────
+Previous behaviour: the HTTP 429 handler called res.json() directly.
+If Discord returned a non-JSON body (e.g. plain text, HTML error
+page, or empty body), the .json() call would throw and the catch
+branch would fall back to 30s — but the raw response body was never
+logged, making it impossible to diagnose the rate limit.
+
+Fix: handler now calls res.text() first and logs the raw body
+unconditionally. JSON.parse() is then attempted on the text with a
+try/catch. If parsing fails, the failure and the raw body are both
+logged and the 30s fallback is applied. This makes every 429
+completely observable in log.txt regardless of body format.
+
+─────────────────────────────────────────────────────────────────────
+19. SPOTIFY MANUAL COOKIE FIELD (March 2026)
+    Files: static/panel.js, static/index.html,
+           dist/Sources/SpotifySource.js
+─────────────────────────────────────────────────────────────────────
+Spotify authentication uses a plain manual cookie paste field.
+credentials.cookies maps to a text input in the Authentication
+section, wired into BINDINGS. SpotifySource.request() sends the
+cookie string directly in the Cookie header alongside the OAuth
+Bearer token from SpotifyService — no browser fetch, no token
+caching, no expiry tracking.
+
+─────────────────────────────────────────────────────────────────────
+20. SOURCE TOGGLE BUG FIX + TS2454 FIX (March 2026)
+    Files: src/index.ts, src/Panel/Server.ts, src/StatusChanger.ts
+─────────────────────────────────────────────────────────────────────
+SOURCE TOGGLES (src/index.ts):
+  Sources were unconditionally added to LyricsFetcher at startup,
+  ignoring Settings.sources entirely. Each addSource() call is now
+  wrapped with the corresponding Settings.sources.enableXxx check.
+  Musixmatch was also missing from index.ts entirely; it is now
+  included with its toggle guard.
+
+PANEL SYNC (src/Panel/Server.ts):
+  The WebSocket message handler did not persist Settings.sources when
+  the panel saved, and the initial payload sent to a connecting panel
+  did not include sources — so toggle state was never shown or saved.
+  Both the inbound handler and the outbound connect payload now include
+  the sources block.
+
+TS2454 (src/StatusChanger.ts):
+  statusText and emoji declared with definite assignment assertion (!)
+  to satisfy TypeScript control flow analysis. Fixes three TS2454
+  errors reported by tsc.
+
+SPOTIFY COOKIE CLARIFICATION:
+  The cookies field requires only the sp_dc cookie from open.spotify.com.
+  In DevTools: Application → Cookies → https://open.spotify.com → copy
+  the value of sp_dc. Paste only that value (not the full cookie string).
+
+─────────────────────────────────────────────────────────────────────
+21. CONFIGURABLE SOURCE ORDER (March 2026)
+    Files: src/Settings.ts, src/index.ts, static/index.html, static/panel.js
+─────────────────────────────────────────────────────────────────────
+Settings.sources now includes sourceOrder: string[] (default Spotify →
+Musixmatch → LrcLib → NetEase → QQMusic). index.ts replaced the five
+hardcoded addSource() calls with a single loop over sourceOrder,
+mapping name → class via SOURCE_MAP/ENABLE_MAP lookups.
+
+Panel: the five static checkboxes are replaced by a draggable <ul>.
+Each row shows a drag handle, source name, description, and enable
+checkbox. Dragging reorders the list and immediately rebuilds
+sourceOrder in settings; toggling the checkbox updates the enableXxx
+flag. Both changes save via WebSocket on the spot. Changes take effect
+on next restart.
+
+─────────────────────────────────────────────────────────────────────
+22. BUG FIXES — SOURCE ORDER, CACHE WRITE, DOUBLE SONGCHANGED (March 2026)
+    Files: dist/index.js, dist/LyricsFetcher.js
+─────────────────────────────────────────────────────────────────────
+SOURCE ORDER IGNORED (dist/index.js):
+  dist/index.js used hardcoded if(src.enableXxx) conditionals, so the
+  drag-and-drop sourceOrder saved by the panel had zero effect at runtime.
+  Replaced with SOURCE_MAP + ENABLE_MAP + loop over sourceOrder, matching
+  the src/index.ts logic from entry 21. Falls back to default order if
+  sourceOrder is missing or empty.
+
+CACHE WRITE MASKING FETCH SUCCESS (dist/LyricsFetcher.js):
+  cacheLyrics() was inside the same try block as getLyrics(). On Windows,
+  song names with invalid filename characters (<, >, :, ", |, ?, *) caused
+  writeFileSync to throw. The catch block logged a false source failure and
+  the song was never cached — causing a live re-fetch on every playback.
+  cacheLyrics() is now in its own try/catch after the source try/catch.
+
+DOUBLE SONGCHANGED ON NATURAL END (dist/index.js):
+  On a natural song end, songChanged() fired twice: once from _songEndedFired
+  when ended=true, and again from skip detection when Spotify polling
+  delivered the new songId. Skip detection now only fires songChanged() if
+  _songEndedFired is false (i.e. a true mid-song skip, not a natural end).
+
+─────────────────────────────────────────────────────────────────────
+23. SPOTIFY SOURCE FIX + AUTO WEB TOKEN (March 2026)
+    Files: dist/Sources/SpotifySource.js, dist/Panel/Server.js
+─────────────────────────────────────────────────────────────────────
+SpotifySource: added getBearerToken() preferring spotifyWebToken over
+SpotifyService.token. Added null guards on player and lyrics responses
+(json.lyrics was accessed without checking if the property existed,
+causing silent TypeError crashes). Errors now throw descriptively so
+LyricsFetcher logs the real reason instead of a generic failure.
+
+Server.js: refreshSpotifyWebToken() extracted as a standalone function
+and called at startup. Uses stored cookies to fetch a web player token
+from open.spotify.com/get_access_token, saves it to credentials, then
+schedules the next refresh 5 minutes before expiry. Retries in 60s on
+error. No-op if cookies are empty.
+
+─────────────────────────────────────────────────────────────────────
+24. SOURCE NULL GUARDS + LRCLIB REGEX FIX (March 2026)
+    Files: dist/Sources/LrcLibSource.js, QQMusicSource.js, NetEaseMusicSource.js
+─────────────────────────────────────────────────────────────────────
+LrcLib: regex had /g flag declared outside the per-line loop, making
+lastIndex stateful — timestamps on all lines after the first were
+skipped. Moved regexp declaration inside the loop.
+QQMusic: json.data.song.itemlist access had no null check; crashes if
+API returns unexpected shape. Full chain now guarded.
+NetEase: json.result.songCount/.songs access unguarded. Replaced with
+full null check on result and songs array.
+
+─────────────────────────────────────────────────────────────────────
+25. SPOTIFY TOKEN — MANUAL PASTE + EXPIRY FIX (March 2026)
+    Files: static/index.html, static/panel.js,
+           dist/Panel/Server.js, dist/Sources/SpotifySource.js
+─────────────────────────────────────────────────────────────────────
+
+panel.js: #spotify-web-token wired into BINDINGS
+(credentials.spotifyWebToken). updateSpotifyTokenStatus() simplified
+to show "✓ Set" / "Not set" — no expiry display.
+
+Server.js: /fetch-spotify-token route removed. refreshSpotifyWebToken()
+at startup kept (uses stored sp_dc cookies, no-ops silently on failure).
+
+SpotifySource.js: getBearerToken() previously rejected the manually
+pasted token because it checked Date.now() < spotifyWebTokenExpiry —
+which is always false for manually pasted tokens (expiry field is 0
+or undefined). Expiry check removed; any non-empty spotifyWebToken
+is now used directly, falling back to SpotifyService.token if unset.
+
+─────────────────────────────────────────────────────────────────────
+26. BUG FIXES — MUSIXMATCH DOUBLE-AWAIT, NETEASE MS/URL/JUNK,
+    STATUSCHANGER 429 SYNC, LYRICSFETCHER REFETCH LOOP (April 2026)
+    Files: dist/Sources/MusixmatchSource.js, src/Sources/MusixmatchSource.ts,
+           dist/Sources/NetEaseMusicSource.js, src/Sources/NetEaseMusicSource.ts,
+           src/StatusChanger.ts, src/LyricsFetcher.ts
+─────────────────────────────────────────────────────────────────────
+MUSIXMATCH DOUBLE-AWAIT (critical — source never worked):
+  request() was wrapped in __awaiter, making it return
+  Promise<Promise<Response>>. Callers yielded once, receiving the
+  inner Promise instead of the Response. res.ok was always undefined
+  (falsy), so every request threw "Musixmatch search HTTP undefined"
+  and the source silently fell through on every song lookup.
+  Additionally, MusixmatchSource.js was missing entirely from the
+  running instance's dist/Sources/ — copied across.
+  Fix: request() made synchronous (returns fetch() directly), matching
+  the original TS intent.
+
+NETEASE MS NORMALIZATION:
+  match[4] (millisecond digits) was cast with +match[4] raw. A 2-digit
+  value like "12" was treated as 12ms instead of 120ms, causing all
+  NetEase lyrics to be off by ~100ms per line.
+  Fix: parseInt(match[4].padEnd(3, "0")) — same fix already applied
+  to MusixmatchSource in entry 15.
+
+NETEASE URL NEWLINE:
+  Template literal in getSongId() contained a literal newline +
+  indentation whitespace before the closing backtick, producing a
+  malformed URL. Fetch may silently succeed but the trailing whitespace
+  could cause 400s or cache misses depending on the server.
+  Fix: URL collapsed to a single line.
+
+NETEASE JUNK LINE FILTER (src sync):
+  dist/NetEaseMusicSource.js had filters for Chinese metadata lines
+  (作词/作曲/etc.) and section labels ([Verse]/[Chorus]/etc.) but
+  src/NetEaseMusicSource.ts did not. CONTEXT.md claimed the filter
+  existed in parseLyrics() — now true in both files.
+
+STATUSCHANGER 429 SYNC (src):
+  src/StatusChanger.ts still used res.json() for 429 handling. Synced
+  to match dist: res.text() first, raw body logged unconditionally,
+  JSON.parse() attempted with try/catch, fallback to 30s on failure.
+
+LYRICSFETCHER REFETCH LOOP (src):
+  src/LyricsFetcher.ts set lastFetchedFor only inside the live-source
+  try block, not on cache hits. PlaybackStateUpdater's mismatch guard
+  (lastFetchedFor !== songName+artist) triggered on every 5s poll for
+  cached songs, causing a redundant fetchLyrics() call each tick.
+  Fix: lastFetchedFor = name + artist moved to top of fetchLyrics(),
+  before cache check, matching dist/LyricsFetcher.js.
+
+─────────────────────────────────────────────────────────────────────
+27. CHINESE SCRIPT CONVERSION (April 2026)
+    Files: dist/LyricsFetcher.js, src/LyricsFetcher.ts,
+           dist/Settings.js, src/Settings.ts,
+           dist/Panel/Server.js, static/panel.js, static/index.html
+─────────────────────────────────────────────────────────────────────
+Adds optional Simplified ↔ Traditional Chinese conversion applied to
+lyric lines at fetch time (before caching), using opencc-js.
+
+New setting: display.chineseConversion (string, default "off").
+Possible values: "off", "toTraditional", "toSimplified".
+
+Settings.js / Settings.ts: chineseConversion added to display block
+defaults, save(), and load() spread.
+
+LyricsFetcher.js / LyricsFetcher.ts: opencc-js required at top.
+Two converters (cn→tw, tw→cn) initialised once at module level inside
+a try/catch — if opencc-js is not installed the module loads normally
+and conversion is silently skipped. After a live-source fetch succeeds
+(cache misses only), each line.text is run through the active converter
+before the result is cached. Cache hits are not re-converted; changing
+the setting takes effect on the next song that is not already cached
+(or after clearing the cache/ folder).
+
+Logic flaw accounted for: conversion is skipped when the setting is
+"off", when opencc-js failed to load, or when line.text is null/empty.
+No conversion is applied to cache hits to avoid double-converting if
+the setting is toggled after a song was already cached.
+
+Panel (static/index.html, static/panel.js): a <select> with three
+options (Off / Simplified→Traditional / Traditional→Simplified) is
+added to the Lyrics Sources section. Wired into BINDINGS as
+"display.chineseConversion" / "select". Saved live via WebSocket like
+all other settings. A restart is not required — takes effect on the
+next uncached song fetch.
+
+Server.js (dist/Panel/Server.js): display block added to the WebSocket
+payload (both outbound on connect and inbound save handler) so the
+panel reads and writes the setting correctly.
+
+Bug found post-commit and fixed:
+
+  ERR_REQUIRE_ESM: opencc-js ships with "type":"module" in its own
+  package.json, causing Node to treat all its .js files as ESM even
+  though the UMD file has a CJS-compatible wrapper. require("opencc-js")
+  always threw ERR_REQUIRE_ESM; the try/catch silently swallowed it and
+  conversion was a permanent no-op. Fixed by replacing require() with
+  a cached dynamic import() promise (getOpencc()). applyConversion() and
+  getConverter() made async; all call sites await them.
+
+  QQMusic ms normalisation: QQMusicSource.parseLyrics() used +match[4]
+  raw, identical to the NetEase bug in entry 26. 2-digit ms values were
+  off by ~100ms. Fix: parseInt(String(match[4]).padEnd(3, "0")).
+  Files: dist/Sources/QQMusicSource.js
+
+  QQMusic dead endpoints: c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg
+  and c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg now return
+  retcode -1310 (access denied) without a valid QQ Music session cookie.
+  Tencent locked these endpoints; a Referer header alone is no longer
+  sufficient. QQMusic source will silently fall through until a cookie
+  auth mechanism is added. No code fix applied — documented as a known
+  limitation requiring credentials support.
+
+─────────────────────────────────────────────────────────────────────
+28. REFACTOR — dead code removal, async cleanup, autooffset fix
+    Files: dist/StatusChanger.js, src/StatusChanger.ts,
+           dist/PlaybackStateUpdater.js, dist/SpotifyService.js,
+           dist/Sources/SpotifySource.js, dist/Sources/NetEaseMusicSource.js,
+           dist/Sources/MusixmatchSource.js, dist/Autooffset.js, src/Autooffset.ts
+─────────────────────────────────────────────────────────────────────
+- Removed dead parseStatusString() from StatusChanger (never called).
+- Converted all remaining __awaiter/yield generator wrappers to native
+  async/await in dist (PlaybackStateUpdater, SpotifyService, SpotifySource,
+  NetEaseMusicSource, MusixmatchSource). src was already native async.
+- Fixed Autooffset zero-padding: setLimit() no longer pre-fills slots
+  with 0; addValue() trims to limit before unshift. Average now reflects
+  only real measurements, preventing underestimated offsets early in session.
+
+─────────────────────────────────────────────────────────────────────
+29. MUSIXMATCH — REPLACE MANUAL TOKEN WITH SYNCLYRICS AUTO-TOKEN (April 2026)
+    Files: dist/Sources/MusixmatchSource.js,
+           dist/Panel/Server.js,
+           static/panel.js,
+           static/index.html,
+           package.json
+─────────────────────────────────────────────────────────────────────
+PROBLEM: The free Musixmatch web-desktop session token (x-mxm-token-guid)
+was being flagged by Musixmatch bot-detection almost immediately after
+being pasted, returning ok=false within seconds. Users were never able
+to get lyrics from Musixmatch in practice. The /check-mxm ping itself
+accelerated invalidation by hitting token.get repeatedly.
+
+FIX: MusixmatchSource.js completely replaced. Now uses
+@stef-0012/synclyrics (npm i @stef-0012/synclyrics) as the Musixmatch
+backend instead of direct API calls.
+
+  SyncLyrics fetches its own token automatically via the Musixmatch
+  web auth flow — no user action required. The token is persisted to
+  Settings.credentials.musixmatchToken as a JSON object
+  ({ cookies, usertoken, expiresAt }) and loaded back on startup via
+  getMusixmatchToken / saveMusixmatchToken callbacks. Token refresh
+  is handled internally by SyncLyrics.
+
+  getLyrics() calls SyncLyrics.getLyrics({ track, artist }), accesses
+  result.lyrics.lineSynced, calls .parse(), and converts time from
+  seconds to milliseconds (× 1000) to match the internal line format.
+  Full null guards: null result, null lineSynced, and empty parse
+  output all throw descriptive errors so LyricsFetcher falls through
+  cleanly to the next source.
+
+  getAppName() still returns "Musixmatch" — no changes to LyricsFetcher,
+  index.js, or source ordering required.
+
+REMOVED:
+  - /check-mxm route from Server.js (was pinging token.get repeatedly,
+    accelerating bot-detection invalidation)
+  - Musixmatch token input field, Check button, and ? help button from
+    index.html (no longer needed — token is managed automatically)
+  - #musixmatch-token BINDING, #check-mxm-token click handler,
+    extractMxmToken() function, and #musixmatch-token-help entry from
+    panel.js
+
+NOTE: SyncLyrics (type: commonjs, main: dist/index.min.js) is safe to
+require() in compiled dist/ JS — no ESM/dynamic-import workaround needed.
+The free Musixmatch token via SyncLyrics is still subject to bot-detection
+but rotation is automatic rather than requiring user intervention.
+LrcLib remains the recommended primary stable source.
+
+─────────────────────────────────────────────────────────────────────
+30. SPOTIFY TOKEN FIELD HINT TEXT (April 2026)
+    File: static/index.html
+─────────────────────────────────────────────────────────────────────
+Hint text updated to clarify the Spotify token field is optional —
+the token is auto-fetched from cookies on startup. Manual paste only
+needed if auto-fetch fails. Previous hint directed users to a DevTools
+step that is unnecessary in normal operation.
+
+─────────────────────────────────────────────────────────────────────
+31. TERMINAL DISPLAY — active source order (April 2026)
+    File: dist/index.js
+─────────────────────────────────────────────────────────────────────
+Added a Sources line to the 1s terminal display showing only enabled
+sources in their configured order, e.g. "1.Spotify  2.LrcLib  3.NetEase".
+Reads Settings.sources.sourceOrder and filters by the corresponding
+enableXxx flags at display time, so changes via the panel are reflected
+on the next display tick without restart.
+
+─────────────────────────────────────────────────────────────────────
+32. BUG FIX PASS (April 2026)
+    Files: dist/LyricsFetcher.js, dist/PlaybackStateUpdater.js,
+           dist/StatusChanger.js, dist/index.js
+─────────────────────────────────────────────────────────────────────
+**LyricsFetcher.js**
+- Cache check moved before source loop — returned even with no sources
+- `lastAttemptedFor` field added; set on every fetch regardless of result
+
+**PlaybackStateUpdater.js**
+- Retry guard uses `lastAttemptedFor` instead of `lastFetchedFor`
+- Prevents hammering all sources every 5s poll for unavailable songs
+
+**StatusChanger.js**
+- `_lastSentAt` stamped after dedup check, not before
+- `playbackState.currentLine` advanced after dedup check, not before
+- Both only consumed when an HTTP call actually occurs
+- `♪ → 🎶` replacement uses `/\u266a/g` (all occurrences, not first)
+
+**index.js**
+- `_songEndedFired` reset to false on new song ID
+- `songChanged()` called unconditionally on song ID change
+- Eliminates silent skip of `songChanged()` after natural-end→new song
+
+─────────────────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────────────────
+33. TERMINAL DISPLAY LAYOUT OVERHAUL (April 2026)
+    File: dist/index.js
+─────────────────────────────────────────────────────────────────────
+3-line box header (border + title + border) replaced with a single
+emoji header line. 4 stacked Discord/Settings sections collapsed:
+Artist + playing state on one line, Time + source on one line,
+Send + restore inline, all three rate-limit settings on one line.
+Saves ~8 lines vs previous layout.
+
+FILES MODIFIED
+─────────────────────────────────────────────────────────────────────
+  dist/LyricsFetcher.js
+  dist/PlaybackStateUpdater.js
+  dist/StatusChanger.js
+  dist/Settings.js
+  dist/Panel/Server.js
+  dist/index.js
+  dist/Sources/MusixmatchSource.js  (new)
+  src/StatusChanger.ts
+  src/Settings.ts
+  src/Sources/MusixmatchSource.ts   (new)
+  static/index.html
+  static/panel.js
+  CHANGELOG.txt
+
+  package.json  (added @stef-0012/synclyrics dependency)
+
+  No changes to: tsconfig.json, VERSION.
+
+─────────────────────────────────────────────────────────────────────
+34. PANEL BUG FIXES (April 2026)
+    File: static/panel.js
+─────────────────────────────────────────────────────────────────────
+SETPATH SILENT FAIL:
+  setPath() returned without error when an intermediate key was missing
+  (e.g. settings.credentials undefined after malformed WS data). User
+  input was silently discarded. Added else console.warn() branch.
+
+PENDINGSAVE LOST ON THROW:
+  In ws.onmessage, _pendingSave = false was set before save() was
+  called. If ws.send() threw, the flag was already cleared and the
+  pending save was permanently lost. Reordered: flag cleared after
+  save() call succeeds.
+
+EVENT BINDING OUTSIDE READY():
+  #check-token and #btn-authorize were bound at top level outside
+  $(document).ready(). Fragile if script tag ever moves to <head>.
+  Both moved inside ready() alongside bindAll() and bindHelp().
+
+DRAG TO LAST POSITION BROKEN:
+  renderSourceList() only attached dragover/drop to each <li>.
+  insertBefore(fromEl, li) cannot append to end — no drop target
+  exists past the last item. Added dragover/drop handlers on the
+  <ul> itself; drop fires appendChild() only when e.target === ul
+  (guard prevents double-fire with li handlers).
+
+─────────────────────────────────────────────────────────────────────
+35. POLISH PASS — EXCEPTION SAFETY & LOGIC FIXES (April 2026)
+    Files: dist/index.js, dist/StatusChanger.js,
+           dist/PlaybackStateUpdater.js, dist/LyricsFetcher.js,
+           dist/Panel/Server.js
+─────────────────────────────────────────────────────────────────────
+index.js:
+  update() UNHANDLED REJECTION:
+    setInterval callback is sync — async update() rejection bypassed
+    uncaughtException entirely. Added .catch() on the call. Node >=15
+    would crash the process on any Spotify fetch error.
+  MISSING unhandledRejection HANDLER:
+    process.on("uncaughtException") does not catch async rejections.
+    Added process.on("unhandledRejection") to log all such events.
+  formatSeconds(NaN) ON STARTUP:
+    songDuration undefined before first poll → NaN / 1000 → "NaN:0NaN"
+    in terminal. Added isFinite() guard, falls back to 0.
+
+PlaybackStateUpdater.js:
+  request.json() THROW ON BAD BODY:
+    Malformed/truncated 200 response throws inside async update().
+    Without the .catch() fix in index.js this crashed the process.
+    Wrapped in try/catch — logs and returns early.
+  progress_ms NaN PROPAGATION:
+    json.progress_ms missing on some Spotify contexts → NaN added to
+    round-trip offset → all lyric lines fire simultaneously. Guarded
+    with typeof check, fallback 0.
+
+LyricsFetcher.js:
+  WINDOWS INVALID FILENAME CHARS IN CACHE PATH:
+    Songs with ":" or other forbidden chars threw on writeFileSync,
+    permanently disabling cache for those tracks (caught and logged,
+    but re-fetched live on every song change). Added sanitizeFilename()
+    stripping < > : " | ? * and control chars from name/artist segments.
+
+StatusChanger.js:
+  sentLines UNBOUNDED GROWTH:
+    Array grows for the song's lifetime; .some() scanned at 60fps.
+    Capped at 200 entries (well above any real song's line count).
+  applyTemplate() FIRST-OCCURRENCE-ONLY REPLACE:
+    String.replace("literal") only replaces first match. Templates
+    with repeated variables (e.g. "{lyrics} | {lyrics}") rendered the
+    second occurrence as literal text. All replacements converted to
+    /regex/g.
+
+Panel/Server.js:
+  ws.send() SYNC THROW ON RACE:
+    Socket can close between readyState === OPEN check and send().
+    ws.send() throws synchronously in that case — no handler existed.
+    Wrapped in try/catch.
+
+─────────────────────────────────────────────────────────────────────
+36. STATUS RESTORE (April 2026)
+    Files: dist/StatusChanger.js, dist/index.js,
+           dist/Panel/Server.js, dist/Settings.js,
+           static/panel.js, static/index.html
+─────────────────────────────────────────────────────────────────────
+Saves the user's Discord custom status before the app ever sends
+a lyric, then restores it after music stops.
+
+NEW SETTINGS BLOCK — restore:
+  enabled     (bool)  — master toggle
+  savedStatus (obj)   — { text, emoji_name, emoji_id, expires_at }
+  delayMs     (num)   — ms to wait after song ends before restoring
+
+CAPTURE:
+  On init(), StatusChanger is constructed with Settings.restore
+  .savedStatus as initial value. Immediately after, GET
+  /users/@me/settings fetches the live current status and overwrites
+  _savedStatus — ensures the target is always fresh, not stale from
+  a previous session. Failure is logged and non-fatal.
+
+RESTORE:
+  songChanged(isEnd=true) schedules restoreStatus() via setTimeout
+  using Settings.restore.delayMs (default 15s). Delay prevents
+  unnecessary sends on rapid skips. Any new song start or lyric
+  send cancels the pending timer before it fires.
+
+  restoreStatus() PATCHes the full saved object preserving emoji_id,
+  emoji_name, and expires_at. Uses a dedicated fetch (not
+  changeStatusRequest) to avoid the forced +60s expiry injection.
+
+PANEL — "Restore Status" section (injected before Sources):
+  - Enable checkbox → restore.enabled
+  - Refresh button: fetches live Discord status and shows preview.
+    Does NOT auto-save.
+  - Store button: persists fetched status to restore.savedStatus.
+  - Restore delay number input → restore.delayMs
+  - All wired into BINDINGS / ready() handlers.
+
+TERMINAL:
+  New Restore line: Armed | Pending... | Disabled + saved text.
+
+SERVER:
+  restore added to WS outbound payload and inbound save handler.
+
+EDGE CASES HANDLED:
+  - No prior custom status → _savedStatus null → no PATCH sent.
+  - Guild emoji (emoji_id) preserved; changeStatusRequest() would
+    have dropped it via hardcoded emoji_id: null.
+  - Song-to-song skip → timer cancelled, not rescheduled.
+
+─────────────────────────────────────────────────────────────────────
+37. PAUSE/RESUME BUG FIX + PROGRESS RACE FIX (April 2026)
+    File: dist/index.js
+─────────────────────────────────────────────────────────────────────
+SONGPROGRESS RACES AHEAD DURING PAUSE:
+  songProgress += Date.now() - now ran unconditionally at 60fps,
+  including while paused. After a long pause, songProgress advanced
+  far beyond the real Spotify position. On resume, the 5s poll
+  corrected it — but sentLines still held entries timestamped before
+  the pause. The corrected songProgress matched already-sent lines,
+  so the sentLines .some() guard fired and nothing sent until a new
+  line was reached organically.
+  Fix: songProgress only advances when playbackState.isPlaying === true.
+
+NO RESUME DETECTION:
+  sentLines was only cleared by songChanged() (new song or natural
+  end). Pause→resume of the same song never cleared it, so stale
+  sentLines from before the pause persisted into the resumed session.
+  Fix: _wasPlaying tracks isPlaying per frame. On false→true
+  transition, songChanged(false) is called to flush sentLines.
+  _wasPlaying is synced (not reset) on new song detection so the
+  resume detection doesn't double-fire on a song change.
+
+─────────────────────────────────────────────────────────────────────
+38. THREE LOGIC FIXES (April 2026)
+    Files: dist/index.js, dist/StatusChanger.js
+─────────────────────────────────────────────────────────────────────
+60FPS LOOP INTERVAL (index.js):
+  setInterval at 1000/60 (~16ms) has no benefit — Node.js timer
+  jitter under load is 10-15ms making true 60fps impossible, and
+  lyric lines fire seconds apart. Changed to 100ms. ~83% CPU
+  reduction in the loop with zero observable difference.
+
+SENTLINES TIME COLLISION (StatusChanger.js):
+  sentLines membership checks used .some(s => s.time === line.time).
+  Two lines from different songs (or two sources returning lines at
+  0ms) could share a timestamp causing false positive matches.
+  Replaced with Array.includes(line) — object reference identity,
+  exact and collision-free. Applied to both changeStatus() and
+  buildMergedLines().
+
+CAPTURE RACE CONDITION (StatusChanger.js + index.js):
+  On startup with a song already playing, the 5s Spotify poll could
+  fire and trigger a Discord PATCH before the init() GET
+  /users/@me/settings resolved, overwriting the status we intended
+  to restore. Restore would then restore the lyric status, not the
+  original one.
+  Fix: _captureReady flag initialised false when restore.enabled.
+  changeStatusRequest() returns early (logs) until flag is true.
+  Flag set to true in both .then() and .catch() of the capture GET
+  so the gate always opens even on network failure.
+
+─────────────────────────────────────────────────────────────────────
+39. PANEL.JS FIXES (April 2026)
+    File: static/panel.js
+─────────────────────────────────────────────────────────────────────
+SOURCEORDER ARRAY CORRUPTION ON DEEP MERGE:
+  $.extend(true,...) merges arrays by index. If the server sends a
+  sourceOrder of length 4 and DEFAULTS has 5 entries, the 5th default
+  entry survives in the merged result. After the extend, sourceOrder
+  is now overwritten wholesale from parsed.sources.sourceOrder if
+  present, bypassing index-merge entirely.
+
+UL CONTAINER LISTENERS STACKING:
+  renderSourceList() is called on every WS message (via applyToDom).
+  The ul-level dragover/drop handlers were registered unconditionally
+  on each call — after N reconnects, N identical handlers fired on
+  every drop, saving sourceOrder N times. Guarded with
+  ul.dataset.ulListenersAttached so registration only fires once per
+  DOM lifetime.
+
+$.ajax REPLACED WITH fetch:
+  jQuery was only used for XHR (#check-token, #btn-refresh-status,
+  #btn-store-status). All three replaced with native fetch, consistent
+  with the rest of the codebase.
+
+REFRESH/STORE DUPLICATE FETCH LOGIC COLLAPSED:
+  Both handlers made an identical GET /users/@me/settings call with
+  ~20 lines each. Extracted into fetchDiscordStatus(token, cb) helper.
+  Both handlers now call it with different callbacks. Store's persist()
+  closure handles both the pre-fetched and fresh-fetch paths.
+
+─────────────────────────────────────────────────────────────────────
+40. GATEWAY WEBSOCKET STATUS SENDER (May 8 2026)
+    Files: dist/GatewayClient.js (new), dist/StatusChanger.js, dist/index.js
+─────────────────────────────────────────────────────────────────────
+PROBLEM:
+  PATCH /users/@me/settings has a hard ~1/3s rate limit (40062/429)
+  that cannot be worked around with backoff alone.
+
+SOLUTION:
+  Added GatewayClient.js — persistent WebSocket to the Discord gateway
+  (wss://gateway.discord.gg/?v=10&encoding=json). When connected,
+  status updates are sent via op 3 (Update Presence) instead of REST.
+  Gateway has no meaningful send rate limit. Falls back to REST if
+  the gateway socket is disconnected.
+
+GatewayClient.js:
+  - Connects to gateway, handles op 10 Hello → op 2 Identify + heartbeat
+  - Heartbeats on heartbeat_interval with initial jitter
+  - Handles op 11 ACK, op 1 server HB request, op 0 READY, op 9 invalid session
+  - Auto-reconnects on close (5s delay), guarded by _reconnecting/_destroyed flags
+  - setCustomStatus(text, emoji): sends op 3 type-4 Custom Status activity
+
+StatusChanger.js:
+  - Constructor accepts optional gatewayClient (3rd arg), stored as this._gateway
+  - changeStatusRequest: if _gateway.connected, calls setCustomStatus and returns;
+    REST path skipped entirely
+  - changeStatus: REST rate-limit guards (minInterval, _rateLimitedUntil) bypassed
+    when gateway is connected
+
+index.js:
+  - Instantiates GatewayClient and calls .connect() before StatusChanger
+  - Passes gatewayClient to StatusChanger constructor
+  - Terminal Send line shows GW (green) or REST (yellow) to indicate active path
+
+
+─────────────────────────────────────────────────────────────────────
+41. PANEL REFACTOR + BUG FIXES (May 9 2026)
+    Files: static/panel.js, static/index.html
+─────────────────────────────────────────────────────────────────────
+PANEL HTML → JS GENERATION:
+  index.html reduced from 21.9 KB to 6.3 KB (-71%). All section markup
+  moved into panel.js via an h{} helper object (h.section, h.row,
+  h.label, h.field, h.inline, h.input, h.number, h.check, h.btn,
+  h.hint, h.muted, h.indent) and a SECTIONS_HTML array. index.html
+  now contains only CSS, <header>, and <div id="sections"> mount point.
+  Adding a setting now requires one SECTIONS_HTML line + one BINDINGS
+  entry; no HTML file to touch.
+
+GATEWAY TOGGLE ADDED TO PANEL:
+  New "Gateway" section with #gateway-enabled checkbox and ? help modal.
+  Wired into BINDINGS → gateway.enabled. Default: off.
+
+BUGS FIXED:
+  1. send-time-offset value="500" hardcoded in HTML — applyToDom was
+     bypassed; stale value shown on load. Removed value attr.
+  2. insertBefore called without null-check on fromEl in drag-drop —
+     undefined fromEl threw TypeError on stale drag data. Added guard.
+  3. sourceOrder truthy check accepted empty array [] from server,
+     overwriting DEFAULTS. Changed to Array.isArray() check.
+  4-6. Raw Unicode chars (✓ ✗ → — 🎶) in JS string literals and HTML
+     template strings — encoding corruption risk. Replaced with
+     \uXXXX escapes and HTML entities throughout.
+  7. btnFlash helper collapsed three duplicate button feedback blocks.
+
+─────────────────────────────────────────────────────────────────────
+42. GATEWAY OP 7 HANDLING (May 2026)
+    File: dist/GatewayClient.js
+─────────────────────────────────────────────────────────────────────
+Op 7 (Reconnect) was previously unhandled. Discord sends op 7 to
+request an immediate reconnect (e.g. server-side load balancing,
+deploy). Without a handler, the socket would close anyway and the
+existing close handler would trigger a 5s delayed reconnect — correct
+but slower than intended.
+
+Fix: case 7 added to the message switch. On receipt: connected set
+false, heartbeat cleared, socket terminated, reconnect scheduled at
+500ms (fast, per Discord recommendation). The _reconnecting guard on
+_scheduleReconnect prevents double-reconnect when the close event
+fires after terminate().
+
+FATAL_CODES verified against current Discord docs (May 2026):
+4004, 4010, 4011, 4012, 4013, 4014 — no changes required. Comments
+updated to document each code's meaning.
+
+─────────────────────────────────────────────────────────────────────
+43. TEMPLATE VARIABLE EXPANSION (May 2026)
+    Files: dist/StatusChanger.js, dist/PlaybackState.js,
+           dist/PlaybackStateUpdater.js
+─────────────────────────────────────────────────────────────────────
+Four new template variables added to applyTemplate():
+
+  {source}      — lyrics source name (Spotify, LrcLib, etc.)
+  {progress}    — current playback position as MM:SS
+  {duration}    — total song duration as MM:SS
+  {line_number} — current line index out of total (e.g. "12/47")
+
+applyTemplate() signature extended with lineIndex and totalLines args.
+All three changeStatus() call sites updated to pass i and lines.length.
+
+PlaybackState.js: lyricsSource field added (default "").
+PlaybackStateUpdater.js: lyricsSource set from lyricsFetcher
+.lastFetchedFrom after both fetch paths (new song + retry).
+
+New modifier added to all variables:
+  {var_title_case} — capitalizes first letter of each word, lowercases
+  the rest. Useful for sources that return ALL CAPS lyrics.
+
+_captureReady guard restored in StatusChanger constructor — was present
+in entry 37 logic but missing from the written file. Prevents REST sends
+before the init() capture GET resolves on startup.
+
+─────────────────────────────────────────────────────────────────────
+44. BUG FIX — _captureReady gate never opened (May 2026)
+    Files: dist/index.js
+─────────────────────────────────────────────────────────────────────
+Entry 37 added _captureReady to StatusChanger to prevent Discord sends
+before the init() capture GET resolved. Entry 42 restored the flag to
+the constructor. However index.js never set statusChanger._captureReady
+= true after the capture GET resolved — the gate stayed false forever
+when restore.enabled = true, silently blocking all status sends.
+
+Fix: .finally() added to the capture fetch chain in index.js, setting
+_captureReady = true unconditionally after the GET resolves or fails.
+Also added a !token fallback path that opens the gate immediately so
+restore=enabled without a token doesn't permanently block sends.
+
+
+─────────────────────────────────────────────────────────────────────
+45. PERF + CORRECTNESS PASS (May 2026)
+    Files: dist/GatewayClient.js, dist/StatusChanger.js,
+           dist/LyricsFetcher.js, dist/PlaybackStateUpdater.js,
+           dist/Sources/SpotifySource.js, dist/index.js
+─────────────────────────────────────────────────────────────────────
+GatewayClient:
+  _heartbeatTimer split into _hbTimeout/_hbInterval; _clearHB() clears
+  each independently, eliminating ambiguous dual clear.
+  _presenceSentTimes rolling array added to setCustomStatus(); enforces
+  Discord's documented 5 op3 per 20s user client limit — logs and
+  returns false when hit instead of silently sending.
+
+StatusChanger:
+  cpFitsIn(s,limit) added — short-circuits on first excess code point
+  via for...of instead of expanding the full string; replaces all
+  cpLen(x)<=limit checks throughout smartTruncate/changeStatus.
+  TEMPLATE_RE Map pre-compiled once at module load (80 RegExp objects);
+  applyTemplate() looks them up instead of calling new RegExp() 80
+  times per invocation.
+  changeStatus() destructures Settings.rateLimit once per tick.
+
+SpotifySource / LyricsFetcher / PlaybackStateUpdater:
+  getLyrics(name,artist,songId?) — optional songId param skips the
+  redundant GET /v1/me/player call when PlaybackStateUpdater already
+  has the ID. fetchLyrics threads it through; both PSU call sites pass
+  json.item.id.
+
+index.js:
+  ENABLE_KEY_MAP/DEFAULT_ORDER hoisted above display interval.
+  sourcesLine memoized via _cachedSourceOrderRef — only recomputed
+  when Settings.sources.sourceOrder reference changes (panel save),
+  not on every 1s tick.
+  Display loop destructures Settings.rateLimit once per tick.
+
+─────────────────────────────────────────────────────────────────────
+46. PANEL UI OVERHAUL (May 2026)
+    Files: static/index.html, static/panel.js
+─────────────────────────────────────────────────────────────────────
+Full visual and structural rewrite of the panel.
+
+Visual:
+  Font switched to Geist / Geist Mono. Subtle grain texture overlay.
+  Sections: collapsible cards with icon, chevron animation, hover glow.
+  Auth/Preview/Sources open by default; rest collapsed.
+  Inputs: stronger bg contrast, 3px accent focus ring, CSS chevron on
+  select. Buttons: border+hover, primary glow shadow, success/danger
+  variants. Source rows: badge pills (Official/Auto/Free/CN).
+
+Functional:
+  Save indicator pill in header — amber "Unsaved" / green "Saved".
+  WS connection dot in header — green/grey/red with label.
+  Toast notifications — bottom-right slide-in for actions/errors.
+  showModal deduplicates overlays before creating new one.
+  renderSourceList memoized — only rebuilds on sourceOrder/enable change.
+  #send-time-offset changed to type="number"; NaN guard removed.
+  ws.onerror sets _pendingSave=true so reconnect re-saves lost changes.
+  jQuery removed — replaced with native querySelector + spread merge.

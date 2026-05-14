@@ -9,6 +9,7 @@ const MusixmatchSource_1 = require("./Sources/MusixmatchSource");
 const PlaybackStateUpdater_1 = require("./PlaybackStateUpdater");
 const PlaybackState_1 = require("./PlaybackState");
 const StatusChanger_1 = require("./StatusChanger");
+const GatewayClient_1 = require("./GatewayClient");
 const Debug_1 = require("./Debug");
 const Server_1 = require("./Panel/Server");
 const Settings_1 = require("./Settings");
@@ -16,170 +17,137 @@ const Updater_1 = require("./Updater");
 const SpotifyService_1 = require("./SpotifyService");
 const uuid_1 = require("uuid");
 const ExternalAuthServerAPI_1 = require("./ExternalAuthServerAPI");
+
 Settings_1.Settings.load();
 if (Settings_1.Settings.update.enableAutoupdate) {
-    Updater_1.Updater.tryUpdate()
-        .then(() => { init(); })
-        .catch((e) => { Debug_1.Debug.write("LyricsStatus failed to update. Error: " + e.stack); init(); });
-} else {
-    init();
-}
+    Updater_1.Updater.tryUpdate().catch(e => { Debug_1.Debug.write("LyricsStatus failed to update. Error: " + e.stack); }).finally(() => init());
+} else { init(); }
+
 function init() {
-    if (!Settings_1.Settings.credentials.uuid) {
-        Settings_1.Settings.credentials.uuid = (0, uuid_1.v4)();
-        Settings_1.Settings.save();
-    }
+    if (!Settings_1.Settings.credentials.uuid) { Settings_1.Settings.credentials.uuid = (0, uuid_1.v4)(); Settings_1.Settings.save(); }
     ExternalAuthServerAPI_1.ExternalAuthServerAPI.register();
     SpotifyService_1.SpotifyService.refresh();
 
     const lyricsFetcher = new LyricsFetcher_1.LyricsFetcher();
     const src = Settings_1.Settings.sources;
-
-    // Source class map — must match names used in sourceOrder and panel SOURCE_META.
     const SOURCE_MAP = {
-        "Spotify":    () => new SpotifySource_1.SpotifySource(),
-        "Musixmatch": () => new MusixmatchSource_1.MusixmatchSource(),
-        "LrcLib":     () => new LrcLibSource_1.LrcLibSource(),
-        "NetEase":    () => new NetEaseMusicSource_1.NetEaseMusicSource(),
-        "QQMusic":    () => new QQMusicSource_1.QQMusicSource(),
+        Spotify:    () => new SpotifySource_1.SpotifySource(),
+        Musixmatch: () => new MusixmatchSource_1.MusixmatchSource(),
+        LrcLib:     () => new LrcLibSource_1.LrcLibSource(),
+        NetEase:    () => new NetEaseMusicSource_1.NetEaseMusicSource(),
+        QQMusic:    () => new QQMusicSource_1.QQMusicSource(),
     };
-    const ENABLE_MAP = {
-        "Spotify":    src.enableSpotify    !== false,
-        "Musixmatch": src.enableMusixmatch !== false,
-        "LrcLib":     src.enableLrcLib     !== false,
-        "NetEase":    src.enableNetEase    !== false,
-        "QQMusic":    src.enableQQMusic    !== false,
-    };
-    // Respect sourceOrder from settings (set by panel drag-and-drop).
-    // Fall back to default order if missing or empty.
-    const sourceOrder = (src.sourceOrder && src.sourceOrder.length)
-        ? src.sourceOrder
-        : ["Spotify", "Musixmatch", "LrcLib", "NetEase", "QQMusic"];
-
-    const activeNames = [];
-    for (const name of sourceOrder) {
-        if (!SOURCE_MAP[name] || !ENABLE_MAP[name]) continue;
-        lyricsFetcher.addSource(SOURCE_MAP[name]());
-        activeNames.push(name);
-    }
+    const ENABLE_KEY = { Spotify:"enableSpotify", Musixmatch:"enableMusixmatch", LrcLib:"enableLrcLib", NetEase:"enableNetEase", QQMusic:"enableQQMusic" };
+    const DEFAULT_ORDER = ["Spotify","Musixmatch","LrcLib","NetEase","QQMusic"];
+    const order = src.sourceOrder?.length ? src.sourceOrder : DEFAULT_ORDER;
+    const activeNames = order.filter(n => src[ENABLE_KEY[n]] !== false && SOURCE_MAP[n]);
+    for (const n of activeNames) lyricsFetcher.addSource(SOURCE_MAP[n]());
     Debug_1.Debug.write(`[init] Active lyric sources (in order): ${activeNames.join(", ")}`);
 
     const playbackState = new PlaybackState_1.PlaybackState();
     const playbackStateUpdater = new PlaybackStateUpdater_1.PlaybackStateUpdater(playbackState, lyricsFetcher);
-    const statusChanger = new StatusChanger_1.StatusChanger(playbackState);
+    const gatewayClient = new GatewayClient_1.GatewayClient();
+    // Bug 4 fix: statusChanger declared before connect() so onReady closure resolves safely
+    const statusChanger = new StatusChanger_1.StatusChanger(playbackState, Settings_1.Settings.restore?.savedStatus || null, gatewayClient);
+    gatewayClient.onReady = () => statusChanger._onGatewayReady();
+    gatewayClient.connect();
 
-    // 5s Spotify polling
-    setInterval(() => { playbackStateUpdater.update(); }, 5000);
+    if (Settings_1.Settings.restore?.enabled) {
+        const token = Settings_1.Settings.credentials.token;
+        if (token) {
+            fetch("https://discordapp.com/api/v8/users/@me/settings", { headers: { "Authorization": token } })
+                .then(r => r.json())
+                .then(j => {
+                    if (j?.custom_status?.text) { statusChanger._savedStatus = j.custom_status; Debug_1.Debug.write(`[init] Captured current Discord status for restore: "${j.custom_status.text}"`); }
+                    else if (!Settings_1.Settings.restore?.savedStatus) Debug_1.Debug.write(`[init] No current Discord status to save`);
+                })
+                .catch(e => Debug_1.Debug.write(`[init] Failed to fetch current Discord status: ${e}`))
+                .finally(() => { statusChanger._captureReady = true; Debug_1.Debug.write(`[init] Capture gate opened`); });
+        } else { statusChanger._captureReady = true; Debug_1.Debug.write(`[init] No token for capture — gate opened immediately`); }
+    }
 
-    // 60fps progress + status change — no rendering here
-    let now = Date.now();
-    let _songEndedFired = false;
-    let _lastKnownSongId = "";
+    setInterval(() => playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater] Unhandled error: ${e.stack || e}`)), 5000);
+
+    let _now = Date.now(), _songEndedFired = false, _lastKnownSongId = "", _wasPlaying = false;
     setInterval(() => {
-        // Detect manual song skip: songId changed but ended never fired.
-        // Clears sentLines and resets _lastSentAt so the new song starts fresh.
-        // Only fire skip detection if the song wasn't already handled by the
-        // ended path — avoids calling songChanged() twice on a natural song end.
+        const now = Date.now();
         if (playbackState.songId && playbackState.songId !== _lastKnownSongId) {
-            _lastKnownSongId = playbackState.songId;
-            if (!_songEndedFired) statusChanger.songChanged();
+            _lastKnownSongId = playbackState.songId; _songEndedFired = false; _wasPlaying = playbackState.isPlaying;
+            statusChanger.songChanged(false);
         }
+        if (playbackState.isPlaying && !_wasPlaying) statusChanger.songChanged(false);
+        _wasPlaying = playbackState.isPlaying;
         statusChanger.changeStatus();
-        playbackState.songProgress += Date.now() - now;
-        now = Date.now();
-        if (playbackState.ended) {
-            if (!_songEndedFired) {
-                _songEndedFired = true;
-                statusChanger.songChanged();
-            }
-        } else {
-            _songEndedFired = false;
-        }
-    }, 1000 / 60);
+        if (playbackState.isPlaying) playbackState.songProgress += now - _now;
+        _now = now;
+        if (playbackState.ended) { if (!_songEndedFired) { _songEndedFired = true; statusChanger.songChanged(true); } }
+        else _songEndedFired = false;
+    }, 100);
 
-    // Clear screen once on startup so cursor positioning works from the start
     process.stdout.write("\x1b[2J\x1b[H");
 
-    // 1s display refresh — completely separate from 60fps loop, no flicker
+    let _cachedSourceOrderRef = null, _cachedSourcesLine = "";
     setInterval(() => {
-        const lyrics = playbackState.lyrics;
-        const progress = playbackState.songProgress;
+        const lyrics = playbackState.lyrics, progress = playbackState.songProgress;
         const offset = Settings_1.Settings.timings.sendTimeOffset;
-
-        let dueLine = "Not available";
-        let nextLine = "Not available";
-        if (lyrics && lyrics.lines && lyrics.lines.length > 0) {
-            let dueIndex = -1;
-            for (let i = 0; i < lyrics.lines.length; i++) {
-                if (lyrics.lines[i].time <= progress + offset) { dueIndex = i; } else { break; }
-            }
+        const lines = lyrics?.lines;
+        let dueLine = "Not available", nextLine = "Not available";
+        if (lines?.length) {
+            const dueIndex = lines.reduce((acc, l, i) => l.time <= progress + offset ? i : acc, -1);
             if (dueIndex >= 0) {
-                dueLine = lyrics.lines[dueIndex].text || "Not available";
-                if (dueIndex + 1 < lyrics.lines.length) {
-                    const next = lyrics.lines[dueIndex + 1];
-                    nextLine = `${next.text || ""}  (in ${((next.time - progress) / 1000).toFixed(1)}s)`;
-                }
+                dueLine = lines[dueIndex].text || "Not available";
+                const next = lines[dueIndex + 1];
+                if (next) nextLine = `${next.text || ""}  (in ${((next.time - progress) / 1000).toFixed(1)}s)`;
             }
         }
 
         const nowMs = Date.now();
-        const rateLimitedUntil = statusChanger._rateLimitedUntil || 0;
-        const lastSentAt = statusChanger._lastSentAt || 0;
-        const minInterval = Settings_1.Settings.rateLimit.enableMinInterval ? (Settings_1.Settings.rateLimit.minIntervalMs || 5000) : 0;
-        const rateLimitRemaining = rateLimitedUntil > nowMs ? ((rateLimitedUntil - nowMs) / 1000).toFixed(1) : null;
-        const nextSendIn = lastSentAt > 0 ? Math.max(0, minInterval - (nowMs - lastSentAt)) : 0;
-        const mergeWindowSec = ((Settings_1.Settings.rateLimit?.mergeWindowMs || 0) / 1000).toFixed(1);
-        const minIntervalSec = ((Settings_1.Settings.rateLimit?.minIntervalMs || 0) / 1000).toFixed(1);
+        const { enableMinInterval, minIntervalMs, enableMergeLines, mergeWindowMs, enableBackoff } = Settings_1.Settings.rateLimit;
+        const minInterval = enableMinInterval ? (minIntervalMs || 5000) : 0;
+        const rateLimitRemaining = statusChanger._rateLimitedUntil > nowMs ? ((statusChanger._rateLimitedUntil - nowMs) / 1000).toFixed(1) : null;
+        const nextSendIn = statusChanger._lastSentAt > 0 ? Math.max(0, minInterval - (nowMs - statusChanger._lastSentAt)) : 0;
 
-        const ENABLE_KEY_MAP = {
-            "Spotify": "enableSpotify", "Musixmatch": "enableMusixmatch",
-            "LrcLib": "enableLrcLib", "NetEase": "enableNetEase", "QQMusic": "enableQQMusic"
-        };
-        const sourceOrder = (Settings_1.Settings.sources?.sourceOrder?.length)
-            ? Settings_1.Settings.sources.sourceOrder
-            : ["Spotify", "Musixmatch", "LrcLib", "NetEase", "QQMusic"];
-        const enabledSources = sourceOrder.filter(n => Settings_1.Settings.sources[ENABLE_KEY_MAP[n]] !== false);
-        const sourcesLine = enabledSources.map((n, i) => `${i + 1}.${n}`).join("  ");
+        const curOrder = Settings_1.Settings.sources?.sourceOrder;
+        if (curOrder !== _cachedSourceOrderRef) {
+            _cachedSourceOrderRef = curOrder;
+            const ord = curOrder?.length ? curOrder : DEFAULT_ORDER;
+            _cachedSourcesLine = ord.filter(n => Settings_1.Settings.sources[ENABLE_KEY[n]] !== false).map((n, i) => `${i + 1}.${n}`).join("  ");
+        }
 
-        const rateStatus = rateLimitRemaining
-            ? `\x1b[31mRATE LIMITED - resumes in ${rateLimitRemaining}s\x1b[0m`
+        const gwStatus = gatewayClient.connected ? "\x1b[32mGW\x1b[0m" : "\x1b[33mREST\x1b[0m";
+        const rateStatus = rateLimitRemaining ? `\x1b[31mRATE LIMITED - resumes in ${rateLimitRemaining}s\x1b[0m`
             : nextSendIn <= 0 ? `\x1b[32mReady to send\x1b[0m`
-            : `\x1b[33mNext send in ${(nextSendIn / 1000).toFixed(1)}s\x1b[0m`;
+            : `\x1b[33mNext send in ${Math.ceil(nextSendIn / 100) / 10}s\x1b[0m`;
+        const durationSec = isFinite(playbackState.songDuration) ? +(playbackState.songDuration / 1000).toFixed(0) : 0;
+        const savedLabel = statusChanger._savedStatus ? `\x1b[32m"${statusChanger._savedStatus.text}"\x1b[0m` : `\x1b[33mNone\x1b[0m`;
+        const restoreStatus = Settings_1.Settings.restore?.enabled
+            ? (statusChanger._restoreTimer ? `\x1b[33mPending...\x1b[0m` : `\x1b[32mArmed\x1b[0m`) : `\x1b[31mDisabled\x1b[0m`;
+        const playing = playbackState.isPlaying ? "\x1b[32m\u25b6 Playing\x1b[0m" : "\x1b[33m\u23f8 Paused\x1b[0m";
+        const lyricsYN = playbackState.hasLyrics ? `\x1b[32m\u2713\x1b[0m ${lyricsFetcher.lastFetchedFrom}` : "\x1b[31m\u2717 None\x1b[0m";
+        const sep = `  \u2500`.repeat(26).trimEnd();
 
-        const rows = [
-            `\x1b[1m╔══════════════════════════════════════════════════════╗\x1b[0m`,
-            `\x1b[1m  Lyrics Status                                       \x1b[0m`,
-            `\x1b[1m╚══════════════════════════════════════════════════════╝\x1b[0m`,
-            ``,
-            `  \x1b[1mSong:\x1b[0m       ${playbackState.songName || "Not listening"}`,
-            `  \x1b[1mArtist:\x1b[0m     ${playbackState.songAuthor || "-"}`,
-            `  \x1b[1mProgress:\x1b[0m   ${statusChanger.formatSeconds(+(progress / 1000).toFixed(0))} / ${statusChanger.formatSeconds(+(playbackState.songDuration / 1000).toFixed(0))}`,
-            `  \x1b[1mStatus:\x1b[0m     ${playbackState.isPlaying ? "\x1b[32mPlaying\x1b[0m" : "\x1b[33mPaused\x1b[0m"}`,
-            `  \x1b[1mLyrics:\x1b[0m     ${playbackState.hasLyrics ? `\x1b[32mYes\x1b[0m (${lyricsFetcher.lastFetchedFrom})` : "\x1b[31mNo\x1b[0m"}`,
-            `  \x1b[1mSources:\x1b[0m    ${sourcesLine}`,
-            ``,
-            `  \x1b[1m-- Lyrics --------------------------------------------------\x1b[0m`,
-            `  \x1b[1mNow:\x1b[0m        ${dueLine}`,
-            `  \x1b[1mNext:\x1b[0m       ${nextLine}`,
-            ``,
-            `  \x1b[1m-- Discord -------------------------------------------------\x1b[0m`,
-            `  \x1b[1mLast sent:\x1b[0m  ${statusChanger._lastSentText || "Nothing sent yet"}`,
-            `  \x1b[1mSend:\x1b[0m       ${rateStatus}`,
-            ``,
-            `  \x1b[1m-- Settings ------------------------------------------------\x1b[0m`,
-            `  \x1b[1mMin interval:\x1b[0m ${Settings_1.Settings.rateLimit.enableMinInterval ? `\x1b[32m${minIntervalSec}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}`,
-            `  \x1b[1mMerge window:\x1b[0m ${Settings_1.Settings.rateLimit.enableMergeLines ? `\x1b[32m${mergeWindowSec}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}`,
-            `  \x1b[1mAuto backoff:\x1b[0m ${Settings_1.Settings.rateLimit.enableBackoff ? "\x1b[32mOn\x1b[0m" : "\x1b[31mOff\x1b[0m"}`,
+        process.stdout.write("\x1b[H" + [
+            `  \x1b[1m\uD83C\uDFB6 Lyrics Status\x1b[0m`,
+            sep,
+            `  \x1b[1mSong:\x1b[0m    ${playbackState.songName || "Not listening"}`,
+            `  \x1b[1mArtist:\x1b[0m  ${playbackState.songAuthor || "-"}    ${playing}`,
+            `  \x1b[1mTime:\x1b[0m    ${statusChanger.formatSeconds(+(progress / 1000).toFixed(0))} / ${statusChanger.formatSeconds(durationSec)}    \x1b[1mSrc:\x1b[0m ${lyricsYN}`,
+            `  \x1b[1mOrder:\x1b[0m   ${_cachedSourcesLine}`,
+            sep,
+            `  \x1b[1mNow:\x1b[0m     ${dueLine}`,
+            `  \x1b[1mNext:\x1b[0m    ${nextLine}`,
+            sep,
+            `  \x1b[1mSent:\x1b[0m    ${statusChanger._lastSentText || "Nothing sent yet"}`,
+            `  \x1b[1mSend:\x1b[0m    ${rateStatus}  ${gwStatus}    \x1b[1mRestore:\x1b[0m ${restoreStatus}`,
+            `  \x1b[1mSaved:\x1b[0m   ${savedLabel}`,
+            sep,
+            `  \x1b[1mInterval:\x1b[0m ${enableMinInterval ? `\x1b[32m${((minIntervalMs||0)/1000).toFixed(1)}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}   \x1b[1mMerge:\x1b[0m ${enableMergeLines ? `\x1b[32m${((mergeWindowMs||0)/1000).toFixed(1)}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}   \x1b[1mBackoff:\x1b[0m ${enableBackoff ? "\x1b[32mOn\x1b[0m" : "\x1b[31mOff\x1b[0m"}`,
             ``
-        ];
-
-        // Move cursor to top-left then overwrite each line — no scroll, no flicker
-        process.stdout.write("\x1b[H" + rows.map(r => r + "\x1b[K").join("\n") + "\n");
+        ].map(r => r + "\x1b[K").join("\n") + "\n");
     }, 1000);
 
     (0, Server_1.startServer)();
 }
-process.on("uncaughtException", (e) => {
-    Debug_1.Debug.write(e.stack + "\n" + e.cause);
-    if (!e.message.includes("fetch failed")) process.exit(1);
-});
+
+process.on("uncaughtException", e => { Debug_1.Debug.write(e.stack + "\n" + e.cause); if (!e.message.includes("fetch failed")) process.exit(1); });
+process.on("unhandledRejection", reason => { Debug_1.Debug.write(`[unhandledRejection] ${reason instanceof Error ? reason.stack : String(reason)}`); });

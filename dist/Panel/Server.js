@@ -1,146 +1,74 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startServer = startServer;
-const express_1 = __importDefault(require("express"));
-const node_http_1 = require("node:http");
-const ws_1 = require("ws");
-const node_path_1 = require("node:path");
+const express = require("express");
+const { createServer } = require("node:http");
+const { WebSocketServer, WebSocket } = require("ws");
+const { join } = require("node:path");
 const Settings_1 = require("../Settings");
 const SpotifyService_1 = require("../SpotifyService");
 const Debug_1 = require("../Debug");
-// Fetches a Spotify web player token using stored sp_dc cookies.
-// Called at startup and refreshed automatically before expiry.
+
+const STATIC = join(__dirname, "../../static");
+const KEYS = ["credentials","view","timings","update","rateLimit","sources","chineseConversion","restore","gateway"];
+
 function refreshSpotifyWebToken() {
     const cookies = Settings_1.Settings.credentials.cookies;
-    if (!cookies || !cookies.trim()) return;
+    if (!cookies?.trim()) return;
     fetch("https://open.spotify.com/get_access_token?reason=transport&productType=web_player", {
-        headers: {
-            "accept": "*/*",
-            "accept-language": "en-US,en;q=0.9",
-            "app-platform": "WebPlayer",
-            "x-requested-with": "XMLHttpRequest",
-            "cookie": cookies,
-            "Referer": "https://open.spotify.com/",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-        }
+        headers: { "accept": "*/*", "accept-language": "en-US,en;q=0.9", "app-platform": "WebPlayer", "x-requested-with": "XMLHttpRequest", "cookie": cookies, "Referer": "https://open.spotify.com/", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36" }
     })
     .then(r => r.json())
     .then(j => {
-        const token = j && j.accessToken;
-        if (!token || typeof token !== "string") {
-            Debug_1.Debug.write("[SpotifyToken] Auto-refresh failed: no accessToken in response: " + JSON.stringify(j).slice(0, 200));
-            return;
-        }
-        const expiry = (typeof j.accessTokenExpirationTimestampMs === "number" && j.accessTokenExpirationTimestampMs > Date.now())
-            ? j.accessTokenExpirationTimestampMs
-            : Date.now() + 3600000;
-        Settings_1.Settings.credentials.spotifyWebToken = token;
+        if (!j?.accessToken) { Debug_1.Debug.write("[SpotifyToken] Refresh failed: " + JSON.stringify(j).slice(0, 200)); setTimeout(refreshSpotifyWebToken, 60000); return; }
+        const expiry = (j.accessTokenExpirationTimestampMs > Date.now()) ? j.accessTokenExpirationTimestampMs : Date.now() + 3600000;
+        Settings_1.Settings.credentials.spotifyWebToken = j.accessToken;
         Settings_1.Settings.credentials.spotifyWebTokenExpiry = expiry;
         Settings_1.Settings.save();
-        Debug_1.Debug.write("[SpotifyToken] Auto-refreshed web token, expires " + new Date(expiry).toISOString());
-        // Schedule next refresh 5 minutes before expiry
-        const refreshIn = Math.max(60000, expiry - Date.now() - 300000);
-        setTimeout(refreshSpotifyWebToken, refreshIn);
+        Debug_1.Debug.write("[SpotifyToken] Refreshed, expires " + new Date(expiry).toISOString());
+        setTimeout(refreshSpotifyWebToken, Math.max(60000, expiry - Date.now() - 300000));
     })
-    .catch(e => {
-        Debug_1.Debug.write("[SpotifyToken] Auto-refresh error: " + e + " — will retry in 60s");
-        setTimeout(refreshSpotifyWebToken, 60000);
-    });
+    .catch(e => { Debug_1.Debug.write("[SpotifyToken] Error: " + e + " — retry in 60s"); setTimeout(refreshSpotifyWebToken, 60000); });
 }
 
 function startServer() {
-    const app = (0, express_1.default)();
-    const httpServer = (0, node_http_1.createServer)(app);
-    const wss = new ws_1.WebSocketServer({
-        server: httpServer,
-        path: "/ws"
-    });
-    app.use("/", express_1.default.static((0, node_path_1.join)(__dirname, "../../static")));
-    app.get("/", (req, res) => {
-        res.sendFile((0, node_path_1.join)(__dirname, "../../static/index.html"));
-    });
-
-
+    const app = express();
+    const httpServer = createServer(app);
+    const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+    app.use("/", express.static(STATIC));
+    app.get("/", (_, res) => res.sendFile(join(STATIC, "index.html")));
     app.get("/callback", (req, res) => {
         if (Settings_1.Settings.credentials.useExternalAuthServer) {
             if (!req.query.refresh_token) return res.sendStatus(401);
-            const refreshToken = req.query.refresh_token;
-            Debug_1.Debug.write(`[Server] OAuth callback: received refresh token`);
-            Settings_1.Settings.credentials.refreshToken = refreshToken;
+            Settings_1.Settings.credentials.refreshToken = req.query.refresh_token;
             Settings_1.Settings.save();
         } else {
             if (!req.query.code) return res.sendStatus(401);
-            const code = req.query.code;
-            Settings_1.Settings.credentials.code = code;
-            // FIX: catch exchange failures so a bad OAuth response doesn't cause an
-            // unhandled promise rejection that reaches the process-level error handler
-            SpotifyService_1.SpotifyService.exchange()
-                .then(() => Settings_1.Settings.save())
-                .catch((e) => Debug_1.Debug.write(`[Server] SpotifyService.exchange failed: ${e}`));
+            Settings_1.Settings.credentials.code = req.query.code;
+            SpotifyService_1.SpotifyService.exchange().then(() => Settings_1.Settings.save()).catch(e => Debug_1.Debug.write(`[Server] exchange failed: ${e}`));
         }
-        res.send(`<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <title>Spotify authorization complete</title>
-        <script>
-            (function () {
-                try {
-                    if (window.opener && !window.opener.closed) {
-                        window.close();
-                    }
-                } catch (e) {}
-            })();
-        </script>
-    </head>
-    <body>
-        <p>Authorization complete. This window should close automatically. If it doesn't, you can close it now.</p>
-    </body>
-    </html>`);
+        res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Authorized</title><script>(function(){try{if(window.opener&&!window.opener.closed)window.close();}catch(e){}})()</\script></head><body><p>Authorization complete. You can close this window.</p></body></html>`);
     });
-    wss.on("connection", (ws) => {
-        // FIX: per-connection error handler — an ECONNRESET or similar on one client
-        // previously had no handler and would propagate to the process-level handler
-        ws.on("error", (err) => {
-            Debug_1.Debug.write(`[Server] WebSocket client error: ${err}`);
-        });
-        ws.on("message", (data) => {
-            // FIX: wrap JSON.parse in try/catch — a malformed payload previously threw
-            // an uncaught exception that reached the process-level error handler
-            let parsed;
-            try {
-                parsed = JSON.parse(data.toString());
-            } catch (e) {
-                Debug_1.Debug.write(`[Server] Received malformed JSON from panel, ignoring: ${e}`);
-                return;
+    wss.on("connection", ws => {
+        ws.on("error", e => Debug_1.Debug.write(`[Server] WS error: ${e}`));
+        ws.on("message", data => {
+            let p; try { p = JSON.parse(data.toString()); } catch { return; }
+            if (!p || typeof p !== "object") return;
+            // Bug 10 fix: deep-merge all object keys so partial panel updates don't nuke nested props
+            for (const k of KEYS) {
+                if (p[k] == null) continue;
+                if (typeof Settings_1.Settings[k] === "object" && !Array.isArray(Settings_1.Settings[k]) && typeof p[k] === "object") {
+                    Settings_1.Settings[k] = { ...Settings_1.Settings[k], ...p[k] };
+                    // view.advanced needs a second level merge
+                    if (k === "view" && p[k].advanced) Settings_1.Settings[k].advanced = { ...Settings_1.Settings[k].advanced, ...p[k].advanced };
+                } else {
+                    Settings_1.Settings[k] = p[k];
+                }
             }
-            if (!parsed || typeof parsed !== "object") return;
-            Settings_1.Settings.credentials = parsed.credentials ?? Settings_1.Settings.credentials;
-            Settings_1.Settings.view        = parsed.view        ?? Settings_1.Settings.view;
-            Settings_1.Settings.timings     = parsed.timings     ?? Settings_1.Settings.timings;
-            Settings_1.Settings.update      = parsed.update      ?? Settings_1.Settings.update;
-            if (parsed.rateLimit) Settings_1.Settings.rateLimit = parsed.rateLimit;
-            if (parsed.sources)   Settings_1.Settings.sources   = parsed.sources;
-            if (parsed.chineseConversion != null) Settings_1.Settings.chineseConversion = parsed.chineseConversion;
             Settings_1.Settings.save();
         });
-        const payload = JSON.stringify({
-            credentials: Settings_1.Settings.credentials,
-            view:        Settings_1.Settings.view,
-            timings:     Settings_1.Settings.timings,
-            update:      Settings_1.Settings.update,
-            rateLimit:          Settings_1.Settings.rateLimit,
-            sources:            Settings_1.Settings.sources,
-            chineseConversion:  Settings_1.Settings.chineseConversion
-        });
-        // FIX: check socket is still open before sending initial settings payload
-        // (connection could theoretically close in the same event-loop tick it opens)
-        if (ws.readyState === ws_1.WebSocket.OPEN) {
-            ws.send(payload);
-        }
+        const payload = JSON.stringify(Object.fromEntries(KEYS.map(k => [k, Settings_1.Settings[k]])));
+        if (ws.readyState === WebSocket.OPEN) try { ws.send(payload); } catch (e) { Debug_1.Debug.write(`[Server] Send failed: ${e}`); }
     });
     httpServer.listen(8999);
     refreshSpotifyWebToken();

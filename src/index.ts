@@ -1,4 +1,4 @@
-import { LyricsFetcher } from "./LyricsFetcher"
+﻿import { LyricsFetcher } from "./LyricsFetcher"
 import { SpotifySource } from "./Sources/SpotifySource"
 import { NetEaseMusicSource } from "./Sources/NetEaseMusicSource"
 import { LrcLibSource } from "./Sources/LrcLibSource"
@@ -17,6 +17,14 @@ import { ExternalAuthServerAPI } from "./ExternalAuthServerAPI"
 
 Settings.load()
 
+const SOURCES: Record<string, { cls: () => any, key: keyof typeof Settings.sources }> = {
+    Spotify:    { cls: () => new SpotifySource(),          key: "enableSpotify" },
+    Musixmatch: { cls: () => new MusixmatchSource(),       key: "enableMusixmatch" },
+    LrcLib:     { cls: () => new LrcLibSource(),           key: "enableLrcLib" },
+    NetEase:    { cls: () => new NetEaseMusicSource(),     key: "enableNetEase" },
+    QQMusic:    { cls: () => new QQMusicSource(),          key: "enableQQMusic" }
+}
+
 if (Settings.update.enableAutoupdate) {
     Updater.tryUpdate()
         .then(() => { init() })
@@ -25,21 +33,6 @@ if (Settings.update.enableAutoupdate) {
     init()
 }
 
-const SOURCE_MAP: Record<string, () => any> = {
-    Spotify:    () => new SpotifySource(),
-    Musixmatch: () => new MusixmatchSource(),
-    LrcLib:     () => new LrcLibSource(),
-    NetEase:    () => new NetEaseMusicSource(),
-    QQMusic:    () => new QQMusicSource()
-}
-
-const ENABLE_MAP: Record<string, keyof typeof Settings.sources> = {
-    Spotify:    "enableSpotify",
-    Musixmatch: "enableMusixmatch",
-    LrcLib:     "enableLrcLib",
-    NetEase:    "enableNetEase",
-    QQMusic:    "enableQQMusic"
-}
 
 function init(): void {
     if (!Settings.credentials.uuid) {
@@ -51,7 +44,8 @@ function init(): void {
 
     const lyricsFetcher = new LyricsFetcher()
     for (const name of Settings.sources.sourceOrder) {
-        if (Settings.sources[ENABLE_MAP[name]]) lyricsFetcher.addSource(SOURCE_MAP[name]())
+        const s = SOURCES[name]
+        if (s && Settings.sources[s.key] !== false) lyricsFetcher.addSource(s.cls())
     }
 
     const playbackState = new PlaybackState()

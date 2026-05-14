@@ -9,3 +9,12 @@
 /dist/*_patch.txt
 /rpc/
 /CONTEXT.md
+
+# dev artifacts
+*.tmp
+*.ps1
+patch.js
+REFACTOR_RECOMMENDATIONS.txt
+_at_new.txt
+_dp_new.txt
+_changelog_35.tmp
