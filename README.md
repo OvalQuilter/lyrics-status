@@ -44,6 +44,15 @@ Open `http://localhost:8999` to configure.
 
 ---
 
+## Panel
+
+Open http://localhost:8999 in your browser while the app is running to access the settings panel.
+
+![Settings panel](res/panel.png)
+
+From here you can enter credentials, toggle and reorder lyric sources, adjust rate limiting and timing options, enable the Discord gateway, and manage status restore.
+---
+
 ## Configuration
 
 ### 1. Discord token
