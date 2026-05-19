@@ -1,6 +1,7 @@
-import { BaseSource, CachedSongLyrics, SongLyrics } from "./Sources/BaseSource"
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs"
+import { BaseSource, SongLyrics } from "./Sources/BaseSource"
+import { LyricsLine } from "./Sources/BaseSource"
 import { Settings } from "./Settings"
+import { CacheStore, cacheKey } from "./CacheStore"
 
 // opencc-js has "type":"module" so require() throws ERR_REQUIRE_ESM. Use dynamic import().
 let _openccPromise: Promise<any> | null = null
@@ -51,13 +52,16 @@ async function applyConversion(lyrics: SongLyrics | null): Promise<SongLyrics | 
 
 export class LyricsFetcher {
     public sources: BaseSource[]
+    private cache: CacheStore
 
     public lastFetchedFrom: string
     public lastFetchedFor: string
 
-    constructor() {
-        this.sources = []
+    private _inFlight = new Map<string, Promise<SongLyrics | null>>()
 
+    constructor(cache: CacheStore) {
+        this.sources = []
+        this.cache = cache
         this.lastFetchedFrom = "Not fetched"
         this.lastFetchedFor = ""
     }
@@ -67,54 +71,56 @@ export class LyricsFetcher {
     }
 
     public async fetchLyrics(name: string, artist: string): Promise<SongLyrics | null> {
-        this.lastFetchedFrom = "Not fetched"
-        this.lastFetchedFor = name + artist
+        if (!name || !artist) return null
 
-        const cache = this.fetchCachedLyrics(name, artist)
+        const key = cacheKey(name, artist)
 
-        let result = cache as SongLyrics
+        // In-flight check before cache — prevents double-fetch on concurrent polls
+        if (this._inFlight.has(key)) return this._inFlight.get(key)!
 
-        for (const source of this.sources) {
-            if (cache) {
-                this.lastFetchedFrom = `Cache (${cache.appName})`
-                result = await applyConversion(cache) as SongLyrics
-                break
+        const cached = this.cache.get(name, artist)
+        if (cached !== null) {
+            this.lastFetchedFor = `${name}\0${artist}`
+            if (!cached.lines) {
+                this.lastFetchedFrom = "Cache (none)"
+                return null
             }
-
-            try {
-                result = await source.getLyrics(name, artist)
-                this.lastFetchedFrom = source.getAppName()
-            } catch {}
-
-            if (result) {
-                try { this.cacheLyrics(name, artist, result, this.lastFetchedFrom) }
-                catch (e) { console.error(`[LyricsFetcher] Cache write failed for "${name}":`, e) }
-            }
-            if (result) result = await applyConversion(result) as SongLyrics
-            if (result) break
+            this.lastFetchedFrom = `Cache (${cached.appName})`
+            return applyConversion({ lines: cached.lines })
         }
 
-        return result
+        const p = this._doFetch(name, artist)
+        this._inFlight.set(key, p)
+        p.finally(() => this._inFlight.delete(key))
+        return p
     }
 
-    public fetchCachedLyrics(name: string, artist: string): CachedSongLyrics | null {
-        const path = `./cache/${name}-${artist}.json`
+    private async _doFetch(name: string, artist: string): Promise<SongLyrics | null> {
+        let result: SongLyrics | null = null
+        let appName = "none"
+        let hadNetworkError = false
 
-        let lyrics: CachedSongLyrics | null = null
+        for (const source of this.sources) {
+            try {
+                const r = await source.getLyrics(name, artist)
+                if (r?.lines?.length) {
+                    result = r
+                    appName = source.getAppName()
+                    break
+                }
+            } catch {
+                hadNetworkError = true
+            }
+        }
 
-        try {
-            lyrics = JSON.parse(readFileSync(path).toString())
-        } catch {}
+        const error = (!result && hadNetworkError) ? "network" : undefined
+        this.cache.set(name, artist, result?.lines ?? null, appName, error)
 
-        return lyrics
-    }
+        const maxRows = Settings.cache.maxRows
+        if (maxRows > 0) this.cache.evict(maxRows)
 
-    public cacheLyrics(name: string, artist: string, lyrics: SongLyrics, appName: string): void {
-        if (!existsSync("./cache")) mkdirSync("./cache")
-
-        writeFileSync(`./cache/${name}-${artist}.json`, JSON.stringify({
-            ...lyrics,
-            appName
-        }))
+        this.lastFetchedFrom = appName
+        this.lastFetchedFor = `${name}\0${artist}`
+        return result ? applyConversion(result) : null
     }
 }

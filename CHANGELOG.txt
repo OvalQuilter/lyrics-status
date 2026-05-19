@@ -3,6 +3,152 @@
 Continued from CHANGELOG_old.txt (entries 1-46).
 
 ─────────────────────────────────────────────────────────────────────
+53. REFACTOR — StatusChanger split into StatusChangerBase + StatusChanger (May 2026)
+    Files: dist/StatusChangerBase.js (new), dist/StatusChanger.js
+─────────────────────────────────────────────────────────────────────
+StatusChanger.js split into two files:
+
+  StatusChangerBase.js (new) — shared base class. Contains:
+    constructor, _discordPatch, changeStatusRequest, restoreStatus,
+    smartTruncate, buildMergedLines, applyTemplate, _iOSSync,
+    _onGatewayReady, formatSeconds.
+    Also exports helpers: VALID_FLASH_STATES, applyUnicodeStyle,
+    resolveUnicodeStyle, cpLen, sanitizeLyric, unicode bold/italic utils,
+    TEMPLATE_RE map.
+
+  StatusChanger.js — extends StatusChangerBase. Contains only:
+    Flash manager (_startFlash, _stopFlash, _flashTick),
+    changeStatus() loop, songChanged().
+
+─────────────────────────────────────────────────────────────────────
+52. BUGFIX — Status flash dnd/idle not showing; setCustomStatus reset orb (May 2026)
+    Files: dist/GatewayClient.js, dist/StatusChanger.js
+─────────────────────────────────────────────────────────────────────
+Root cause: setCustomStatus always built the op3 status field from
+gateway.presenceStatus. When a flash tick set the orb to "dnd", the next
+lyric send (100ms loop) immediately overwrote it back to "online", so the
+flash was invisible to observers.
+
+  GatewayClient.js — Added _flashStatus field. flashPresence() now stores the
+    current flash status in _flashStatus. setCustomStatus() uses _flashStatus
+    when set, falling back to gateway.presenceStatus when not flashing. Added
+    clearFlashStatus() to reset _flashStatus to null.
+
+  StatusChanger.js — _stopFlash() now calls this._gateway.clearFlashStatus()
+    after stopping the interval, so subsequent setCustomStatus calls revert
+    to the base presence status.
+
+─────────────────────────────────────────────────────────────────────
+51. FEATURE — Status Flash panel UI (May 2026)
+    Files: static/panel.js, static/index.html
+─────────────────────────────────────────────────────────────────────
+Added "Status Flash" section to the web panel (between Gateway and Updates).
+
+  panel.js — Added statusFlash to DEFAULTS and mergeSettings. Added bindings
+    for flash-enabled (checkbox) and flash-interval-ms (number). Added
+    FLASH_STATE_OPTIONS and RESTORE_STATUS_OPTIONS arrays. Added flash section
+    body with: enable checkbox + help button, multi-select state toggle buttons,
+    interval number input, and restore-to dropdown. Added updateFlashStateToggle()
+    and updateFlashRestoreSelect() called from applyToDom(). Added click handler
+    for flash-state-toggle (multi-select, enforces minimum 1 state, keeps
+    canonical order online/idle/dnd/invisible). Added change handler for
+    flash-restore-status select (stores null when empty = use gateway setting).
+
+  index.html — Added .flash-state-toggle and .flash-state-btn CSS with per-value
+    active colors matching the presence button scheme (green/amber/red/muted).
+
+─────────────────────────────────────────────────────────────────────
+50. FEATURE — Status flash: cycle presence orb color while playing (May 2026)
+    Files: dist/GatewayClient.js, dist/StatusChanger.js, dist/Settings.js
+─────────────────────────────────────────────────────────────────────
+CONTEXT:
+  While lyrics are playing, the Discord presence orb (online/idle/dnd) can now
+  cycle through a configurable list of statuses on an interval, creating a
+  flashing color effect. Designed to work with both Gateway (WS) and REST.
+
+CHANGES:
+  Settings.js — Added statusFlash block to _KEYS and defaults:
+    { enabled:false, states:["online","idle","dnd"], intervalMs:500, restoreStatus:null }
+
+  GatewayClient.js — Added _lastActivity field (cached on each setCustomStatus call).
+    flashPresence(status): sends op3 with the cached activity so lyric text is
+    preserved during flash ticks. Does NOT push to _presenceSentTimes (bypasses
+    the 5/20s rate-limit tracker). Bug fix: previous version sent activities:[]
+    which cleared the custom status text on every tick.
+
+  StatusChanger.js — Added flash manager:
+    _startFlash(): starts setInterval at max(intervalMs, 300ms), cycles states.
+    _stopFlash(restorePresence): clears interval; if restorePresence=true, sends
+      one final op3/REST to restore the base presence status (debounced 2s).
+    _flashTick(): advances _flashIndex, calls gateway.flashPresence() or
+      REST PATCH /users/@me/settings with { status } as fallback when GW is off.
+    changeStatus(): calls _startFlash() when lyrics are playing, _stopFlash(true)
+      when not playing or no lyrics.
+    songChanged(isEnd=true): calls _stopFlash(true) to restore presence on end.
+
+BEHAVIOR:
+  - Gateway mode: flash op3s bypass the rate-limit tracker; lyric text preserved.
+  - REST mode: PATCH presence status field on each tick (Discord ToS caveat noted).
+  - On stop: presence is restored to statusFlash.restoreStatus or gateway.presenceStatus.
+  - Disabled by default (statusFlash.enabled = false in settings.json).
+
+─────────────────────────────────────────────────────────────────────
+49. BUGFIX -- buildMergedLines: continue -> break on sent line (May 2026)
+    Files: dist/StatusChanger.js, src/StatusChanger.ts
+─────────────────────────────────────────────────────────────────────
+When walking backward to collect lines into the merge window, a line already in
+sentLines caused a continue instead of break. This incorrectly included earlier
+unsent lines separated from the anchor by an already-sent line, producing gaps
+in merged status text. Fixed to break, stopping the walk at the first sent line.
+
+
+
+─────────────────────────────────────────────────────────────────────
+48. FEATURE — Fake mobile presence option (May 2026)
+    Files: dist/GatewayClient.js, static/panel.js, static/index.html
+─────────────────────────────────────────────────────────────────────
+CONTEXT:
+  Discord shows a phone icon next to a user's status when their gateway session
+  identifies with browser="Discord iOS". This tricks clients into thinking the
+  connection is from a mobile device. Previously only online/idle/dnd were available
+  in the Presence Status selector on the panel.
+
+CHANGES:
+  panel.js — Added { value:"mobile", label:"📱 Fake Mobile" } to PRESENCE_OPTIONS.
+  index.html — Added .presence-btn.presence-active[data-value="mobile"] CSS rule
+               (accent/blue color to distinguish from the status options).
+  GatewayClient.js — _identify(): when presenceStatus is "mobile", sends
+               properties { os:"Android", browser:"Discord Android", device:"discord-android" }
+               "Discord Android" is the correct browser value.
+               op 3 with status="online" (mobile is not a valid Discord status value).
+
+NOTE:
+  Requires a full gateway reconnect to take effect (the identify payload is only
+  sent on connection). Restart the app or toggle gateway off/on after switching.
+
+
+─────────────────────────────────────────────────────────────────────
+47. DISPLAY — Gateway + op3 status visibility (May 2026)
+    Files: dist/index.js, src/index.ts
+─────────────────────────────────────────────────────────────────────
+CONTEXT:
+  Gateway disconnects and failed sends were only visible in log.txt.
+  The terminal Send row showed "GW" or "REST" with no further detail.
+  Op3 (presence update) rate limiting was already implemented in GatewayClient
+  (_presenceSentTimes, 5/20s window) but was not surfaced anywhere in the UI.
+
+CHANGES (dist/index.js display interval):
+  - gwStatus now has three gateway states:
+      [GW 3/5]         green  — connected, op3 window usage shown (x out of 5 in last 20s)
+      [GW reconnecting] yellow — _reconnecting is true (socket dropped, waiting to retry)
+      [GW disconnected] red    — gateway enabled but neither connected nor reconnecting
+      [REST]            yellow — gateway disabled in settings (unchanged)
+  - op3Used is computed each tick by filtering _presenceSentTimes to the last 20 000ms.
+  - No new state added; reads existing GatewayClient fields (_presenceSentTimes, _reconnecting,
+    connected) and Settings.gateway.enabled.
+
+
+─────────────────────────────────────────────────────────────────────
 46. REFACTOR — line reduction, bug fixes, file deletions (May 2026)
     Files: all dist/ sources, static/panel.js
 ─────────────────────────────────────────────────────────────────────
@@ -146,3 +292,63 @@ Sources/LrcLibSource:
 
 Sources/NetEaseMusicSource:
   parseLyrics: timestamp-less lines skipped (was pushed as time:0 → spurious status at song start).
+
+─────────────────────────────────────────────────────────────────────
+54. BUGFIX — Multi-file bug sweep (May 2026)
+    Files: StatusChangerBase.js, StatusChanger.js, GatewayClient.js,
+           PlaybackStateUpdater.js, index.js
+─────────────────────────────────────────────────────────────────────
+StatusChangerBase.js:
+  - resolveUnicodeStyle now accepts `now` param — prevents bucket desync at interval boundaries
+  - buildMergedLines accepts `ignoreStale` param — style-bucket resends no longer silently truncate merged lines
+
+StatusChanger.js:
+  - _styleBucketChanged no longer clears _lastSentText — prevents TUI "Sent" showing blank for up to 1s
+  - Dedup check also skips on _styleBucketChanged so resend still fires
+  - sendTimeOffset || 0 — prevents NaN offset blocking all sends when setting missing
+  - _presenceSentTimes guarded with || [] — prevents crash on uninitialized gateway
+
+GatewayClient.js:
+  - flashPresence(status, "", null) now clears _lastActivity — prevents stale lyric resent on reconnect after song end
+
+PlaybackStateUpdater.js:
+  - lastAttemptedFor comparison now uses \0 separator matching LyricsFetcher format — was firing re-fetch every poll
+  - Duplicate ps.currentLine = null removed
+
+index.js:
+  - songProgress advanced before changeStatus() — was feeding stale progress to lyric-line comparison
+  - TUI offset fallback to || 0 — prevents NaN in "Now" line display
+
+─────────────────────────────────────────────────────────────────────
+55. BUGFIX -- panel.js bug sweep (May 2026)
+    File: static/panel.js
+  - setWsStatus: renamed dead "default" key to "connecting" so the indicator
+    actually updates while reconnecting; removed now-redundant fallback block
+  - btn-store-status: origRef now captured at click time (this.textContent)
+    instead of via a late let declaration -- eliminates latent undefined risk
+  - DEFAULTS.credentials: added spotifyWebToken field so BINDINGS entry has
+    a matching default and cold panel load shows correct token status
+  - CSS: added presence-btn.presence-active rule for data-value="invisible"
+    so the Invisible button highlights when selected
+
+─────────────────────────────────────────────────────────────────────
+63. REFACTOR — panel.js split + dead code removal + 9 bug fixes (May 2026)
+    Files: static/panel.js (rewritten), static/panel-data.js (new),
+           static/panel-ui.js (new), static/index.html (+2 script tags)
+─────────────────────────────────────────────────────────────────────
+  - panel.js split 3 files: panel-data.js (constants), panel-ui.js (h
+    helpers, SECTION_BODIES, renderSections, renderSourceList), panel.js
+    (runtime core). ~600 -> ~440 lines total.
+  - Dead code: removed mergeSettings redundant explicit lines (covered by
+    spread); btnFlash disabled=false; unused reset param; inlined +
+    removed setIndicator + fetchDiscordStatus; pruned 4 comments.
+  - Data dedup: BASE_STATUS_OPTIONS -> FLASH_STATE_OPTIONS + RESTORE_STATUS_OPTIONS.
+  - syncAdvancedSwt(on) extracted (was duplicated in applyToDom + bindAll).
+  - BUG 1: setSaveStatus timer leak — clearTimeout before reschedule.
+  - BUG 2: _dirty flag — WS reconnect won't overwrite unsaved edits.
+  - BUG 3: renderSourceList snapshot from sourceOrder, not Object.keys.
+  - BUG 4: pointer-events:none on source list child spans (drag flicker).
+  - BUG 5: loaded=true inside try block only (not finally).
+  - BUG 6: number inputs clamped to el.min/el.max before save.
+  - BUG 7: withBtnSpinner disables button immediately (double-click race).
+  - BUG 9: statusFlash.states re-assigned after spread (guards corrupt server value).

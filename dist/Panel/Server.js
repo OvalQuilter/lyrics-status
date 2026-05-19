@@ -10,7 +10,7 @@ const SpotifyService_1 = require("../SpotifyService");
 const Debug_1 = require("../Debug");
 
 const STATIC = join(__dirname, "../../static");
-const KEYS = ["credentials","view","timings","update","rateLimit","sources","chineseConversion","restore","gateway"];
+const KEYS = ["credentials","view","timings","update","rateLimit","sources","chineseConversion","restore","gateway","statusFlash"];
 
 function refreshSpotifyWebToken() {
     const cookies = Settings_1.Settings.credentials.cookies;
@@ -54,12 +54,10 @@ function startServer() {
         ws.on("message", data => {
             let p; try { p = JSON.parse(data.toString()); } catch { return; }
             if (!p || typeof p !== "object") return;
-            // Bug 10 fix: deep-merge all object keys so partial panel updates don't nuke nested props
             for (const k of KEYS) {
                 if (p[k] == null) continue;
                 if (typeof Settings_1.Settings[k] === "object" && !Array.isArray(Settings_1.Settings[k]) && typeof p[k] === "object") {
                     Settings_1.Settings[k] = { ...Settings_1.Settings[k], ...p[k] };
-                    // view.advanced needs a second level merge
                     if (k === "view" && p[k].advanced) Settings_1.Settings[k].advanced = { ...Settings_1.Settings[k].advanced, ...p[k].advanced };
                 } else {
                     Settings_1.Settings[k] = p[k];

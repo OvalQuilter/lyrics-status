@@ -2,224 +2,118 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StatusChanger = void 0;
 const Settings_1 = require("./Settings");
-const Autooffset_1 = require("./Autooffset");
 const Debug_1 = require("./Debug");
+const StatusChangerBase_1 = require("./StatusChangerBase");
 
-// Unicode code-point safe helpers
-function cpLen(s) { return [...s].length; }
-function cpSlice(s, n) { return [...s].slice(0, n).join(""); }
-// Short-circuit: returns false as soon as code-point count exceeds limit (no full expand)
-function cpFitsIn(s, limit) { let n = 0; for (const _ of s) { if (++n > limit) return false; } return true; }
+const { VALID_FLASH_STATES, applyUnicodeStyle, resolveUnicodeStyle, cpLen, sanitizeLyric } = StatusChangerBase_1;
 
-// Pre-compiled template regex map — built once at module load, not per applyTemplate() call
-const VARS = ["lyrics","timestamp","song_name","song_author","source","progress","duration","line_number"];
-const SUFFIXES = ["","_upper","_lower","_title_case","_letters_only","_upper_letters_only","_lower_letters_only","_cropped","_upper_cropped","_lower_cropped"];
-const TEMPLATE_RE = new Map(); // key: "varname_suffix" → RegExp
-for (const v of VARS) for (const s of SUFFIXES) TEMPLATE_RE.set(v + s, new RegExp(`\\{${v}${s}\\}`, "g"));
+class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
 
-class StatusChanger {
-    constructor(playbackState, savedStatus, gatewayClient) {
-        this.playbackState = playbackState;
-        this.sentLines = new Set();
-        this.autooffset = new Autooffset_1.Autooffset();
-        this._rateLimitedUntil = 0;
-        this._lastSentAt = 0;
-        this._lastSentText = "";
-        this._savedStatus = savedStatus || null;
-        this._restoreTimer = null;
-        this._gateway = gatewayClient || null;
-        this._captureReady = !(Settings_1.Settings.restore && Settings_1.Settings.restore.enabled);
-        this._iOSSyncSentAt = 0;
-        this._iOSSyncPending = null;
-        this._lastMergedLines = null; // Bug 15 fix: init in constructor
+    // == Status Flash ==========================================================
+
+    _flashTick() {
+        if (!this._flashActive) return;
+        const sf = Settings_1.Settings.statusFlash;
+        if (!sf || !sf.enabled) { this._stopFlash(false); return; }
+        const states = Array.isArray(sf.states) && sf.states.length
+            ? sf.states.filter(s => VALID_FLASH_STATES.has(s))
+            : ["online", "idle", "dnd"];
+        if (!states.length) return;
+        this._flashIndex = (this._flashIndex + 1) % states.length;
+        const status = states[this._flashIndex];
+        const usingGateway = Settings_1.Settings.gateway && Settings_1.Settings.gateway.enabled && this._gateway && this._gateway.connected;
+        if (usingGateway) {
+            this._gateway.flashPresence(status, null, null);
+        } else {
+            this._discordPatch({ status })
+                .then(res => { if (res.status !== 200) res.text().then(b => Debug_1.Debug.write("[StatusFlash] REST flash HTTP " + res.status + ": " + b)).catch(() => {}); })
+                .catch(e => Debug_1.Debug.write("[StatusFlash] REST flash error: " + e));
+        }
     }
 
-    _discordPatch(body, token) {
-        return fetch("https://discordapp.com/api/v8/users/@me/settings", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json", "Authorization": token || Settings_1.Settings.credentials.token },
-            body: JSON.stringify(body)
-        });
+    _startFlash() {
+        const sf = Settings_1.Settings.statusFlash;
+        if (!sf || !sf.enabled || this._flashActive) return;
+        const intervalMs = Math.max(typeof sf.intervalMs === "number" ? sf.intervalMs : 2000, 2000);
+        this._flashActive = true;
+        this._flashIndex = 0;
+        Debug_1.Debug.write("[StatusFlash] Starting @ " + intervalMs + "ms");
+        this._flashInterval = setInterval(() => this._flashTick(), intervalMs);
     }
 
-    changeStatusRequest(text, token, emoji, mergedLines, sentLine) {
-        if (!this._captureReady) {
-            Debug_1.Debug.write(`[StatusChanger] Capture not ready — skipping send`);
-            return Promise.resolve();
-        }
-        // Use gateway if enabled in settings and connected; fall back to REST otherwise
-        if (Settings_1.Settings.gateway.enabled && this._gateway && this._gateway.connected) {
-            Debug_1.Debug.write(`[StatusChanger] Sending via gateway: "${text}" | emoji: ${emoji}`);
-            const sent = this._gateway.setCustomStatus(text, emoji);
-            // Bug 9 fix: fire iOSSync regardless of whether .t was pre-populated;
-            // use the text/emoji passed directly into this function (always current)
-            if (sent && this._iOSSyncPending) {
-                this._iOSSyncPending = null;
-                this._iOSSync(text, emoji);
-            }
-            return Promise.resolve();
-        }
-
+    _stopFlash(restorePresence) {
+        const wasActive = this._flashActive;
+        this._flashActive = false;
+        if (this._flashInterval) { clearInterval(this._flashInterval); this._flashInterval = null; }
+        if (this._gateway) this._gateway.clearFlashStatus();
+        if (!restorePresence || !wasActive) return;
+        const sf = Settings_1.Settings.statusFlash;
+        const base = (sf && sf.restoreStatus) || (Settings_1.Settings.gateway && Settings_1.Settings.gateway.presenceStatus) || "online";
+        if (!VALID_FLASH_STATES.has(base)) return;
         const now = Date.now();
-        Debug_1.Debug.write(`[StatusChanger] Sending Discord status (REST): "${text}" | emoji: ${emoji}`);
-        const request = this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji, expires_at: new Date(Date.now() + 60000).toISOString() } }, token);
-        request.then(res => {
-            const elapsed = Date.now() - now;
-            if (res.status === 429) {
-                res.text().then(raw => {
-                    Debug_1.Debug.write(`[StatusChanger] Rate limited (HTTP 429) | body: ${raw}`);
-                    let retryAfter = 30;
-                    try { const b = JSON.parse(raw); if (typeof b.retry_after === "number" && b.retry_after > 0) retryAfter = b.retry_after; }
-                    catch (e) { Debug_1.Debug.write(`[StatusChanger] Failed to parse rate limit body, defaulting to ${retryAfter}s: ${e}`); }
-                    if (Settings_1.Settings.rateLimit.enableBackoff) {
-                        this._rateLimitedUntil = Date.now() + retryAfter * 1000;
-                        Debug_1.Debug.write(`[StatusChanger] Backing off ${retryAfter}s — rolling back sent state for retry`);
-                    } else {
-                        Debug_1.Debug.write(`[StatusChanger] Rate limit (backoff disabled): ${retryAfter}s suggested`);
-                    }
-                    if (this._lastMergedLines) {
-                        for (const ml of this._lastMergedLines) this.sentLines.delete(ml);
-                    }
-                    if (sentLine && this.playbackState.currentLine === sentLine) {
-                        this.playbackState.currentLine = null;
-                    }
-                    this._lastSentText = "";
-                    this._lastSentAt = 0;
-                }).catch(e => {
-                    Debug_1.Debug.write(`[StatusChanger] Rate limited but failed to read response body: ${e}`);
-                    if (Settings_1.Settings.rateLimit.enableBackoff) this._rateLimitedUntil = Date.now() + 30000;
-                });
-            } else if (res.status === 200) {
-                Debug_1.Debug.write(`[StatusChanger] OK (${elapsed}ms)`);
-                this.autooffset.addValue(elapsed);
-            } else {
-                res.text().then(b => Debug_1.Debug.write(`[StatusChanger] Error HTTP ${res.status}: ${b}`)).catch(() => {});
-            }
-        }).catch(err => Debug_1.Debug.write(`[StatusChanger] Fetch error: ${err}`));
-        return request;
-    }
-
-    restoreStatus() {
-        const s = this._savedStatus;
-        if (!s) return;
-        Debug_1.Debug.write(`[StatusChanger] Restoring saved status: "${s.text}"`);
-        this._discordPatch({ custom_status: { text: s.text || "", emoji_name: s.emoji_name || null, emoji_id: s.emoji_id || null, expires_at: s.expires_at || null } })
-            .then(res => {
-                if (res.status === 200) Debug_1.Debug.write(`[StatusChanger] Status restored OK`);
-                else res.text().then(b => Debug_1.Debug.write(`[StatusChanger] Restore failed HTTP ${res.status}: ${b}`)).catch(() => {});
-            }).catch(e => Debug_1.Debug.write(`[StatusChanger] Restore fetch error: ${e}`));
-    }
-
-    smartTruncate(text, limit = 128, lyricLines = null) {
-        if (!text) return "";
-        if (cpFitsIn(text, limit)) return text;
-        if (lyricLines && lyricLines.length > 1) {
-            const lines = lyricLines.slice();
-            while (lines.length > 1) {
-                lines.pop();
-                const candidate = lines.join(" ");
-                if (cpFitsIn(candidate, limit)) return candidate;
-            }
-            text = lines[0] || "";
-            if (cpFitsIn(text, limit)) return text;
+        if (now - this._flashRestoreSentAt < 2000) return;
+        this._flashRestoreSentAt = now;
+        Debug_1.Debug.write("[StatusFlash] Restoring presence to " + base);
+        const usingGateway = Settings_1.Settings.gateway && Settings_1.Settings.gateway.enabled && this._gateway && this._gateway.connected;
+        if (usingGateway) {
+            this._gateway.flashPresence(base, "", null);
+        } else {
+            this._discordPatch({ status: base })
+                .then(res => { if (res.status !== 200) res.text().then(b => Debug_1.Debug.write("[StatusFlash] Restore HTTP " + res.status + ": " + b)).catch(() => {}); })
+                .catch(e => Debug_1.Debug.write("[StatusFlash] Restore error: " + e));
         }
-        const words = text.split(" ");
-        while (words.length > 1) {
-            words.pop();
-            const candidate = words.join(" ");
-            if (cpFitsIn(candidate, limit)) return candidate + "...";
-        }
-        return cpSlice(text, limit - 3) + "...";
     }
 
-    buildMergedLines(lines, anchorIndex, mergeWindowMs) {
-        const anchor = lines[anchorIndex];
-        let lyricLines = [anchor.text || ""];
-        let mergedLines = [anchor];
-        if (mergeWindowMs > 0) {
-            for (let j = anchorIndex - 1; j >= 0; j--) {
-                const gapFromAnchor = anchor.time - lines[j].time;
-                if (gapFromAnchor > mergeWindowMs) break;
-                if (!lines[j].text) continue;
-                if (this.sentLines.has(lines[j])) continue;
-                lyricLines.unshift(lines[j].text);
-                mergedLines.unshift(lines[j]);
-            }
-        }
-        return { mergedText: lyricLines.join(" "), lyricLines, mergedLines };
-    }
-
-    applyTemplate(template, mergedText, line, ps, lineIndex, totalLines) {
-        const durationSec = isFinite(ps.songDuration) ? +(ps.songDuration / 1000).toFixed(0) : 0;
-        const progressSec = isFinite(ps.songProgress) ? +(ps.songProgress / 1000).toFixed(0) : 0;
-        const vars = {
-            lyrics:       mergedText,
-            timestamp:    this.formatSeconds(+(line.time / 1000).toFixed()),
-            song_name:    ps.songName   || "",
-            song_author:  ps.songAuthor || "",
-            source:       ps.lyricsSource || "",
-            progress:     this.formatSeconds(progressSec),
-            duration:     this.formatSeconds(durationSec),
-            line_number:  (lineIndex != null && totalLines != null) ? `${lineIndex + 1}/${totalLines}` : ""
-        };
-        let out = template;
-        for (const [k, v] of Object.entries(vars)) {
-            const clean      = v.replace(/[^a-zA-Z\s]/g, "");
-            const crop       = k.startsWith("song_") ? v.replace(/( ?- ?.+)|(\(.+\))/gi, "") : v;
-            const titleCase  = v.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
-            const vals = [v, v.toUpperCase(), v.toLowerCase(), titleCase, clean, clean.toUpperCase(), clean.toLowerCase(), crop, crop.toUpperCase(), crop.toLowerCase()];
-            SUFFIXES.forEach((s, i) => { out = out.replace(TEMPLATE_RE.get(k + s), vals[i]); });
-        }
-        return out.replace(/\u266a/g, "\uD83C\uDFB6");
-    }
-
-    // Fires a background REST PATCH to keep iOS in sync.
-    // Guards: captureReady, gateway enabled, non-empty text,
-    // no restore pending, 10s debounce.
-    _iOSSync(text, emoji) {
-        if (!this._captureReady || !text || this._restoreTimer) return;
-        if (!Settings_1.Settings.gateway || !Settings_1.Settings.gateway.enabled) return;
-        const now = Date.now();
-        if (now - this._iOSSyncSentAt < 10000) return;
-        this._iOSSyncSentAt = now;
-        Debug_1.Debug.write('[StatusChanger] iOS REST sync: ' + JSON.stringify(text));
-        this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji || null, expires_at: new Date(now + 60000).toISOString() } })
-            .then(res => {
-                if (res.status === 200) Debug_1.Debug.write('[StatusChanger] iOS REST sync OK');
-                else res.text().then(b => Debug_1.Debug.write('[StatusChanger] iOS REST sync HTTP ' + res.status + ': ' + b)).catch(() => {});
-            }).catch(e => Debug_1.Debug.write('[StatusChanger] iOS REST sync error: ' + e));
-    }
-
-    // Called on GatewayClient op 0 READY (reconnect).
-    // Re-syncs last known status via REST so iOS picks it up.
-    // Bug 13 fix: use same emoji logic as changeStatus (respect advanced customEmoji)
-    _onGatewayReady() {
-        if (!this._lastSentText || this._restoreTimer) return;
-        const emoji = (Settings_1.Settings.view.advanced && Settings_1.Settings.view.advanced.enabled)
-            ? Settings_1.Settings.view.advanced.customEmoji : "\uD83C\uDFB6";
-        this._iOSSync(this._lastSentText, emoji);
-    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     changeStatus() {
         this.autooffset.setLimit(Settings_1.Settings.timings.autooffset);
         const playbackState = this.playbackState;
-        if (playbackState.ended || !playbackState.hasLyrics || !playbackState.isPlaying) return;
+        if (playbackState.ended || !playbackState.hasLyrics || !playbackState.isPlaying) {
+            this._stopFlash(true);
+            return;
+        }
         const lyrics = playbackState.lyrics;
-        if (!lyrics) return;
+        if (!lyrics) { this._stopFlash(true); return; }
+
+        this._startFlash();
 
         const now = Date.now();
+        const adv = Settings_1.Settings.view.advanced;
+
+        // track bucket change before resolving style
+        let _styleBucketChanged = false;
+        if (adv.styleAlternateEnabled) {
+            const intervalMs = adv.styleAlternateIntervalMs > 0 ? adv.styleAlternateIntervalMs : 3000;
+            const bucket = Math.floor(now / intervalMs);
+            if (bucket !== this._lastStyleBucket) {
+                this._lastStyleBucket = bucket;
+                // FIX: don't clear _lastSentText — TUI reads it and would show blank for up to 1s
+                // _styleBucketChanged flag already bypasses the dedup check below
+                _styleBucketChanged = true;
+            }
+        }
+
+        // pass `now` so resolveUnicodeStyle uses the same timestamp, avoiding bucket desync
+        const { style: _uStyle } = resolveUnicodeStyle(adv, now);
+
         const usingGateway = Settings_1.Settings.gateway.enabled && this._gateway && this._gateway.connected;
         const { enableBackoff, enableMinInterval, minIntervalMs, enableMergeLines, mergeWindowMs } = Settings_1.Settings.rateLimit;
         if (!usingGateway && enableBackoff && now < this._rateLimitedUntil) return;
         const minInterval = enableMinInterval ? (minIntervalMs || 5000) : 0;
         if (!usingGateway && minInterval > 0 && now - this._lastSentAt < minInterval) return;
+        if (usingGateway) {
+            const minGwInterval = Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000;
+            const times = this._gateway._presenceSentTimes || [];
+            if (minGwInterval > 0 && times.length && now - times[times.length - 1] < minGwInterval) return;
+            if (times.filter(t => now - t <= 20000).length >= 5) return;
+        }
 
-        const currentLine = playbackState.currentLine;
         const songProgress = playbackState.songProgress;
         const lines = lyrics.lines;
         const offset = Settings_1.Settings.timings.enableAutooffset
             ? this.autooffset.getAverageValue() + 100
-            : Settings_1.Settings.timings.sendTimeOffset;
+            : (Settings_1.Settings.timings.sendTimeOffset || 0);
 
         const mergeWindow = enableMergeLines ? (mergeWindowMs || 8000) : 0;
 
@@ -228,56 +122,66 @@ class StatusChanger {
             const nextLine = lines[i + 1];
             if (line.time < (songProgress + offset)) {
                 if (!line.text) continue;
-                if (nextLine && nextLine.time < (songProgress + offset)) continue;
-                if (this.sentLines.has(line)) break;
-                if (line === currentLine) break;
+                if (nextLine && nextLine.time < (songProgress + offset)) {
+                    if (!this.sentLines.has(line)) {
+                        this.sentLines.add(line);
+                        this._staleLines.add(line);
+                    }
+                    continue;
+                }
+                // allow resend if style bucket just changed
+                if (this.sentLines.has(line) && !_styleBucketChanged) break;
 
                 let mergedText, lyricLines, mergedLines;
                 if (mergeWindow === 0) {
-                    mergedText = line.text || "";
+                    mergedText = sanitizeLyric(line.text || "");
                     lyricLines = [mergedText];
                     mergedLines = [line];
                 } else {
-                    ({ mergedText, lyricLines, mergedLines } = this.buildMergedLines(lines, i, mergeWindow));
+                    ({ mergedText, lyricLines, mergedLines } = this.buildMergedLines(lines, i, mergeWindow, _styleBucketChanged));
                 }
 
                 let statusText;
                 let emoji;
 
-                if (Settings_1.Settings.view.advanced.enabled) {
-                    const template = Settings_1.Settings.view.advanced.customStatus;
-                    const fullStatus = this.applyTemplate(template, mergedText, line, playbackState, i, lines.length);
-                    if (cpFitsIn(fullStatus, 128)) {
+                if (adv.enabled) {
+                    const template = adv.customStatus;
+                    const styledMergedText = _uStyle !== "none" ? applyUnicodeStyle(mergedText, _uStyle) : mergedText;
+                    const fullStatus = this.applyTemplate(template, styledMergedText, line, playbackState, i, lines.length);
+                    if (cpLen(fullStatus) <= 128) {
                         statusText = fullStatus;
                     } else {
                         const reducedLines = lyricLines.slice();
                         let fitted = false;
                         while (reducedLines.length > 1) {
                             reducedLines.pop();
-                            const candidate = this.applyTemplate(template, reducedLines.join(" "), line, playbackState, i, lines.length);
-                            if (cpFitsIn(candidate, 128)) { statusText = candidate; fitted = true; break; }
+                            const candidate = this.applyTemplate(template, _uStyle !== "none" ? applyUnicodeStyle(reducedLines.join(" "), _uStyle) : reducedLines.join(" "), line, playbackState, i, lines.length);
+                            if (cpLen(candidate) <= 128) { statusText = candidate; fitted = true; break; }
                         }
                         if (!fitted) {
                             statusText = this.smartTruncate(
-                                this.applyTemplate(template, lyricLines[0], line, playbackState, i, lines.length), 128, null
+                                this.applyTemplate(template, _uStyle !== "none" ? applyUnicodeStyle(lyricLines[0], _uStyle) : lyricLines[0], line, playbackState, i, lines.length), 128, null
                             );
                         }
                     }
-                    emoji = Settings_1.Settings.view.advanced.customEmoji;
+                    emoji = adv.customEmoji;
                 } else {
                     const prefix = `${Settings_1.Settings.view.timestamp ? `[${this.formatSeconds(+(line.time / 1000).toFixed(0))}] ` : ""}${Settings_1.Settings.view.label ? "Song lyrics - " : ""}`;
-                    const cleanedLines = lyricLines.map(l => l.replace(/\u266a/g, "\uD83C\uDFB6"));
                     const limit = 128 - cpLen(prefix);
-                    const reduced = cleanedLines.slice();
-                    while (reduced.length > 1 && !cpFitsIn(reduced.join(" "), limit)) reduced.pop();
-                    const lyricsText = cpFitsIn(reduced.join(" "), limit)
-                        ? reduced.join(" ")
-                        : this.smartTruncate(reduced[0], limit, null);
-                    statusText = prefix + lyricsText;
+                    const reduced = lyricLines.slice();
+                    while (reduced.length > 1 && cpLen(reduced.join(" ")) > limit) reduced.pop();
+                    const displayReduced = reduced.map((l, idx) => {
+                        if (idx === 0) return l;
+                        return reduced[idx - 1].match(/[.!?]\s*$/) ? l : l.charAt(0).toLowerCase() + l.slice(1);
+                    });
+                    const lyricsText = cpLen(displayReduced.join(" ")) <= limit
+                        ? displayReduced.join(" ")
+                        : this.smartTruncate(displayReduced[0], limit, null);
+                    statusText = prefix + (_uStyle !== "none" ? applyUnicodeStyle(lyricsText, _uStyle) : lyricsText);
                     emoji = "\uD83C\uDFB6";
                 }
 
-                if (statusText === this._lastSentText) {
+                if (statusText === this._lastSentText && !_styleBucketChanged) {
                     for (const ml of mergedLines) this.sentLines.add(ml);
                     break;
                 }
@@ -287,12 +191,14 @@ class StatusChanger {
                 this._lastSentText = statusText;
                 Debug_1.Debug.write(`[StatusChanger] Queuing status (${mergedLines.length} line(s) merged): "${statusText}"`);
                 this._lastMergedLines = mergedLines;
-                // Bug 5 fix: rebuild sentLines from existing valid refs + new ones, capped at 200
-                for (const ml of mergedLines) this.sentLines.add(ml);
+                for (const ml of mergedLines) {
+                    this.sentLines.add(ml);
+                    this._staleLines.delete(ml);
+                }
                 if (this.sentLines.size > 200) {
                     const arr = [...this.sentLines];
-                    // Retain currentLine ref in trimmed set to preserve === check correctness
                     this.sentLines = new Set(arr.slice(-200));
+                    this._staleLines = new Set([...this._staleLines].filter(l => this.sentLines.has(l)));
                     if (line && !this.sentLines.has(line)) this.sentLines.add(line);
                 }
                 if (Settings_1.Settings.gateway && Settings_1.Settings.gateway.enabled) this._iOSSyncPending = { t: statusText, em: emoji };
@@ -303,22 +209,22 @@ class StatusChanger {
     }
 
     songChanged(isEnd = false) {
-        this.sentLines = new Set(); this._lastMergedLines = null; this._lastSentAt = Date.now();
-        if (isEnd && Settings_1.Settings.restore.enabled && this._savedStatus) {
-            if (this._restoreTimer) clearTimeout(this._restoreTimer);
-            this._iOSSyncPending = null;
-            const delayMs = Settings_1.Settings.restore.delayMs || 15000;
-            this._restoreTimer = setTimeout(() => { this._restoreTimer = null; this.restoreStatus(); }, delayMs);
-            Debug_1.Debug.write('[StatusChanger] Song ended - will restore status in ' + delayMs + 'ms');
-        } else if (!isEnd) {
+        this.sentLines = new Set(); this._staleLines = new Set(); this._lastMergedLines = null; this._lastSentAt = 0;
+        this._lastStyleBucket = -1;
+        this.playbackState.currentLine = null;
+        this._stopFlash(isEnd);
+        if (isEnd) {
+            if (Settings_1.Settings.restore.enabled && this._savedStatus) {
+                if (this._restoreTimer) clearTimeout(this._restoreTimer);
+                this._iOSSyncPending = null;
+                const delayMs = Settings_1.Settings.restore.delayMs || 15000;
+                this._restoreTimer = setTimeout(() => { this._restoreTimer = null; this.restoreStatus(); }, delayMs);
+                Debug_1.Debug.write('[StatusChanger] Song ended - will restore status in ' + delayMs + 'ms');
+            }
+        } else {
             if (this._restoreTimer) { clearTimeout(this._restoreTimer); this._restoreTimer = null; Debug_1.Debug.write('[StatusChanger] New song - restore timer cancelled'); }
             if (Settings_1.Settings.gateway && Settings_1.Settings.gateway.enabled) this._iOSSyncPending = { t: null, em: null };
         }
-    }
-
-    formatSeconds(s) {
-        const m = Math.floor(s / 60), sec = s % 60;
-        return m + (sec < 10 ? ':0' : ':') + sec;
     }
 }
 exports.StatusChanger = StatusChanger;

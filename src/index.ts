@@ -1,4 +1,5 @@
-﻿import { LyricsFetcher } from "./LyricsFetcher"
+import { LyricsFetcher } from "./LyricsFetcher"
+import { CacheStore } from "./CacheStore"
 import { SpotifySource } from "./Sources/SpotifySource"
 import { NetEaseMusicSource } from "./Sources/NetEaseMusicSource"
 import { LrcLibSource } from "./Sources/LrcLibSource"
@@ -14,6 +15,7 @@ import { Updater } from "./Updater"
 import { SpotifyService } from "./SpotifyService"
 import { v4 as uuidv4 } from "uuid"
 import { ExternalAuthServerAPI } from "./ExternalAuthServerAPI"
+import * as path from "path"
 
 Settings.load()
 
@@ -33,6 +35,7 @@ if (Settings.update.enableAutoupdate) {
     init()
 }
 
+let store: CacheStore | null = null
 
 function init(): void {
     if (!Settings.credentials.uuid) {
@@ -42,7 +45,10 @@ function init(): void {
     ExternalAuthServerAPI.register()
     SpotifyService.refresh()
 
-    const lyricsFetcher = new LyricsFetcher()
+    const dbPath = Settings.cache.path || path.resolve(__dirname, "../cache/cache.db")
+    store = new CacheStore(dbPath)
+
+    const lyricsFetcher = new LyricsFetcher(store)
     for (const name of Settings.sources.sourceOrder) {
         const s = SOURCES[name]
         if (s && Settings.sources[s.key] !== false) lyricsFetcher.addSource(s.cls())
@@ -59,6 +65,9 @@ function init(): void {
         statusChanger.changeStatus()
         playbackState.songProgress += Date.now() - now
         if (playbackState.ended) statusChanger.songChanged()
+        // NOTE: src/index.ts display loop is superseded by dist/index.js version.
+        // dist version uses ANSI overwrite (no console.clear) and includes gateway/op3 status.
+        // Gateway display: GW <op3Used>/5 (connected), GW reconnecting, GW disconnected, or REST.
         console.clear()
         console.log(`
     Song: ${playbackState.songName || "Not listening"}
@@ -73,7 +82,16 @@ function init(): void {
     startServer()
 }
 
+function shutdown() {
+    try { store?.close() } catch {}
+    process.exit(0)
+}
+
+process.on("SIGINT", shutdown)
+process.on("SIGTERM", shutdown)
+
 process.on("uncaughtException", (e) => {
     Debug.write(e.stack + "\n" + e.cause)
+    try { store?.close() } catch {}
     if (!e.message.includes("fetch failed")) process.exit(1)
 })

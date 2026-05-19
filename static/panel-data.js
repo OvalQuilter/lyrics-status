@@ -1,0 +1,128 @@
+// panel-data.js — constants only
+
+const DEFAULTS = {
+    credentials: { token:"", cookies:"", musixmatchToken:"", clientID:"", clientSecret:"", useExternalAuthServer:false, code:"", refreshToken:"", uuid:"", customRedirectUri:"", spotifyWebToken:"" },
+    view: { timestamp:true, label:true, advanced:{ enabled:false, customEmoji:"\uD83C\uDFB6", customStatus:"[{timestamp}] Song lyrics - {lyrics}", unicodeStyle:"none", styleAlternateEnabled:false, styleAlternateIntervalMs:3000 } },
+    timings:   { sendTimeOffset:500, enableAutooffset:true, autooffset:3 },
+    update:    { enableAutoupdate:true },
+    rateLimit: { enableBackoff:true, enableMinInterval:true, minIntervalMs:5000, enableMergeLines:true, mergeWindowMs:8000 },
+    sources:   { enableSpotify:true, enableMusixmatch:true, enableLrcLib:true, enableNetEase:true, enableQQMusic:true, sourceOrder:["Spotify","Musixmatch","LrcLib","NetEase","QQMusic"] },
+    chineseConversion: "off",
+    restore: { enabled:true, savedStatus:null, delayMs:15000 },
+    gateway: { enabled:false, presenceStatus:"online", minGwIntervalMs:5000 },
+    statusFlash: { enabled:false, states:["online","idle","dnd"], intervalMs:500, restoreStatus:null },
+};
+
+const BINDINGS = [
+    ["#user-token",              "credentials.token",                 "text"],
+    ["#spotify-cookies",         "credentials.cookies",               "text"],
+    ["#spotify-web-token",       "credentials.spotifyWebToken",       "text"],
+    ["#client-id",               "credentials.clientID",              "text"],
+    ["#client-secret",           "credentials.clientSecret",          "text"],
+    ["#custom-redirect-uri",     "credentials.customRedirectUri",     "text"],
+    ["#use-external-auth-server","credentials.useExternalAuthServer", "checkbox"],
+    ["#enable-timestamp",        "view.timestamp",                    "checkbox"],
+    ["#enable-label",            "view.label",                        "checkbox"],
+    ["#enable-advanced-swt",     "view.advanced.enabled",             "checkbox"],
+    ["#custom-emoji",            "view.advanced.customEmoji",         "text"],
+    ["#custom-status",           "view.advanced.customStatus",        "textarea"],
+    ["#unicode-style",           "view.advanced.unicodeStyle",        "select"],
+    ["#style-alternate-enabled", "view.advanced.styleAlternateEnabled",    "checkbox"],
+    ["#style-alternate-interval","view.advanced.styleAlternateIntervalMs", "number"],
+    ["#send-time-offset",        "timings.sendTimeOffset",            "number"],
+    ["#enable-autooffset",       "timings.enableAutooffset",          "checkbox"],
+    ["#autooffset",              "timings.autooffset",                "number"],
+    ["#enable-autoupdate",       "update.enableAutoupdate",           "checkbox"],
+    ["#enable-backoff",          "rateLimit.enableBackoff",           "checkbox"],
+    ["#enable-min-interval",     "rateLimit.enableMinInterval",       "checkbox"],
+    ["#min-interval-ms",         "rateLimit.minIntervalMs",           "number"],
+    ["#enable-merge-lines",      "rateLimit.enableMergeLines",        "checkbox"],
+    ["#merge-window-ms",         "rateLimit.mergeWindowMs",           "number"],
+    ["#chinese-conversion",      "chineseConversion",                 "select"],
+    ["#restore-enabled",         "restore.enabled",                   "checkbox"],
+    ["#restore-delay-ms",        "restore.delayMs",                   "number"],
+    ["#gateway-enabled",         "gateway.enabled",                   "checkbox"],
+    ["#gw-min-interval-ms",      "gateway.minGwIntervalMs",           "number"],
+    ["#flash-enabled",           "statusFlash.enabled",               "checkbox"],
+    ["#flash-interval-ms",       "statusFlash.intervalMs",            "number"],
+];
+
+const SOURCE_META = {
+    Spotify:    { key:"enableSpotify",    desc:"requires cookies",          badge:"Official" },
+    Musixmatch: { key:"enableMusixmatch", desc:"auto token via SyncLyrics", badge:"Auto" },
+    LrcLib:     { key:"enableLrcLib",     desc:"no key required",           badge:"Free" },
+    NetEase:    { key:"enableNetEase",    desc:"strong Asian coverage",     badge:"CN" },
+    QQMusic:    { key:"enableQQMusic",    desc:"strong Chinese coverage",   badge:"CN" }
+};
+
+const HELP = {
+    "#send-time-offset-help": {
+        title: "Send time offset",
+        html: `Shifts status changes earlier to feel more in sync.<br><br>Try <strong>-200</strong> without Spotify Premium. Default: <code>500</code> ms.`
+    },
+    "#autooffset-help": {
+        title: "Autooffset",
+        html: `Measures round-trip delay to Discord and adjusts the send offset automatically over time.`
+    },
+    "#custom-emoji-help": {
+        title: "Custom emoji",
+        html: `Paste any emoji. Get one from <a href="https://www.piliapp.com/emoji/list/" target="_blank">piliapp.com</a>.`
+    },
+    "#custom-status-help": {
+        title: "Template variables",
+        html: `<table class="help-table">
+<tr><th>Variable</th><th>Value</th></tr>
+<tr><td><code>{lyrics}</code></td><td>Current lyric line(s)</td></tr>
+<tr><td><code>{timestamp}</code></td><td>Line time (MM:SS)</td></tr>
+<tr><td><code>{song_name}</code></td><td>Song title</td></tr>
+<tr><td><code>{song_author}</code></td><td>Primary artist</td></tr>
+<tr><td><code>{source}</code></td><td>Source name (e.g. LrcLib)</td></tr>
+<tr><td><code>{progress}</code></td><td>Playback position (MM:SS)</td></tr>
+<tr><td><code>{duration}</code></td><td>Song length (MM:SS)</td></tr>
+<tr><td><code>{line_number}</code></td><td>Line index (e.g. 12/47)</td></tr>
+</table>
+<br><strong>Modifiers</strong> \u2014 append to any variable:<br><br>
+<code>_upper</code> &nbsp;<code>_lower</code> &nbsp;<code>_title_case</code> &nbsp;<code>_letters_only</code> &nbsp;<code>_cropped</code><br><br>
+Example: <code>{lyrics_title_case}</code>, <code>{song_name_cropped}</code><br><br>
+Cropped to <strong>128 Unicode code points</strong>.`
+    },
+    "#gateway-help": {
+        title: "Gateway mode",
+        html: `Sends status updates via Discord WebSocket (op&nbsp;3) instead of REST PATCH. Bypasses HTTP 429 rate limits entirely.<br><br>To keep iOS in sync, two background REST calls are made automatically: once per song change (on the first successful op&nbsp;3 send), and once after each gateway reconnect. Both are debounced and fire silently &mdash; no extra rate limit impact.<br><br>Disable if your status stops showing on desktop.`
+    },
+    "#flash-help": {
+        title: "Status flash",
+        html: `Cycles your Discord presence orb color (\uD83D\uDFE2 online / \uD83C\uDF19 idle / \u26D4 dnd) on an interval while lyrics are playing.<br><br>Select which states to include in the cycle using the buttons. At least one must be selected.<br><br><strong>Interval:</strong> minimum ~300&nbsp;ms. Below that Discord clients may not visually update fast enough to see the effect. 400&ndash;600&nbsp;ms is a good range.<br><br><strong>Restore status:</strong> when playback stops, presence returns to this value. Defaults to your gateway presence setting.<br><br>Works via Gateway (op&nbsp;3) when connected, or REST as fallback. Gateway flash sends bypass the 5/20&nbsp;s rate-limit tracker.`
+    },
+};
+
+const SECTION_DEFS = [
+    ["\uD83D\uDD11", "Authentication",  "Discord and Spotify credentials, stored locally.",        "auth",      true],
+    ["\uD83C\uDFA4", "Status Preview",  "What appears in your Discord status while music plays.", "preview",   true],
+    ["\u23F1",       "Timing",          "Fine-tune when your status changes relative to lyrics.",  "timing",    false],
+    ["\uD83D\uDEE1", "Rate Limiting",   "Keep within Discord\u2019s update limits.",              "ratelimit", false],
+    ["\u267B",       "Restore Status",  "Restore your original status after playback ends.",       "restore",   false],
+    ["\u26A1",       "Gateway",         "WebSocket updates (op 3) with automatic iOS REST sync.",  "gateway",   false],
+    ["\uD83D\uDCA5", "Status Flash",    "Cycle presence orb colors while lyrics are playing.",     "flash",     false],
+    ["\uD83D\uDD04", "Updates",         "Automatic update checks.",                                "updates",   false],
+    ["\uD83C\uDFB5", "Lyrics Sources",  "Drag to reorder. Changes take effect on restart.",       "sources",   true],
+];
+
+// BUG 4 fix: child spans use pointer-events:none (see index.html CSS or inline on li render)
+// Dedup: single base array, RESTORE prepends the empty "use gateway" option
+const BASE_STATUS_OPTIONS = [
+    { value:"online",    label:"\uD83D\uDFE2 Online" },
+    { value:"idle",      label:"\uD83C\uDF19 Idle" },
+    { value:"dnd",       label:"\u26D4 Do Not Disturb" },
+    { value:"invisible", label:"\u26AB Invisible" },
+];
+const FLASH_STATE_OPTIONS   = BASE_STATUS_OPTIONS;
+const RESTORE_STATUS_OPTIONS = [{ value:"", label:"Use gateway setting" }, ...BASE_STATUS_OPTIONS];
+
+const PRESENCE_OPTIONS = [
+    { value:"online",    label:"\uD83D\uDFE2 Online",      color:"var(--green)"  },
+    { value:"idle",      label:"\uD83C\uDF19 Idle",         color:"var(--amber)"  },
+    { value:"dnd",       label:"\u26D4 Do Not Disturb",     color:"var(--red)"    },
+    { value:"mobile",    label:"\uD83D\uDCF1 Fake Mobile",  color:"var(--accent)" },
+    { value:"invisible", label:"\u26AB Invisible",          color:"var(--muted)"  },
+];

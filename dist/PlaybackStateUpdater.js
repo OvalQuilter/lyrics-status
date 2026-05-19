@@ -13,7 +13,6 @@ class PlaybackStateUpdater {
         const res = await fetch("https://api.spotify.com/v1/me/player", {
             headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SpotifyService_1.SpotifyService.getBearerToken() }
         });
-        // Bug 12 fix: capture t0 after response received so only deserialization time is added
         const t0 = Date.now();
         Debug_1.Debug.write(`[PlaybackStateUpdater] Spotify API response: HTTP ${res.status}`);
         if (res.status === 401 || res.status === 400) {
@@ -40,9 +39,17 @@ class PlaybackStateUpdater {
             ps.oldSongId = ps.songId; ps.songId = json.item.id; ps.songDuration = json.item.duration_ms;
             Debug_1.Debug.write(`[PlaybackStateUpdater] New song: "${ps.songName}" by ${ps.songAuthor}`);
             ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id);
+            // FIX: removed duplicate ps.currentLine = null
             ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
             Debug_1.Debug.write(`[PlaybackStateUpdater] Lyrics: ${ps.hasLyrics} | source: ${ps.lyricsSource}`);
-        } else if (this.lyricsFetcher.lastAttemptedFor !== (ps.songName + ps.songAuthor)) {
+        } else if (!ps.lyrics) {
+            Debug_1.Debug.write(`[PlaybackStateUpdater] lyrics null for current song — re-fetching`);
+            this.lyricsFetcher.lastAttemptedFor = "";
+            ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id);
+            ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
+            Debug_1.Debug.write(`[PlaybackStateUpdater] Re-fetch result: ${ps.hasLyrics} | source: ${ps.lyricsSource}`);
+        } else if (this.lyricsFetcher.lastAttemptedFor !== `${ps.songName}\0${ps.songAuthor}`) {
+            // FIX: use \0 separator to match LyricsFetcher's lastAttemptedFor format (was name+author concat = never matched)
             ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id);
             ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
         }

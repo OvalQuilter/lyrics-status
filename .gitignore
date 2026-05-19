@@ -14,7 +14,20 @@
 *.tmp
 *.ps1
 patch.js
+fixes.txt
+cache-overhaul.md
+REFACTOR_PLAN.txt
 REFACTOR_RECOMMENDATIONS.txt
+lyrics-status-SKILL.md
 _at_new.txt
 _dp_new.txt
-_changelog_35.tmp
+
+# static dev helpers
+/static/_help_css_snippet.txt
+
+# dist scratch files
+/dist/_check.js
+/dist/_fix.js
+/dist/_fix2.js
+/dist/_fix3.js
+/dist/instrument.js

@@ -1,6 +1,9 @@
 "use strict";
+require("./instrument");
 Object.defineProperty(exports, "__esModule", { value: true });
+const Sentry = require("@sentry/node");
 const LyricsFetcher_1 = require("./LyricsFetcher");
+const CacheStore_1 = require("./CacheStore");
 const SpotifySource_1 = require("./Sources/SpotifySource");
 const NetEaseMusicSource_1 = require("./Sources/NetEaseMusicSource");
 const LrcLibSource_1 = require("./Sources/LrcLibSource");
@@ -17,6 +20,9 @@ const Updater_1 = require("./Updater");
 const SpotifyService_1 = require("./SpotifyService");
 const uuid_1 = require("uuid");
 const ExternalAuthServerAPI_1 = require("./ExternalAuthServerAPI");
+const path = require("path");
+
+let _store = null;
 
 Settings_1.Settings.load();
 if (Settings_1.Settings.update.enableAutoupdate) {
@@ -28,7 +34,10 @@ function init() {
     ExternalAuthServerAPI_1.ExternalAuthServerAPI.register();
     SpotifyService_1.SpotifyService.refresh();
 
-    const lyricsFetcher = new LyricsFetcher_1.LyricsFetcher();
+    const dbPath = Settings_1.Settings.cache.path || path.resolve(__dirname, "../cache/cache.db");
+    _store = new CacheStore_1.CacheStore(dbPath);
+
+    const lyricsFetcher = new LyricsFetcher_1.LyricsFetcher(_store);
     const src = Settings_1.Settings.sources;
     const SOURCE_MAP = {
         Spotify:    () => new SpotifySource_1.SpotifySource(),
@@ -47,7 +56,6 @@ function init() {
     const playbackState = new PlaybackState_1.PlaybackState();
     const playbackStateUpdater = new PlaybackStateUpdater_1.PlaybackStateUpdater(playbackState, lyricsFetcher);
     const gatewayClient = new GatewayClient_1.GatewayClient();
-    // Bug 4 fix: statusChanger declared before connect() so onReady closure resolves safely
     const statusChanger = new StatusChanger_1.StatusChanger(playbackState, Settings_1.Settings.restore?.savedStatus || null, gatewayClient);
     gatewayClient.onReady = () => statusChanger._onGatewayReady();
     gatewayClient.connect();
@@ -68,20 +76,34 @@ function init() {
 
     setInterval(() => playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater] Unhandled error: ${e.stack || e}`)), 5000);
 
-    let _now = Date.now(), _songEndedFired = false, _lastKnownSongId = "", _wasPlaying = false;
+    let _now = Date.now(), _songEndedFired = false, _lastKnownSongId = "", _wasPlaying = false, _lastProgress = 0;
     setInterval(() => {
         const now = Date.now();
+        let _songChanged = false;
         if (playbackState.songId && playbackState.songId !== _lastKnownSongId) {
             _lastKnownSongId = playbackState.songId; _songEndedFired = false; _wasPlaying = playbackState.isPlaying;
-            statusChanger.songChanged(false);
+            _lastProgress = playbackState.songProgress;
+            statusChanger.songChanged(false); _songChanged = true;
         }
-        if (playbackState.isPlaying && !_wasPlaying) statusChanger.songChanged(false);
+        if (!_songChanged && playbackState.isPlaying && playbackState.songProgress < _lastProgress - 3000) {
+            Debug_1.Debug.write(`[init] Progress regression (${_lastProgress}->${playbackState.songProgress}) -- songChanged`);
+            _songEndedFired = false; _lastProgress = playbackState.songProgress;
+            statusChanger.songChanged(false); _songChanged = true;
+        }
+        if (!_songChanged && playbackState.isPlaying && !_wasPlaying) statusChanger.songChanged(false);
         _wasPlaying = playbackState.isPlaying;
-        statusChanger.changeStatus();
-        if (playbackState.isPlaying) playbackState.songProgress += now - _now;
+        // FIX: advance songProgress BEFORE changeStatus so lyric-line comparisons use current progress
+        if (playbackState.isPlaying) { playbackState.songProgress += now - _now; _lastProgress = playbackState.songProgress; }
         _now = now;
-        if (playbackState.ended) { if (!_songEndedFired) { _songEndedFired = true; statusChanger.songChanged(true); } }
-        else _songEndedFired = false;
+        statusChanger.changeStatus();
+        if (playbackState.ended) {
+            if (!_songEndedFired) {
+                _songEndedFired = true;
+                statusChanger.songChanged(true);
+                playbackState.lyrics = null; playbackState.hasLyrics = false; lyricsFetcher.lastAttemptedFor = "";
+                Debug_1.Debug.write("[init] Song ended — cleared lyrics for replay re-fetch");
+            }
+        } else _songEndedFired = false;
     }, 100);
 
     process.stdout.write("\x1b[2J\x1b[H");
@@ -89,7 +111,8 @@ function init() {
     let _cachedSourceOrderRef = null, _cachedSourcesLine = "";
     setInterval(() => {
         const lyrics = playbackState.lyrics, progress = playbackState.songProgress;
-        const offset = Settings_1.Settings.timings.sendTimeOffset;
+        // FIX: || 0 so TUI dueLine doesn't use NaN offset if sendTimeOffset is missing
+        const offset = Settings_1.Settings.timings.sendTimeOffset || 0;
         const lines = lyrics?.lines;
         let dueLine = "Not available", nextLine = "Not available";
         if (lines?.length) {
@@ -114,40 +137,56 @@ function init() {
             _cachedSourcesLine = ord.filter(n => Settings_1.Settings.sources[ENABLE_KEY[n]] !== false).map((n, i) => `${i + 1}.${n}`).join("  ");
         }
 
-        const gwStatus = gatewayClient.connected ? "\x1b[32mGW\x1b[0m" : "\x1b[33mREST\x1b[0m";
-        const rateStatus = rateLimitRemaining ? `\x1b[31mRATE LIMITED - resumes in ${rateLimitRemaining}s\x1b[0m`
-            : nextSendIn <= 0 ? `\x1b[32mReady to send\x1b[0m`
-            : `\x1b[33mNext send in ${Math.ceil(nextSendIn / 100) / 10}s\x1b[0m`;
+        const op3Used = gatewayClient._presenceSentTimes.filter(t => nowMs - t <= 20000).length;
+        const gwStatus = Settings_1.Settings.gateway?.enabled
+            ? (gatewayClient.connected
+                ? `\x1b[32mGW\x1b[0m \x1b[90m${op3Used}/5\x1b[0m`
+                : gatewayClient._reconnecting
+                    ? `\x1b[33mGW reconnecting\x1b[0m`
+                    : `\x1b[31mGW disconnected\x1b[0m`)
+            : `\x1b[33mREST\x1b[0m`;
+        const rateStatus = rateLimitRemaining ? `\x1b[31mRATE LIMITED ${rateLimitRemaining}s\x1b[0m`
+            : nextSendIn <= 0 ? `\x1b[32mReady\x1b[0m`
+            : `\x1b[33m${(nextSendIn / 1000).toFixed(1)}s\x1b[0m`;
         const durationSec = isFinite(playbackState.songDuration) ? +(playbackState.songDuration / 1000).toFixed(0) : 0;
-        const savedLabel = statusChanger._savedStatus ? `\x1b[32m"${statusChanger._savedStatus.text}"\x1b[0m` : `\x1b[33mNone\x1b[0m`;
+        const savedRaw = statusChanger._savedStatus?.text || "";
+        const savedLabel = savedRaw ? `\x1b[32m"${savedRaw.length > 60 ? savedRaw.slice(0, 57) + "..." : savedRaw}"\x1b[0m` : `\x1b[33mNone\x1b[0m`;
         const restoreStatus = Settings_1.Settings.restore?.enabled
-            ? (statusChanger._restoreTimer ? `\x1b[33mPending...\x1b[0m` : `\x1b[32mArmed\x1b[0m`) : `\x1b[31mDisabled\x1b[0m`;
+            ? (statusChanger._restoreTimer ? `\x1b[33mPending\x1b[0m` : `\x1b[32mArmed\x1b[0m`) : `\x1b[31mOff\x1b[0m`;
         const playing = playbackState.isPlaying ? "\x1b[32m\u25b6 Playing\x1b[0m" : "\x1b[33m\u23f8 Paused\x1b[0m";
         const lyricsYN = playbackState.hasLyrics ? `\x1b[32m\u2713\x1b[0m ${lyricsFetcher.lastFetchedFrom}` : "\x1b[31m\u2717 None\x1b[0m";
-        const sep = `  \u2500`.repeat(26).trimEnd();
+        const sep = "  " + "\u2500".repeat(50);
+        const lbl = s => `  \x1b[1m${s.padEnd(9)}\x1b[0m`;
 
         process.stdout.write("\x1b[H" + [
-            `  \x1b[1m\uD83C\uDFB6 Lyrics Status\x1b[0m`,
+            `  \x1b[1mLyrics Status\x1b[0m`,
             sep,
-            `  \x1b[1mSong:\x1b[0m    ${playbackState.songName || "Not listening"}`,
-            `  \x1b[1mArtist:\x1b[0m  ${playbackState.songAuthor || "-"}    ${playing}`,
-            `  \x1b[1mTime:\x1b[0m    ${statusChanger.formatSeconds(+(progress / 1000).toFixed(0))} / ${statusChanger.formatSeconds(durationSec)}    \x1b[1mSrc:\x1b[0m ${lyricsYN}`,
-            `  \x1b[1mOrder:\x1b[0m   ${_cachedSourcesLine}`,
+            `${lbl("Song:")}${playbackState.songName || "Not listening"}`,
+            `${lbl("Artist:")}${playbackState.songAuthor || "-"}    ${playing}`,
+            `${lbl("Time:")}${statusChanger.formatSeconds(+(progress / 1000).toFixed(0))} / ${statusChanger.formatSeconds(durationSec)}    \x1b[1mSrc:\x1b[0m ${lyricsYN}`,
+            `${lbl("Order:")}${_cachedSourcesLine}`,
             sep,
-            `  \x1b[1mNow:\x1b[0m     ${dueLine}`,
-            `  \x1b[1mNext:\x1b[0m    ${nextLine}`,
+            `${lbl("Now:")}${dueLine}`,
+            `${lbl("Next:")}${nextLine}`,
             sep,
-            `  \x1b[1mSent:\x1b[0m    ${statusChanger._lastSentText || "Nothing sent yet"}`,
-            `  \x1b[1mSend:\x1b[0m    ${rateStatus}  ${gwStatus}    \x1b[1mRestore:\x1b[0m ${restoreStatus}`,
-            `  \x1b[1mSaved:\x1b[0m   ${savedLabel}`,
+            `${lbl("Sent:")}${statusChanger._lastSentText || "Nothing sent yet"}`,
+            `${lbl("Send:")}${rateStatus}    \x1b[1mGW:\x1b[0m ${gwStatus}`,
+            `${lbl("Restore:")}${restoreStatus}    \x1b[1mSaved:\x1b[0m ${savedLabel}`,
             sep,
-            `  \x1b[1mInterval:\x1b[0m ${enableMinInterval ? `\x1b[32m${((minIntervalMs||0)/1000).toFixed(1)}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}   \x1b[1mMerge:\x1b[0m ${enableMergeLines ? `\x1b[32m${((mergeWindowMs||0)/1000).toFixed(1)}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}   \x1b[1mBackoff:\x1b[0m ${enableBackoff ? "\x1b[32mOn\x1b[0m" : "\x1b[31mOff\x1b[0m"}`,
-            ``
-        ].map(r => r + "\x1b[K").join("\n") + "\n");
+            `${lbl("Interval:")}${enableMinInterval ? `\x1b[32m${((minIntervalMs||0)/1000).toFixed(1)}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}    \x1b[1mMerge:\x1b[0m ${enableMergeLines ? `\x1b[32m${((mergeWindowMs||0)/1000).toFixed(1)}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}    \x1b[1mBackoff:\x1b[0m ${enableBackoff ? "\x1b[32mOn\x1b[0m" : "\x1b[31mOff\x1b[0m"}`,
+        ].map(r => r + "\x1b[K").join("\n") + "\n\x1b[J");
     }, 1000);
 
     (0, Server_1.startServer)();
 }
 
-process.on("uncaughtException", e => { Debug_1.Debug.write(e.stack + "\n" + e.cause); if (!e.message.includes("fetch failed")) process.exit(1); });
-process.on("unhandledRejection", reason => { Debug_1.Debug.write(`[unhandledRejection] ${reason instanceof Error ? reason.stack : String(reason)}`); });
+process.on("uncaughtException", e => {
+    Debug_1.Debug.write(e.stack + "\n" + e.cause);
+    Sentry.captureException(e);
+    try { _store?.close(); } catch (_) {}
+    if (!e.message.includes("fetch failed")) process.exit(1);
+});
+process.on("unhandledRejection", reason => {
+    Debug_1.Debug.write(`[unhandledRejection] ${reason instanceof Error ? reason.stack : String(reason)}`);
+    Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason)));
+});

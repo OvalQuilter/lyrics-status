@@ -43,7 +43,7 @@ export class LrcLibSource extends BaseSource {
             const lines = lyrics.split("\n")
 
             // it should be: [mm:ss.xx] text
-            const regexp = /\[(\d\d):(\d\d)(?:\.(\d\d))?]/g
+            const regexp = /\[(\d\d):(\d\d)(?:\.(\d+))?]/g
 
             for (let line of lines) {
                 if (!line.trim()) continue
@@ -54,7 +54,7 @@ export class LrcLibSource extends BaseSource {
                     while ((match = regexp.exec(line)) !== null) {
                         const min = parseInt(match[1])
                         const sec = parseInt(match[2])
-                        const ms = match[3] ? parseInt(match[3]) * 10 : 0
+                        const ms = match[3] ? parseInt(match[3].padEnd(3, "0").slice(0, 3)) : 0
                         timestamps.push((min * 60 + sec) * 1000 + ms)
                     }
 

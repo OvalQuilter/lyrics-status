@@ -52,6 +52,14 @@ export class Settings {
         sourceOrder: ["Spotify", "Musixmatch", "LrcLib", "NetEase", "QQMusic"] as string[]
     }
 
+    public static cache = {
+        path:          "",
+        lyricsTtlDays: 30,
+        emptyTtlDays:  7,
+        errorTtlHours: 1,
+        maxRows:       2000
+    }
+
     public static chineseConversion: "off" | "toTraditional" | "toSimplified" = "off"
 
     public static save(): void {
@@ -62,6 +70,7 @@ export class Settings {
             update: this.update,
             rateLimit: this.rateLimit,
             sources: this.sources,
+            cache: this.cache,
             chineseConversion: this.chineseConversion
         }))
     }
@@ -82,6 +91,7 @@ export class Settings {
             this.update = settings.update || this.update
             this.rateLimit = { ...this.rateLimit, ...(settings.rateLimit || {}) }
             this.sources = { ...this.sources, ...(settings.sources || {}) }
+            if (settings.cache) this.cache = { ...this.cache, ...settings.cache }
             if (settings.chineseConversion) this.chineseConversion = settings.chineseConversion
         }
     }

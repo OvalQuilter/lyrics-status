@@ -42,7 +42,7 @@
             background-size: 128px;
         }
 
-        #app { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 40px 28px 80px; }
+        #app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 40px 28px 80px; }
 
         header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
         .header-left { display: flex; align-items: center; gap: 14px; }
@@ -64,7 +64,11 @@
         #save-indicator.saved { border-color: rgba(74,222,128,.25); color: var(--green); }
         #save-indicator.saved .si-dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
 
-        .section { margin-bottom: 6px; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border); overflow: hidden; transition: border-color .15s; }
+        #sections { columns: 2; column-gap: 6px; }
+        #sections > .section { break-inside: avoid; margin-bottom: 6px; }
+        @media (max-width: 700px) { #sections { columns: 1; } }
+
+        .section { border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border); overflow: hidden; transition: border-color .15s; }
         .section:hover { border-color: rgba(255,255,255,.11); }
         .section-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; cursor: pointer; user-select: none; gap: 12px; }
         .section-header:hover { background: rgba(255,255,255,.02); }
@@ -175,6 +179,39 @@
         .presence-btn.presence-active[data-value="online"] { background: rgba(74,222,128,.15); border-color: rgba(74,222,128,.45); color: var(--green); box-shadow: 0 0 0 2px rgba(74,222,128,.12); }
         .presence-btn.presence-active[data-value="idle"]   { background: rgba(251,191,36,.15); border-color: rgba(251,191,36,.45); color: var(--amber); box-shadow: 0 0 0 2px rgba(251,191,36,.12); }
         .presence-btn.presence-active[data-value="dnd"]    { background: rgba(248,113,113,.15); border-color: rgba(248,113,113,.45); color: var(--red);   box-shadow: 0 0 0 2px rgba(248,113,113,.12); }
+        .presence-btn.presence-active[data-value="mobile"]  { background: rgba(99,179,237,.15);  border-color: rgba(99,179,237,.45);  color: var(--accent); box-shadow: 0 0 0 2px rgba(99,179,237,.12); }
+
+        /* Flash state multi-select */
+        .flash-state-toggle { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+        .flash-state-btn { height: 28px; padding: 0 12px; font-size: 12px; border-radius: var(--radius); border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); color: var(--text-soft); cursor: pointer; transition: background .12s, border-color .12s, color .12s, box-shadow .12s; }
+        .flash-state-btn:hover { background: rgba(255,255,255,.1); color: var(--text); }
+        .flash-state-btn.flash-state-active[data-value="online"]    { background: rgba(74,222,128,.15);  border-color: rgba(74,222,128,.45);  color: var(--green);  box-shadow: 0 0 0 2px rgba(74,222,128,.12); }
+        .flash-state-btn.flash-state-active[data-value="idle"]      { background: rgba(251,191,36,.15);  border-color: rgba(251,191,36,.45);  color: var(--amber);  box-shadow: 0 0 0 2px rgba(251,191,36,.12); }
+        .flash-state-btn.flash-state-active[data-value="dnd"]       { background: rgba(248,113,113,.15); border-color: rgba(248,113,113,.45); color: var(--red);    box-shadow: 0 0 0 2px rgba(248,113,113,.12); }
+        .flash-state-btn.flash-state-active[data-value="invisible"] { background: rgba(90,94,102,.2);    border-color: rgba(90,94,102,.5);    color: var(--muted);  box-shadow: 0 0 0 2px rgba(90,94,102,.12); }
+
+        /* FAQ / Help */
+        #help-section { margin-top: 28px; border-top: 1px solid var(--border); padding-top: 22px; }
+        .help-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+        .help-bar-left { display: flex; align-items: center; gap: 10px; }
+        .help-bar-icon { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; background: rgba(255,255,255,.05); border: 1px solid var(--border); }
+        .help-bar-title { font-size: 13px; font-weight: 600; letter-spacing: -.01em; }
+        .help-bar-desc { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+        .help-gh-link { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: var(--radius); border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); color: var(--text-soft); font-size: 12px; font-weight: 500; text-decoration: none; transition: background .12s, border-color .12s, color .12s; }
+        .help-gh-link:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.18); color: var(--text); }
+        .faq { display: flex; flex-direction: column; gap: 4px; }
+        .faq-item { border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); overflow: hidden; transition: border-color .15s; }
+        .faq-item:hover { border-color: rgba(255,255,255,.11); }
+        .faq-q { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; cursor: pointer; user-select: none; font-size: 12.5px; font-weight: 500; color: var(--text-soft); gap: 10px; transition: color .12s, background .12s; }
+        .faq-q:hover { color: var(--text); background: rgba(255,255,255,.02); }
+        .faq-item.open .faq-q { color: var(--text); }
+        .faq-chevron { font-size: 9px; color: var(--muted); transition: transform .2s cubic-bezier(.4,0,.2,1); flex-shrink: 0; }
+        .faq-item.open .faq-chevron { transform: rotate(180deg); }
+        .faq-a { display: none; padding: 10px 14px 13px; font-size: 12px; color: var(--muted); line-height: 1.7; border-top: 1px solid var(--border); }
+        .faq-item.open .faq-a { display: block; }
+        .faq-a code { font-family: var(--mono); font-size: 11px; background: rgba(255,255,255,.06); padding: 1px 4px; border-radius: 3px; color: var(--text-soft); }
+        .faq-a a { color: var(--accent); text-decoration: none; }
+        .faq-a a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -194,8 +231,61 @@
         </div>
     </header>
     <div id="sections"></div>
+
+    <div id="help-section">
+        <div class="help-bar">
+            <div class="help-bar-left">
+                <div class="help-bar-icon">&#10067;</div>
+                <div>
+                    <div class="help-bar-title">Help &amp; FAQ</div>
+                    <div class="help-bar-desc">Common issues and quick answers.</div>
+                </div>
+            </div>
+            <a class="help-gh-link" href="https://github.com/RamenFighter03/lyrics-status" target="_blank">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.1 3.29 9.41 7.86 10.94.58.1.79-.25.79-.55v-1.93c-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 2.87-.39c.97.01 1.95.13 2.87.39 2.18-1.49 3.14-1.18 3.14-1.18.63 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.08 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.07.78 2.15v3.19c0 .31.21.66.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+                GitHub
+            </a>
+        </div>
+        <div class="faq">
+            <div class="faq-item">
+                <div class="faq-q">My status isn't updating â€” what do I check first? <span class="faq-chevron">&#9660;</span></div>
+                <div class="faq-a">Make sure Spotify is actively playing (not paused). Check the WebSocket dot in the header â€” it should be green. If it shows red, restart the app with <code>npm start</code>. Also verify your Discord token and Spotify <code>sp_dc</code> cookie are filled in under Authentication.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">I'm getting HTTP 429 (rate limited) from Discord. <span class="faq-chevron">&#9660;</span></div>
+                <div class="faq-a">Discord enforces a ~5 update per 20s limit on custom status. Raise <strong>Min interval</strong> to 10 000 ms or higher under Rate Limiting, or enable <strong>Gateway mode</strong> which bypasses REST rate limits entirely by using Discord's WebSocket (op 3).</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">Spotify says "RBAC: access denied" or stops fetching lyrics. <span class="faq-chevron">&#9660;</span></div>
+                <div class="faq-a">Your <code>sp_dc</code> cookie has expired. Open DevTools in your browser, go to Application â†’ Cookies â†’ <code>https://open.spotify.com</code>, copy the value of <code>sp_dc</code>, and paste it into the Spotify cookies field. The token auto-refreshes on startup once the cookie is valid.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">No synced lyrics found for a song. <span class="faq-chevron">&#9660;</span></div>
+                <div class="faq-a">Not every song has timed lyrics in every source. The app tries each enabled source in order â€” if all fail, no status is sent for that song. <strong>LrcLib</strong> has the broadest free coverage and requires no token. Try enabling all sources and restarting.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">Musixmatch worked briefly then stopped (<code>ok=false</code> / captcha). <span class="faq-chevron">&#9660;</span></div>
+                <div class="faq-a">Musixmatch's unofficial desktop endpoint actively rate-limits and flags tokens via bot-detection â€” this is a known issue across many projects, not a paid-plan requirement. The token can be invalidated within minutes on some accounts. Use <strong>LrcLib</strong> as your primary stable fallback; it's free and has no token requirement.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">Source order or toggle changes aren't taking effect. <span class="faq-chevron">&#9660;</span></div>
+                <div class="faq-a">Source order and enabled/disabled toggles are loaded once at startup. After saving changes in the Sources section, restart the app (<code>Ctrl+C</code> then <code>npm start</code>) for them to take effect.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">How do I get my Discord token? <span class="faq-chevron">&#9660;</span></div>
+                <div class="faq-a">Open Discord in your browser, open DevTools (F12), go to the Network tab, send any message or perform any action, find a request to <code>discord.com/api</code>, and look for the <code>Authorization</code> request header. That value is your user token. Keep it private â€” it grants full access to your account.</div>
+            </div>
+        </div>
+    </div>
 </div>
 <div id="toast-container"></div>
+<script src="panel-data.js"></script>
+<script src="panel-ui.js"></script>
 <script src="panel.js"></script>
+<script>
+    document.querySelectorAll('.faq-q').forEach(q => {
+        q.addEventListener('click', () => q.closest('.faq-item').classList.toggle('open'));
+    });
+</script>
 </body>
 </html>

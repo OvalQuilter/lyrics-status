@@ -15,7 +15,7 @@ class GatewayClient {
         this._seq = null; this._sessionId = null; this._resumeUrl = null;
         this.connected = false; this._reconnecting = false;
         this._destroyed = false; this._ackReceived = false; this._presenceSentTimes = [];
-        this._wsInstance = 0;
+        this._wsInstance = 0; this._lastActivity = null; this._flashStatus = null;
         this.onReady = null;
     }
     connect() { this._destroyed = false; this._open(false); }
@@ -97,8 +97,13 @@ class GatewayClient {
     }
 
     _identify(token) {
-        const status = Settings_1.Settings.gateway?.presenceStatus || "online";
-        this._send({ op: 2, d: { token, properties: { os: "windows", browser: "Discord Client", device: "" }, presence: { status, afk: status === "idle", since: status === "idle" ? Date.now() : 0, activities: [] } } });
+        const pref = Settings_1.Settings.gateway?.presenceStatus || "online";
+        const isMobile = pref === "mobile";
+        const status = isMobile ? "online" : pref;
+        const props = isMobile
+            ? { os: "Android", browser: "Discord Android", device: "discord-android" }
+            : { os: "windows", browser: "Discord Client", device: "" };
+        this._send({ op: 2, d: { token, properties: props, presence: { status, afk: status === "idle", since: status === "idle" ? Date.now() : 0, activities: [] } } });
     }
     _startHB(interval) {
         this._clearHB(); this._ackReceived = true;
@@ -122,14 +127,42 @@ class GatewayClient {
     _send(payload) {
         if (this._ws?.readyState === WebSocket.OPEN) try { this._ws.send(JSON.stringify(payload)); } catch (e) { Debug_1.Debug.write(`[GatewayClient] Send error: ${e.message}`); }
     }
+
+    flashPresence(status, text, emoji) {
+        if (!this.connected) return false;
+        this._flashStatus = status;
+        let activity = null;
+        if (typeof text === "string" && text !== "") {
+            activity = { type: 4, name: "Custom Status", state: text, emoji: emoji ? { name: emoji } : null };
+        } else if (text === "") {
+            // FIX: clear _lastActivity on restore/end path so reconnect doesn't re-send stale lyric
+            this._lastActivity = null;
+        } else if (text == null && this._lastActivity) {
+            activity = this._lastActivity;
+        }
+        const activities = activity ? [activity] : [];
+        this._send({ op: 3, d: { since: status === "idle" ? Date.now() : 0, afk: status === "idle", status, activities } });
+        Debug_1.Debug.write("[GatewayClient] flashPresence " + status + " | " + (activity ? activity.state : "none"));
+        return true;
+    }
+    clearFlashStatus() { this._flashStatus = null; }
+
     setCustomStatus(text, emoji) {
         if (!this.connected) return false;
         const now = Date.now();
+        const minGwInterval = Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000;
+        if (minGwInterval > 0 && this._presenceSentTimes.length && now - this._presenceSentTimes[this._presenceSentTimes.length - 1] < minGwInterval) {
+            Debug_1.Debug.write(`[GatewayClient] op3 min interval (${minGwInterval}ms) not elapsed — skipping`);
+            return false;
+        }
         while (this._presenceSentTimes.length && now - this._presenceSentTimes[0] > 20000) this._presenceSentTimes.shift();
         if (this._presenceSentTimes.length >= 5) { Debug_1.Debug.write(`[GatewayClient] op3 rate limit (5/20s) — skipping`); return false; }
         this._presenceSentTimes.push(now);
-        const status = Settings_1.Settings.gateway?.presenceStatus || "online";
-        this._send({ op: 3, d: { since: status === "idle" ? now : null, afk: status === "idle", status, activities: [{ type: 4, name: "Custom Status", state: text || "", emoji: emoji ? { name: emoji } : null }] } });
+        const pref = Settings_1.Settings.gateway?.presenceStatus || "online";
+        const status = this._flashStatus || (pref === "mobile" ? "online" : pref);
+        const activity = { type: 4, name: "Custom Status", state: text || "", emoji: emoji ? { name: emoji } : null };
+        this._lastActivity = activity;
+        this._send({ op: 3, d: { since: status === "idle" ? now : 0, afk: status === "idle", status, activities: [activity] } });
         return true;
     }
 }

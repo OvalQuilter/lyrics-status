@@ -1,13 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LyricsFetcher = void 0;
-const { existsSync, mkdirSync, writeFileSync } = require("fs");
-const { readFile } = require("fs/promises");
 const Debug_1 = require("./Debug");
 const Settings_1 = require("./Settings");
-
-const sanitize = s => s.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_");
-const cachePath = (name, artist) => `./cache/${sanitize(name)}-${sanitize(artist)}.json`;
+const CacheStore_1 = require("./CacheStore");
 
 let _opencc = null;
 const getConverter = async (mode) => {
@@ -28,34 +24,75 @@ const applyConversion = async (lyrics) => {
 };
 
 class LyricsFetcher {
-    constructor() { this.sources = []; this.lastFetchedFrom = "Not fetched"; this.lastFetchedFor = ""; this.lastAttemptedFor = ""; }
-    addSource(source) { this.sources.push(source); }
-    async fetchLyrics(name, artist, songId) {
+    constructor(cache) {
+        this.sources = [];
+        this.cache = cache;
         this.lastFetchedFrom = "Not fetched";
-        const key = name + artist;
-        this.lastAttemptedFor = key;
-        try {
-            const data = await readFile(cachePath(name, artist), "utf8");
-            const cache = JSON.parse(data);
-            this.lastFetchedFor = key;
-            this.lastFetchedFrom = `Cache (${cache.appName})`;
-            return await applyConversion(cache);
-        } catch (_) {}
+        this.lastFetchedFor = "";
+        this.lastAttemptedFor = "";
+        this._inFlight = new Map();
+    }
+
+    addSource(source) { this.sources.push(source); }
+
+    async fetchLyrics(name, artist, songId) {
+        if (!name || !artist) return null;
+
+        const key = (0, CacheStore_1.cacheKey)(name, artist);
+
+        // In-flight check before cache — prevents double-fetch on concurrent polls
+        if (this._inFlight.has(key)) return this._inFlight.get(key);
+
+        const cached = this.cache.get(name, artist);
+        if (cached !== null) {
+            this.lastFetchedFor = `${name}\0${artist}`;
+            this.lastAttemptedFor = `${name}\0${artist}`;
+            if (!cached.lines) {
+                this.lastFetchedFrom = "Cache (none)";
+                return null;
+            }
+            this.lastFetchedFrom = `Cache (${cached.appName})`;
+            return applyConversion({ lines: cached.lines });
+        }
+
+        // Cache miss — reset lastAttemptedFor so PlaybackStateUpdater can retry if needed
+        this.lastAttemptedFor = "";
+
+        const p = this._doFetch(name, artist, songId);
+        this._inFlight.set(key, p);
+        p.finally(() => this._inFlight.delete(key));
+        return p;
+    }
+
+    async _doFetch(name, artist, songId) {
         let result = null;
+        let appName = "none";
+        let hadNetworkError = false;
+
         for (const source of this.sources) {
-            try { result = await source.getLyrics(name, artist, songId); this.lastFetchedFrom = source.getAppName(); }
-            catch (e) { Debug_1.Debug.write(`[LyricsFetcher] ${source.getAppName()} failed: ${e}`); }
-            if (result) {
-                try { if (!existsSync("./cache")) mkdirSync("./cache"); writeFileSync(cachePath(name, artist), JSON.stringify({ ...result, appName: this.lastFetchedFrom })); }
-                catch (e) { Debug_1.Debug.write(`[LyricsFetcher] Cache write failed: ${e}`); }
-                result = await applyConversion(result);
-                this.lastFetchedFor = key;
-                break;
+            try {
+                const r = await source.getLyrics(name, artist, songId);
+                if (r?.lines?.length) {
+                    result = r;
+                    appName = source.getAppName();
+                    break;
+                }
+            } catch (e) {
+                Debug_1.Debug.write(`[LyricsFetcher] ${source.getAppName()} failed: ${e}`);
+                hadNetworkError = true;
             }
         }
-        // If all sources failed, clear lastAttemptedFor so the next poll retries
-        if (!result) this.lastAttemptedFor = "";
-        return result;
+
+        const error = (!result && hadNetworkError) ? "network" : undefined;
+        this.cache.set(name, artist, result?.lines ?? null, appName, error);
+
+        const maxRows = Settings_1.Settings.cache.maxRows;
+        if (maxRows > 0) this.cache.evict(maxRows);
+
+        this.lastFetchedFrom = appName;
+        this.lastFetchedFor  = `${name}\0${artist}`;
+        this.lastAttemptedFor = `${name}\0${artist}`;
+        return result ? applyConversion(result) : null;
     }
 }
 exports.LyricsFetcher = LyricsFetcher;

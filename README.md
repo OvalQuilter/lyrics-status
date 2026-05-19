@@ -1,4 +1,4 @@
-﻿# lyrics-status — RamenFighter03 fork
+# lyrics-status — RamenFighter03 fork
 
 > Forked from [OvalQuilter/lyrics-status](https://github.com/OvalQuilter/lyrics-status) (v3.0.7). Full credit to the original author.
 > Change history: [CHANGELOG_old.txt](CHANGELOG_old.txt) (entries 1–46) · [CHANGELOG.txt](CHANGELOG.txt) (entries 47+).
@@ -21,6 +21,8 @@ Syncs your Discord custom status to live song lyrics from Spotify. Polls every 5
 | **Smart truncation** | Drops whole lines before cutting words. Unicode and emoji safe. |
 | **Song skip detection** | Detects manual skips immediately and clears stale lyric state. |
 | **Template variables** | Customize the status format with `{lyrics}`, `{timestamp}`, `{source}`, `{progress}`, `{duration}`, `{line_number}`. |
+| **Unicode style** | Bold or italic Unicode math chars in status. Optionally alternates between both on a timer. |
+| **Status flash** | Cycles presence orb color (online/idle/dnd) on a configurable interval while lyrics are playing. |
 | **Chinese conversion** | Optional Simplified → Traditional conversion via opencc-js. |
 
 ---
