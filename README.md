@@ -3,7 +3,7 @@
 > Forked from [OvalQuilter/lyrics-status](https://github.com/OvalQuilter/lyrics-status) (v3.0.7). Full credit to the original author.
 > Change history: [CHANGELOG_old.txt](CHANGELOG_old.txt) (entries 1–46) · [CHANGELOG.txt](CHANGELOG.txt) (entries 47+).
 
-![Terminal display](res/screenie.png)
+![Terminal display](res/screenie2.png)
 
 Syncs your Discord custom status to live song lyrics from Spotify. Polls every 5 seconds and updates in real time. Configured through a browser panel at `localhost:8999`.
 
