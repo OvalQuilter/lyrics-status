@@ -33,6 +33,94 @@ function toUnicodeItalic(s) {
         return ch;
     }).join("");
 }
+function toUnicodeBoldItalic(s) {
+    return [...s].map(ch => {
+        const cp = ch.codePointAt(0);
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D482 - 0x61));
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D468 - 0x41));
+        return ch;
+    }).join("");
+}
+function toUnicodeSans(s) {
+    return [...s].map(ch => {
+        const cp = ch.codePointAt(0);
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D5BA - 0x61));
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D5A0 - 0x41));
+        return ch;
+    }).join("");
+}
+function toUnicodeSansBold(s) {
+    return [...s].map(ch => {
+        const cp = ch.codePointAt(0);
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D5EE - 0x61));
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D5D4 - 0x41));
+        return ch;
+    }).join("");
+}
+function toUnicodeSansItalic(s) {
+    return [...s].map(ch => {
+        const cp = ch.codePointAt(0);
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D622 - 0x61));
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D608 - 0x41));
+        return ch;
+    }).join("");
+}
+function toUnicodeSansBoldItalic(s) {
+    return [...s].map(ch => {
+        const cp = ch.codePointAt(0);
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D656 - 0x61));
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D63C - 0x41));
+        return ch;
+    }).join("");
+}
+function toUnicodeDoubleStruck(s) {
+    return [...s].map(ch => {
+        const cp = ch.codePointAt(0);
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D552 - 0x61));
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D538 - 0x41));
+        return ch;
+    }).join("");
+}
+function toUnicodeFraktur(s) {
+    return [...s].map(ch => {
+        const cp = ch.codePointAt(0);
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D51E - 0x61));
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D504 - 0x41));
+        return ch;
+    }).join("");
+}
+function toUnicodeFrakturBold(s) {
+    return [...s].map(ch => {
+        const cp = ch.codePointAt(0);
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D586 - 0x61));
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D56C - 0x41));
+        return ch;
+    }).join("");
+}
+function toUnicodeScript(s) {
+    return [...s].map(ch => {
+        const cp = ch.codePointAt(0);
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D4EA - 0x61));
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D49C - 0x41));
+        return ch;
+    }).join("");
+}
+function toUnicodeScriptBold(s) {
+    return [...s].map(ch => {
+        const cp = ch.codePointAt(0);
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D4EA + 0x36 - 0x61));
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D4D0 - 0x41));
+        return ch;
+    }).join("");
+}
+function toUnicodeMonospace(s) {
+    return [...s].map(ch => {
+        const cp = ch.codePointAt(0);
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D68A - 0x61));
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D670 - 0x41));
+        return ch;
+    }).join("");
+}
 function sanitizeLyric(s) {
     return s
         .replace(/[\u266A\u266B\u266C\u266D\u266E\u266F]/g, "")
@@ -50,9 +138,19 @@ function sanitizeLyric(s) {
 }
 
 function applyUnicodeStyle(s, style) {
-    if (style === "bold")   return toUnicodeBold(s);
-    if (style === "italic") return toUnicodeItalic(s);
-    return s;
+    if (style === "bold")            return toUnicodeBold(s);
+    if (style === "italic")          return toUnicodeItalic(s);
+    if (style === "bold_italic")     return toUnicodeBoldItalic(s);
+    if (style === "sans")             return toUnicodeSans(s);
+    if (style === "sans_bold")        return toUnicodeSansBold(s);
+    if (style === "sans_italic")      return toUnicodeSansItalic(s);
+    if (style === "sans_bold_italic") return toUnicodeSansBoldItalic(s);
+    if (style === "double_struck")    return toUnicodeDoubleStruck(s);
+    if (style === "fraktur")          return toUnicodeFraktur(s);
+    if (style === "fraktur_bold")     return toUnicodeFrakturBold(s);
+    if (style === "script")           return toUnicodeScript(s);
+    if (style === "script_bold")      return toUnicodeScriptBold(s);
+    if (style === "monospace")        return toUnicodeMonospace(s);
 }
 
 // FIX: accept `now` param so caller controls the timestamp — avoids bucket desync
@@ -94,6 +192,7 @@ class StatusChangerBase {
         this._flashIndex = 0;
         this._flashActive = false;
         this._flashRestoreSentAt = 0;
+        this._gwRateLimitSkips = 0;
     }
 
     _discordPatch(body, token) {
@@ -112,9 +211,12 @@ class StatusChangerBase {
         if (Settings_1.Settings.gateway.enabled && this._gateway && this._gateway.connected) {
             Debug_1.Debug.write(`[StatusChanger] Sending via gateway: "${text}" | emoji: ${emoji}`);
             const sent = this._gateway.setCustomStatus(text, emoji);
-            if (sent && this._iOSSyncPending) {
-                this._iOSSyncPending = null;
-                this._iOSSync(text, emoji);
+            if (sent) {
+                this._gwRateLimitSkips = 0;
+                if (this._iOSSyncPending) { this._iOSSyncPending = null; this._iOSSync(text, emoji); }
+            } else {
+                this._gwRateLimitSkips = (this._gwRateLimitSkips || 0) + 1;
+                if (this._gwRateLimitSkips >= 5) { this._gwRateLimitSkips = 0; this._iOSSyncPending = null; Debug_1.Debug.write('[StatusChanger] GW rate-limit skip limit -- cleared iOSSyncPending'); }
             }
             return Promise.resolve();
         }
@@ -200,7 +302,7 @@ class StatusChangerBase {
             for (let j = anchorIndex - 1; j >= 0; j--) {
                 const gapFromAnchor = anchor.time - lines[j].time;
                 if (gapFromAnchor > mergeWindowMs) break;
-                if (!lines[j].text) continue;
+                if (!lines[j].text) break;
                 // FIX: skip stale check when caller forces a resend (e.g. style bucket change)
                 if (!ignoreStale && this.sentLines.has(lines[j]) && !this._staleLines.has(lines[j])) break;
                 lyricLines.unshift(sanitizeLyric(lines[j].text));

@@ -1,4 +1,4 @@
-// panel-ui.js — HTML builders and DOM rendering
+// panel-ui.js â€” HTML builders and DOM rendering
 // Depends on: panel-data.js (DEFAULTS, SOURCE_META, SECTION_DEFS, SECTION_BODIES keys,
 //             PRESENCE_OPTIONS, FLASH_STATE_OPTIONS, RESTORE_STATUS_OPTIONS)
 // Depends on: panel.js globals: settings, save()
@@ -38,7 +38,7 @@ const SECTION_BODIES = {
         `<div class="sub-box" id="advanced-swt">` +
             h.row(h.label("Custom emoji"), h.inline(`<input type="text" id="custom-emoji" style="width:64px" maxlength="4" placeholder="\uD83C\uDFB6">` + h.ibtn("custom-emoji-help","Emoji help"))) +
             h.row(h.label("Status template"), h.field(`<textarea id="custom-status" class="full"></textarea>` + h.inline(h.hint("128 char limit. Variables: {lyrics}, {timestamp}, {song_name}, {song_author}, {source}, {progress}, {duration}, {line_number}") + h.ibtn("custom-status-help","Template help")))) +
-            h.row(h.label("Unicode style"), h.field(`<select id="unicode-style"><option value="none">None</option><option value="bold">\uD835\uDC01\uD835\uDC28\uD835\uDC25\uD835\uDC1D</option><option value="italic">\uD835\uDC3C\uD835\uDC61\uD835\uDC4E\uD835\uDC59\uD835\uDC56\uD835\uDC50</option></select>` + h.hint("Converts a\u2013z A\u2013Z to Unicode math chars. Works in Discord status. Non-latin letters pass through."))) +
+            h.row(h.label("Unicode style"), h.field(`<select id="unicode-style"><option value="none">None</option><option value="bold">𝐁𝐨𝐥𝐝 Bold</option><option value="italic">𝐼𝑡𝑎𝑙𝑖𝑐 Italic</option><option value="bold_italic">𝒔𝒐𝒏𝒈 Bold Italic</option><option value="sans">𝘴𝘰𝘯𝘴 Sans</option><option value="sans_bold">𝘀𝗼𝗻𝘂 Sans Bold</option><option value="sans_italic">𝙘𝙔𝙓𝙚 Sans Italic</option><option value="sans_bold_italic">𝙜𝙘𝙗𝙜 Sans Bold Italic</option><option value="double_struck">𝕤𝕠𝕟𝕤 Double-Struck</option><option value="fraktur">𝔰𝔬𝔫𝔰 Fraktur</option><option value="fraktur_bold">𝖘𝖔𝖓𝖘 Fraktur Bold</option><option value="script">𝓼𝓸𝓷𝓼 Script</option><option value="script_bold">𝒔𝒐𝒏𝒔 Script Bold</option><option value="monospace">𝒢𝒞𝒝𝒢 Monospace</option></select>` + h.hint("Converts a–z A–Z to Unicode math chars. Works in Discord status. Non-latin letters pass through."))) +
             h.row("", h.field(h.check("style-alternate-enabled","Alternate bold \u2194 italic on a timer") + h.hint("Overrides Unicode style above."))) +
             `<div id="style-alternate-interval-row">` +
                 h.row(h.label("Alternate interval"), h.inline(h.number("style-alternate-interval",500,60000,500) + h.muted("ms per style"))) +
@@ -90,7 +90,7 @@ const SECTION_BODIES = {
             `</div>`
         ) +
         h.row(h.label("Interval"), h.inline(h.number("flash-interval-ms",300,5000,100) + h.muted("ms per state"))) +
-        h.indent(h.hint("Minimum 2000\u2009ms. Discord presence propagation to other users takes ~1\u20133s.")) +
+        h.indent(h.hint("Minimum 300\u2009ms. Discord presence propagation to other users takes ~1\u20133s.")) +
         h.row(h.label("Restore to"),
             `<div class="row-field">` +
             `<select id="flash-restore-status">` +
