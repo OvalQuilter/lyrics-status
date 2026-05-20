@@ -99,6 +99,7 @@ class StatusChangerBase {
         this._iOSSyncSentAt = 0;
         this._iOSSyncPending = null;
         this._lastMergedLines = null;
+        this._lastAnchorLine = null;
         this._flashInterval = null;
         this._flashIndex = 0;
         this._flashActive = false;
@@ -139,7 +140,8 @@ class StatusChangerBase {
 
         const now = Date.now();
         Debug_1.Debug.write(`[StatusChanger] Sending Discord status (REST): "${text}" | emoji: ${emoji}`);
-        const request = this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji, expires_at: new Date(Date.now() + 60000).toISOString() } }, token);
+        const _expiresMs = sentLine && sentLine._nextLineTime != null ? Math.min(Math.max(sentLine._nextLineTime - this.playbackState.songProgress + 2000, 30000), 300000) : 60000;
+        const request = this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji, expires_at: new Date(now + _expiresMs).toISOString() } }, token);
         request.then(res => {
             const elapsed = Date.now() - now;
             if (res.status === 429) {
@@ -154,7 +156,7 @@ class StatusChangerBase {
                     } else {
                         Debug_1.Debug.write(`[StatusChanger] Rate limit (backoff disabled): ${retryAfter}s suggested`);
                     }
-                    if (this._lastMergedLines) for (const ml of this._lastMergedLines) this.sentLines.delete(ml);
+                    if (mergedLines) for (const ml of mergedLines) this.sentLines.delete(ml);
                     if (sentLine && this.playbackState.currentLine === sentLine) this.playbackState.currentLine = null;
                     this._lastSentText = "";
                     this._lastSentAt = 0;
@@ -213,7 +215,8 @@ class StatusChangerBase {
             for (let j = anchorIndex - 1; j >= 0; j--) {
                 const gapFromAnchor = anchor.time - lines[j].time;
                 if (gapFromAnchor > mergeWindowMs) break;
-                if (!lines[j].text) break;
+                if (!lines[j].text) continue;
+                if (ignoreStale && !this.sentLines.has(lines[j])) continue;
                 if (!ignoreStale && this.sentLines.has(lines[j]) && !this._staleLines.has(lines[j])) break;
                 lyricLines.unshift(sanitizeLyric(lines[j].text));
                 mergedLines.unshift(lines[j]);

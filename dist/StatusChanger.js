@@ -93,12 +93,12 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
             const line = lines[i];
             const nextLine = lines[i + 1];
             if (line.time < (songProgress + offset)) {
-                if (!line.text) continue;
+                if (!line.text) { if (!this.sentLines.has(line)) this.sentLines.add(line); continue; }
                 if (nextLine && nextLine.time < (songProgress + offset)) {
-                    if (!this.sentLines.has(line)) { this.sentLines.add(line); this._staleLines.add(line); }
+                    if (!this.sentLines.has(line)) this.sentLines.add(line);
                     continue;
                 }
-                if (this.sentLines.has(line) && !_styleBucketChanged) break;
+                if (this.sentLines.has(line) && (!_styleBucketChanged || this._lastAnchorLine !== line)) break;
 
                 let mergedText, lyricLines, mergedLines;
                 if (mergeWindow === 0) {
@@ -137,12 +137,10 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                     emoji = "\uD83C\uDFB6";
                 }
 
-                if (statusText === this._lastSentText && !_styleBucketChanged) {
-                    for (const ml of mergedLines) this.sentLines.add(ml);
-                    break;
-                }
+                if (statusText === this._lastSentText && !_styleBucketChanged) { break; }
                 if (this._restoreTimer) { clearTimeout(this._restoreTimer); this._restoreTimer = null; }
                 playbackState.currentLine = line;
+                this._lastAnchorLine = line;
                 this._lastSentAt = now;
                 this._lastSentText = statusText;
                 Debug_1.Debug.write(`[StatusChanger] Queuing status (${mergedLines.length} line(s) merged): "${statusText}"`);
@@ -152,7 +150,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                     const arr = [...this.sentLines].slice(-200);
                     this.sentLines = new Set(arr);
                     this._staleLines = new Set([...this._staleLines].filter(l => this.sentLines.has(l)));
-                    if (line && !this.sentLines.has(line)) this.sentLines.add(line);
+                    for (const ml of mergedLines) { if (!this.sentLines.has(ml)) this.sentLines.add(ml); }
                 }
                 if (Settings_1.Settings.gateway && Settings_1.Settings.gateway.enabled) this._iOSSyncPending = { t: statusText, em: emoji };
                 this.changeStatusRequest(statusText, Settings_1.Settings.credentials.token, emoji, mergedLines, line);
@@ -162,7 +160,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
     }
 
     songChanged(isEnd = false) {
-        this.sentLines = new Set(); this._staleLines = new Set(); this._lastMergedLines = null; this._lastSentAt = 0;
+        this.sentLines = new Set(); this._staleLines = new Set(); this._lastMergedLines = null; this._lastAnchorLine = null; this._lastSentAt = 0;
         this._lastStyleBucket = -1;
         this.playbackState.currentLine = null;
         if (this._restoreTimer) { clearTimeout(this._restoreTimer); this._restoreTimer = null; }
