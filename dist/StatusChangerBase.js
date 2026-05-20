@@ -96,31 +96,7 @@ function toUnicodeFrakturBold(s) {
         if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D56C - 0x41));
         return ch;
     }).join("");
-}
-function toUnicodeScript(s) {
-    return [...s].map(ch => {
-        const cp = ch.codePointAt(0);
-        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D4EA - 0x61));
-        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D49C - 0x41));
-        return ch;
-    }).join("");
-}
-function toUnicodeScriptBold(s) {
-    return [...s].map(ch => {
-        const cp = ch.codePointAt(0);
-        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D4EA + 0x36 - 0x61));
-        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D4D0 - 0x41));
-        return ch;
-    }).join("");
-}
-function toUnicodeMonospace(s) {
-    return [...s].map(ch => {
-        const cp = ch.codePointAt(0);
-        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D68A - 0x61));
-        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D670 - 0x41));
-        return ch;
-    }).join("");
-}
+}
 function sanitizeLyric(s) {
     return s
         .replace(/[\u266A\u266B\u266C\u266D\u266E\u266F]/g, "")
@@ -147,10 +123,7 @@ function applyUnicodeStyle(s, style) {
     if (style === "sans_bold_italic") return toUnicodeSansBoldItalic(s);
     if (style === "double_struck")    return toUnicodeDoubleStruck(s);
     if (style === "fraktur")          return toUnicodeFraktur(s);
-    if (style === "fraktur_bold")     return toUnicodeFrakturBold(s);
-    if (style === "script")           return toUnicodeScript(s);
-    if (style === "script_bold")      return toUnicodeScriptBold(s);
-    if (style === "monospace")        return toUnicodeMonospace(s);
+    if (style === "fraktur_bold")     return toUnicodeFrakturBold(s);
 }
 
 // FIX: accept `now` param so caller controls the timestamp — avoids bucket desync
