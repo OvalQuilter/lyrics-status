@@ -25,7 +25,9 @@ class GatewayClient {
     _reset(ms, canResume) {
         this.connected = false;
         this._clearHB();
-        this._reconnecting = false;
+        // Set _reconnecting=true immediately so the close handler that terminate() may fire
+        // synchronously cannot slip through the guard and schedule a second reconnect (#25)
+        this._reconnecting = true;
         const ws = this._ws;
         this._ws = null;
         ++this._wsInstance; // invalidate close handler before terminate so _reset controls reconnect delay
@@ -34,7 +36,7 @@ class GatewayClient {
     }
     _open(resume) {
         const token = Settings_1.Settings.credentials.token;
-        if (!token) { Debug_1.Debug.write("[GatewayClient] No token â€” gateway disabled"); return; }
+        if (!token) { Debug_1.Debug.write("[GatewayClient] No token \u2014 gateway disabled"); return; }
         const url = (resume && this._resumeUrl) ? this._resumeUrl : GATEWAY_URL;
         Debug_1.Debug.write(`[GatewayClient] Connecting... (resume=${resume}, url=${url})`);
         let ws;
@@ -49,6 +51,7 @@ class GatewayClient {
                 case 10: {
                     const interval = msg.d.heartbeat_interval;
                     this._startHB(interval);
+                    // Fix #21: only RESUME if seq is non-null; null seq is invalid per Discord spec
                     if (resume && this._sessionId && this._seq != null) {
                         Debug_1.Debug.write("[GatewayClient] Sending RESUME");
                         this._send({ op: 6, d: { token, session_id: this._sessionId, seq: this._seq } });
@@ -77,11 +80,11 @@ class GatewayClient {
                     }
                     break;
                 case 7:
-                    Debug_1.Debug.write("[GatewayClient] Op 7 â€” reconnecting with resume");
+                    Debug_1.Debug.write("[GatewayClient] Op 7 \u2014 reconnecting with resume");
                     this._reset(500, true);
                     break;
                 case 9:
-                    Debug_1.Debug.write(`[GatewayClient] Invalid session (resumable=${msg.d}) â€” reconnecting in 5s`);
+                    Debug_1.Debug.write(`[GatewayClient] Invalid session (resumable=${msg.d}) \u2014 reconnecting in 5s`);
                     this._reset(5000, !!msg.d);
                     break;
             }
@@ -90,10 +93,10 @@ class GatewayClient {
             if (this._wsInstance !== instance) return;
             this.connected = false; this._clearHB();
             if (this._destroyed) return;
-            if (FATAL_CODES.has(code)) { Debug_1.Debug.write(`[GatewayClient] Fatal close ${code} â€” not reconnecting`); return; }
+            if (FATAL_CODES.has(code)) { Debug_1.Debug.write(`[GatewayClient] Fatal close ${code} \u2014 not reconnecting`); return; }
             const canResume = !NO_RESUME_CODES.has(code);
-            Debug_1.Debug.write(`[GatewayClient] Disconnected (${code}) â€” reconnecting in 5s (resume=${canResume})`);
-            this._reconnecting = false;
+            Debug_1.Debug.write(`[GatewayClient] Disconnected (${code}) \u2014 reconnecting in 5s (resume=${canResume})`);
+            // Do not reset _reconnecting here; let _scheduleReconnect guard itself (#15/#25)
             this._scheduleReconnect(5000, canResume);
         });
         ws.on("error", e => Debug_1.Debug.write(`[GatewayClient] WS error: ${e.message}`));
@@ -106,16 +109,30 @@ class GatewayClient {
         const props = isMobile
             ? { os: "Android", browser: "Discord Android", device: "discord-android" }
             : { os: "windows", browser: "Discord Client", device: "" };
-        this._send({ op: 2, d: { token, properties: props, presence: { status, afk: status === "idle", since: status === "idle" ? Date.now() : 0, activities: [] } } });
+        // Fix #20: since should be 0 at identify time unless actually idle from before connect
+        this._send({ op: 2, d: { token, properties: props, presence: { status, afk: status === "idle", since: 0, activities: [] } } });
     }
     _startHB(interval) {
-        this._clearHB(); this._ackReceived = true;
+        // Fix #23: capture the instance counter at start; if _startHB is called again before
+        // the timeout fires, the stale closure will detect the mismatch and bail out
+        this._clearHB();
+        this._ackReceived = true;
+        const hbInstance = ++this._wsInstance;
         this._hbTimeout = setTimeout(() => {
             this._hbTimeout = null;
+            // Bail if a newer _startHB or _clearHB has run since this timeout was scheduled
+            if (this._wsInstance !== hbInstance) return;
             this._ackReceived = false;
             this._send({ op: 1, d: this._seq });
+            // Fix #16: start interval only after initial HB is sent; first tick is one full
+            // interval later, so _ackReceived will have had time to be set true by the ACK
             this._hbInterval = setInterval(() => {
-                if (!this._ackReceived) { Debug_1.Debug.write("[GatewayClient] HB ACK missed â€” reconnecting"); this._reset(1000, true); return; }
+                if (!this._ackReceived) {
+                    Debug_1.Debug.write("[GatewayClient] HB ACK missed \u2014 reconnecting");
+                    // Fix #17: ACK miss means session is likely dead; do not attempt resume
+                    this._reset(1000, false);
+                    return;
+                }
                 this._ackReceived = false; this._sendHB();
             }, interval);
         }, Math.floor(Math.random() * interval));
@@ -125,8 +142,19 @@ class GatewayClient {
     _scheduleReconnect(ms, canResume) {
         if (this._reconnecting || this._destroyed) return;
         this._reconnecting = true;
-        const delay = (ms != null) ? ms : Math.min((this._reconnectDelay = Math.min(this._reconnectDelay * 2, 60000)), 60000);
-        setTimeout(() => { this._reconnecting = false; if (!this._destroyed) this._open(canResume); }, delay);
+        // Fix #18: only advance the backoff when no explicit delay was provided
+        let delay;
+        if (ms != null) {
+            delay = ms;
+        } else {
+            this._reconnectDelay = Math.min(this._reconnectDelay * 2, 60000);
+            delay = this._reconnectDelay;
+        }
+        setTimeout(() => {
+            this._reconnecting = false;
+            // Fix #24: re-check _destroyed in case destroy() was called during the delay
+            if (!this._destroyed) this._open(canResume);
+        }, delay);
     }
     _resetReconnectDelay() { this._reconnectDelay = 1000; }
     _send(payload) {
@@ -154,14 +182,17 @@ class GatewayClient {
         if (!this.connected) return false;
         const now = Date.now();
         const minGwInterval = Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000;
+        // Fix #14: purge stale window entries BEFORE the minGwInterval check so the last
+        // entry in _presenceSentTimes is never an unpruned stale timestamp
+        while (this._presenceSentTimes.length && now - this._presenceSentTimes[0] > 20000) this._presenceSentTimes.shift();
         if (minGwInterval > 0 && this._presenceSentTimes.length && now - this._presenceSentTimes[this._presenceSentTimes.length - 1] < minGwInterval) {
-            Debug_1.Debug.write(`[GatewayClient] op3 min interval (${minGwInterval}ms) not elapsed â€” skipping`);
+            Debug_1.Debug.write(`[GatewayClient] op3 min interval (${minGwInterval}ms) not elapsed \u2014 skipping`);
             return false;
         }
-        while (this._presenceSentTimes.length && now - this._presenceSentTimes[0] > 20000) this._presenceSentTimes.shift();
-        if (this._presenceSentTimes.length >= 5) { Debug_1.Debug.write(`[GatewayClient] op3 rate limit (5/20s) â€” skipping`); return false; }
+        if (this._presenceSentTimes.length >= 5) { Debug_1.Debug.write(`[GatewayClient] op3 rate limit (5/20s) \u2014 skipping`); return false; }
         this._presenceSentTimes.push(now);
         const pref = Settings_1.Settings.gateway?.presenceStatus || "online";
+        // Fix #19: _flashStatus must not bleed; only use it if it is still set (cleared externally via clearFlashStatus())
         const status = this._flashStatus || (pref === "mobile" ? "online" : pref);
         const activity = { type: 4, name: "Custom Status", state: text || "", emoji: emoji ? { name: emoji } : null };
         this._lastActivity = activity;
