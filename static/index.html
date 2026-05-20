@@ -64,9 +64,9 @@
         #save-indicator.saved { border-color: rgba(74,222,128,.25); color: var(--green); }
         #save-indicator.saved .si-dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
 
-        #sections { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: start; }
-        #sections > .section { min-width: 0; }
-        @media (max-width: 700px) { #sections { grid-template-columns: 1fr; } }
+        #sections { columns: 2; column-gap: 6px; }
+        #sections > .section { break-inside: avoid; margin-bottom: 6px; }
+        @media (max-width: 700px) { #sections { columns: 1; } }
 
         .section { border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border); overflow: hidden; transition: border-color .15s; }
         .section:hover { border-color: rgba(255,255,255,.11); }
