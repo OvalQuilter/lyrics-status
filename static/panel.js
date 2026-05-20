@@ -349,3 +349,97 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 });
+
+// -- Discord profile card + equalizer --------------------------------------
+(function() {
+    let _cardToken = null, _cardFetched = false, _songPollInterval = null;
+
+    function setEq(playing) {
+        document.querySelectorAll(".eq-bar").forEach(b => b.classList.toggle("paused", !playing));
+    }
+
+    function updateSongDisplay(songName, songAuthor, isPlaying) {
+        const notPlaying = document.getElementById("dc-not-playing");
+        const songEl     = document.getElementById("dc-song");
+        const songText   = document.getElementById("dc-song-text");
+        if (songName) {
+            if (notPlaying) notPlaying.style.display = "none";
+            if (songEl)    { songEl.style.display = "flex"; }
+            if (songText)  songText.textContent = (songAuthor ? songAuthor + " \u2014 " : "") + songName;
+            setEq(isPlaying);
+        } else {
+            if (notPlaying) notPlaying.style.display = "";
+            if (songEl)    songEl.style.display = "none";
+            setEq(false);
+        }
+    }
+
+    function fetchDiscordProfile(token) {
+        if (!token || _cardFetched) return;
+        _cardFetched = true;
+        fetch("https://discordapp.com/api/v8/users/@me", { headers: { Authorization: token } })
+            .then(r => r.ok ? r.json() : null)
+            .then(u => {
+                if (!u) return;
+                const nameEl   = document.getElementById("dc-name");
+                const tagEl    = document.getElementById("dc-tag");
+                const avatarEl = document.getElementById("dc-avatar");
+                const avatarPh = document.getElementById("dc-avatar-ph");
+                if (nameEl) nameEl.textContent = u.global_name || u.username || "Unknown";
+                if (tagEl)  tagEl.textContent  = u.username ? "@" + u.username : "";
+                if (u.avatar && avatarEl) {
+                    avatarEl.src = "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + ".webp?size=128";
+                    avatarEl.style.display = "";
+                    if (avatarPh) avatarPh.style.display = "none";
+                }
+            })
+            .catch(() => { _cardFetched = false; });
+
+        fetch("https://discordapp.com/api/v8/users/@me/settings", { headers: { Authorization: token } })
+            .then(r => r.ok ? r.json() : null)
+            .then(s => {
+                if (!s) return;
+                const pip    = document.getElementById("dc-pip");
+                const csEl   = document.getElementById("dc-custom-status");
+                const status = s.status || "online";
+                if (pip) { pip.className = "dc-status-pip " + status; }
+                if (csEl && s.custom_status?.text) {
+                    csEl.textContent = (s.custom_status.emoji_name ? s.custom_status.emoji_name + " " : "") + s.custom_status.text;
+                } else if (csEl) { csEl.textContent = ""; }
+            })
+            .catch(() => {});
+    }
+
+    // Poll settings for token + hook into WS updates for song info
+    const _origApply = typeof applyToDom === "function" ? applyToDom : null;
+
+    function onSettingsUpdate() {
+        const token = settings?.credentials?.token;
+        if (token && token !== _cardToken) {
+            _cardToken = token;
+            _cardFetched = false;
+            fetchDiscordProfile(token);
+        }
+    }
+
+    // Patch applyToDom to piggyback profile updates
+    if (typeof window !== "undefined") {
+        const _orig = window.applyToDom;
+        if (typeof _orig === "function") {
+            window.applyToDom = function() { _orig.apply(this, arguments); onSettingsUpdate(); };
+        }
+    }
+
+    // Poll for song name from WS status display via a shared variable if available,
+    // or just show a static "playing" indicator driven by the EQ
+    // We expose a global for index.js TUI to optionally update
+    window._setNowPlaying = updateSongDisplay;
+
+    // On load, check immediately once settings exist
+    document.addEventListener("DOMContentLoaded", function() {
+        setTimeout(function poll() {
+            if (typeof settings !== "undefined") onSettingsUpdate();
+            setTimeout(poll, 5000);
+        }, 1000);
+    });
+})();

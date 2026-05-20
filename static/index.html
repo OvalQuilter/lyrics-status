@@ -155,9 +155,129 @@
         .toast.error   .toast-icon { color: var(--red); }
         .toast.info    .toast-icon { color: var(--accent); }
 
+        /* -- Equalizer bar -- */
+        .eq-bar-wrap { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
+        .eq-bar { width: 3px; border-radius: 2px; background: var(--accent); animation: eq-bounce var(--d) ease-in-out infinite alternate; opacity: .85; }
+        .eq-bar:nth-child(1){ --d:.55s; height:60%; }
+        .eq-bar:nth-child(2){ --d:.38s; height:100%; }
+        .eq-bar:nth-child(3){ --d:.65s; height:45%; }
+        .eq-bar:nth-child(4){ --d:.42s; height:80%; }
+        .eq-bar:nth-child(5){ --d:.58s; height:35%; }
+        .eq-bar.paused { animation-play-state: paused; opacity: .35; }
+        @keyframes eq-bounce { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
+
+        /* -- Discord profile card -- */
+        #discord-card { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 24px; min-height: 72px; transition: border-color .2s; }
+        #discord-card:hover { border-color: rgba(255,255,255,.13); }
+        .dc-avatar-wrap { position: relative; flex-shrink: 0; }
+        .dc-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); object-fit: cover; }
+        .dc-avatar-placeholder { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--muted); }
+        .dc-status-pip { position: absolute; bottom: 1px; right: 1px; width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--surface); background: var(--muted); transition: background .3s; }
+        .dc-status-pip.online  { background: var(--green); }
+        .dc-status-pip.idle    { background: var(--amber); }
+        .dc-status-pip.dnd     { background: var(--red); }
+        .dc-status-pip.invisible { background: #747f8d; }
+        .dc-info { flex: 1; min-width: 0; }
+        .dc-name { font-size: 14px; font-weight: 700; letter-spacing: -.02em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dc-tag  { font-size: 11px; color: var(--muted); margin-top: 1px; font-family: var(--mono); }
+        .dc-custom-status { font-size: 12px; color: var(--text-soft); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
+        .dc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+        .dc-song { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-soft); }
+        .dc-song-text { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dc-not-playing { font-size: 12px; color: var(--muted); font-style: italic; }
         ::-webkit-scrollbar { width: 6px; }
+        /* -- Equalizer bar -- */
+        .eq-bar-wrap { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
+        .eq-bar { width: 3px; border-radius: 2px; background: var(--accent); animation: eq-bounce var(--d) ease-in-out infinite alternate; opacity: .85; }
+        .eq-bar:nth-child(1){ --d:.55s; height:60%; }
+        .eq-bar:nth-child(2){ --d:.38s; height:100%; }
+        .eq-bar:nth-child(3){ --d:.65s; height:45%; }
+        .eq-bar:nth-child(4){ --d:.42s; height:80%; }
+        .eq-bar:nth-child(5){ --d:.58s; height:35%; }
+        .eq-bar.paused { animation-play-state: paused; opacity: .35; }
+        @keyframes eq-bounce { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
+
+        /* -- Discord profile card -- */
+        #discord-card { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 24px; min-height: 72px; transition: border-color .2s; }
+        #discord-card:hover { border-color: rgba(255,255,255,.13); }
+        .dc-avatar-wrap { position: relative; flex-shrink: 0; }
+        .dc-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); object-fit: cover; }
+        .dc-avatar-placeholder { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--muted); }
+        .dc-status-pip { position: absolute; bottom: 1px; right: 1px; width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--surface); background: var(--muted); transition: background .3s; }
+        .dc-status-pip.online  { background: var(--green); }
+        .dc-status-pip.idle    { background: var(--amber); }
+        .dc-status-pip.dnd     { background: var(--red); }
+        .dc-status-pip.invisible { background: #747f8d; }
+        .dc-info { flex: 1; min-width: 0; }
+        .dc-name { font-size: 14px; font-weight: 700; letter-spacing: -.02em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dc-tag  { font-size: 11px; color: var(--muted); margin-top: 1px; font-family: var(--mono); }
+        .dc-custom-status { font-size: 12px; color: var(--text-soft); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
+        .dc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+        .dc-song { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-soft); }
+        .dc-song-text { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dc-not-playing { font-size: 12px; color: var(--muted); font-style: italic; }
         ::-webkit-scrollbar-track { background: transparent; }
+        /* -- Equalizer bar -- */
+        .eq-bar-wrap { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
+        .eq-bar { width: 3px; border-radius: 2px; background: var(--accent); animation: eq-bounce var(--d) ease-in-out infinite alternate; opacity: .85; }
+        .eq-bar:nth-child(1){ --d:.55s; height:60%; }
+        .eq-bar:nth-child(2){ --d:.38s; height:100%; }
+        .eq-bar:nth-child(3){ --d:.65s; height:45%; }
+        .eq-bar:nth-child(4){ --d:.42s; height:80%; }
+        .eq-bar:nth-child(5){ --d:.58s; height:35%; }
+        .eq-bar.paused { animation-play-state: paused; opacity: .35; }
+        @keyframes eq-bounce { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
+
+        /* -- Discord profile card -- */
+        #discord-card { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 24px; min-height: 72px; transition: border-color .2s; }
+        #discord-card:hover { border-color: rgba(255,255,255,.13); }
+        .dc-avatar-wrap { position: relative; flex-shrink: 0; }
+        .dc-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); object-fit: cover; }
+        .dc-avatar-placeholder { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--muted); }
+        .dc-status-pip { position: absolute; bottom: 1px; right: 1px; width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--surface); background: var(--muted); transition: background .3s; }
+        .dc-status-pip.online  { background: var(--green); }
+        .dc-status-pip.idle    { background: var(--amber); }
+        .dc-status-pip.dnd     { background: var(--red); }
+        .dc-status-pip.invisible { background: #747f8d; }
+        .dc-info { flex: 1; min-width: 0; }
+        .dc-name { font-size: 14px; font-weight: 700; letter-spacing: -.02em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dc-tag  { font-size: 11px; color: var(--muted); margin-top: 1px; font-family: var(--mono); }
+        .dc-custom-status { font-size: 12px; color: var(--text-soft); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
+        .dc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+        .dc-song { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-soft); }
+        .dc-song-text { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dc-not-playing { font-size: 12px; color: var(--muted); font-style: italic; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
+        /* -- Equalizer bar -- */
+        .eq-bar-wrap { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
+        .eq-bar { width: 3px; border-radius: 2px; background: var(--accent); animation: eq-bounce var(--d) ease-in-out infinite alternate; opacity: .85; }
+        .eq-bar:nth-child(1){ --d:.55s; height:60%; }
+        .eq-bar:nth-child(2){ --d:.38s; height:100%; }
+        .eq-bar:nth-child(3){ --d:.65s; height:45%; }
+        .eq-bar:nth-child(4){ --d:.42s; height:80%; }
+        .eq-bar:nth-child(5){ --d:.58s; height:35%; }
+        .eq-bar.paused { animation-play-state: paused; opacity: .35; }
+        @keyframes eq-bounce { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
+
+        /* -- Discord profile card -- */
+        #discord-card { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 24px; min-height: 72px; transition: border-color .2s; }
+        #discord-card:hover { border-color: rgba(255,255,255,.13); }
+        .dc-avatar-wrap { position: relative; flex-shrink: 0; }
+        .dc-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); object-fit: cover; }
+        .dc-avatar-placeholder { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--muted); }
+        .dc-status-pip { position: absolute; bottom: 1px; right: 1px; width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--surface); background: var(--muted); transition: background .3s; }
+        .dc-status-pip.online  { background: var(--green); }
+        .dc-status-pip.idle    { background: var(--amber); }
+        .dc-status-pip.dnd     { background: var(--red); }
+        .dc-status-pip.invisible { background: #747f8d; }
+        .dc-info { flex: 1; min-width: 0; }
+        .dc-name { font-size: 14px; font-weight: 700; letter-spacing: -.02em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dc-tag  { font-size: 11px; color: var(--muted); margin-top: 1px; font-family: var(--mono); }
+        .dc-custom-status { font-size: 12px; color: var(--text-soft); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
+        .dc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+        .dc-song { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-soft); }
+        .dc-song-text { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dc-not-playing { font-size: 12px; color: var(--muted); font-style: italic; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.18); }
 
         @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
@@ -218,7 +338,7 @@
 <div id="app">
     <header>
         <div class="header-left">
-            <div class="header-icon">&#127925;</div>
+            <div class="eq-bar-wrap" id="eq-bars"><span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span></div>
             <div>
                 <h1>Lyrics Status</h1>
                 <p>Discord custom status synced to your Spotify playback.</p>
