@@ -42,7 +42,7 @@
             background-size: 128px;
         }
 
-        #app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 40px 28px 80px; }
+        #app { position: relative; z-index: 1; width: 100%; padding: 40px 28px 80px; }
 
         header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
         .header-left { display: flex; align-items: center; gap: 14px; }
@@ -64,9 +64,9 @@
         #save-indicator.saved { border-color: rgba(74,222,128,.25); color: var(--green); }
         #save-indicator.saved .si-dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
 
-        #sections { columns: 2; column-gap: 6px; }
-        #sections > .section { break-inside: avoid; margin-bottom: 6px; }
-        @media (max-width: 700px) { #sections { columns: 1; } }
+        #sections { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        #sections > .section { min-width: 0; }
+        @media (max-width: 700px) { #sections { grid-template-columns: 1fr; } }
 
         .section { border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border); overflow: hidden; transition: border-color .15s; }
         .section:hover { border-color: rgba(255,255,255,.11); }
