@@ -352,3 +352,16 @@ index.js:
   - BUG 6: number inputs clamped to el.min/el.max before save.
   - BUG 7: withBtnSpinner disables button immediately (double-click race).
   - BUG 9: statusFlash.states re-assigned after spread (guards corrupt server value).
+
+─────────────────────────────────────────────────────────────────────
+64. FIX — GatewayClient _reset delay ignored, stuck on reconnecting (May 2026)
+    File: dist/GatewayClient.js
+─────────────────────────────────────────────────────────────────────
+  - _reset increments _wsInstance before terminate() so the close handler
+    exits early (stale instance check). Previously close handler always called
+    _scheduleReconnect(5000) regardless of the delay _reset was given, and
+    _reset's own _scheduleReconnect was blocked by the _reconnecting guard.
+    Result: op 7 reconnected in 5s instead of 500ms; any rapid disconnect
+    loop appeared stuck on "GW reconnecting" in the terminal.
+  - Fix: _wsInstance++ before ws.terminate() -- _reset now controls its own
+    reconnect delay (op7=500ms, op9=5s, HB miss=1s) as intended.

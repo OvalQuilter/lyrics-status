@@ -16,6 +16,7 @@ class GatewayClient {
         this.connected = false; this._reconnecting = false;
         this._destroyed = false; this._ackReceived = false; this._presenceSentTimes = [];
         this._wsInstance = 0; this._lastActivity = null; this._flashStatus = null;
+        this._reconnectDelay = 1000;
         this.onReady = null;
     }
     connect() { this._destroyed = false; this._open(false); }
@@ -27,13 +28,13 @@ class GatewayClient {
         this._reconnecting = false;
         const ws = this._ws;
         this._ws = null;
+        ++this._wsInstance; // invalidate close handler before terminate so _reset controls reconnect delay
         try { ws?.terminate(); } catch (_) {}
         this._scheduleReconnect(ms, canResume);
     }
-
     _open(resume) {
         const token = Settings_1.Settings.credentials.token;
-        if (!token) { Debug_1.Debug.write("[GatewayClient] No token — gateway disabled"); return; }
+        if (!token) { Debug_1.Debug.write("[GatewayClient] No token â€” gateway disabled"); return; }
         const url = (resume && this._resumeUrl) ? this._resumeUrl : GATEWAY_URL;
         Debug_1.Debug.write(`[GatewayClient] Connecting... (resume=${resume}, url=${url})`);
         let ws;
@@ -64,21 +65,23 @@ class GatewayClient {
                         this._resumeUrl = msg.d.resume_gateway_url || GATEWAY_URL;
                         this.connected = true;
                         this._reconnecting = false;
+                        this._resetReconnectDelay();
                         Debug_1.Debug.write("[GatewayClient] Connected (READY)");
                         if (typeof this.onReady === "function") { try { this.onReady(); } catch(e) { Debug_1.Debug.write(`[GatewayClient] onReady callback error: ${e}`); } }
                     } else if (msg.t === "RESUMED") {
                         this.connected = true;
                         this._reconnecting = false;
+                        this._resetReconnectDelay();
                         Debug_1.Debug.write("[GatewayClient] Resumed");
                         if (typeof this.onReady === "function") { try { this.onReady(); } catch(e) { Debug_1.Debug.write(`[GatewayClient] onReady callback error: ${e}`); } }
                     }
                     break;
                 case 7:
-                    Debug_1.Debug.write("[GatewayClient] Op 7 — reconnecting with resume");
+                    Debug_1.Debug.write("[GatewayClient] Op 7 â€” reconnecting with resume");
                     this._reset(500, true);
                     break;
                 case 9:
-                    Debug_1.Debug.write(`[GatewayClient] Invalid session (resumable=${msg.d}) — reconnecting in 5s`);
+                    Debug_1.Debug.write(`[GatewayClient] Invalid session (resumable=${msg.d}) â€” reconnecting in 5s`);
                     this._reset(5000, !!msg.d);
                     break;
             }
@@ -87,9 +90,9 @@ class GatewayClient {
             if (this._wsInstance !== instance) return;
             this.connected = false; this._clearHB();
             if (this._destroyed) return;
-            if (FATAL_CODES.has(code)) { Debug_1.Debug.write(`[GatewayClient] Fatal close ${code} — not reconnecting`); return; }
+            if (FATAL_CODES.has(code)) { Debug_1.Debug.write(`[GatewayClient] Fatal close ${code} â€” not reconnecting`); return; }
             const canResume = !NO_RESUME_CODES.has(code);
-            Debug_1.Debug.write(`[GatewayClient] Disconnected (${code}) — reconnecting in 5s (resume=${canResume})`);
+            Debug_1.Debug.write(`[GatewayClient] Disconnected (${code}) â€” reconnecting in 5s (resume=${canResume})`);
             this._reconnecting = false;
             this._scheduleReconnect(5000, canResume);
         });
@@ -112,7 +115,7 @@ class GatewayClient {
             this._ackReceived = false;
             this._send({ op: 1, d: this._seq });
             this._hbInterval = setInterval(() => {
-                if (!this._ackReceived) { Debug_1.Debug.write("[GatewayClient] HB ACK missed — reconnecting"); this._reset(1000, true); return; }
+                if (!this._ackReceived) { Debug_1.Debug.write("[GatewayClient] HB ACK missed â€” reconnecting"); this._reset(1000, true); return; }
                 this._ackReceived = false; this._sendHB();
             }, interval);
         }, Math.floor(Math.random() * interval));
@@ -122,8 +125,10 @@ class GatewayClient {
     _scheduleReconnect(ms, canResume) {
         if (this._reconnecting || this._destroyed) return;
         this._reconnecting = true;
-        setTimeout(() => { this._reconnecting = false; if (!this._destroyed) this._open(canResume); }, ms);
+        const delay = (ms != null) ? ms : Math.min((this._reconnectDelay = Math.min(this._reconnectDelay * 2, 60000)), 60000);
+        setTimeout(() => { this._reconnecting = false; if (!this._destroyed) this._open(canResume); }, delay);
     }
+    _resetReconnectDelay() { this._reconnectDelay = 1000; }
     _send(payload) {
         if (this._ws?.readyState === WebSocket.OPEN) try { this._ws.send(JSON.stringify(payload)); } catch (e) { Debug_1.Debug.write(`[GatewayClient] Send error: ${e.message}`); }
     }
@@ -134,9 +139,6 @@ class GatewayClient {
         let activity = null;
         if (typeof text === "string" && text !== "") {
             activity = { type: 4, name: "Custom Status", state: text, emoji: emoji ? { name: emoji } : null };
-        } else if (text === "") {
-            // FIX: clear _lastActivity on restore/end path so reconnect doesn't re-send stale lyric
-            this._lastActivity = null;
         } else if (text == null && this._lastActivity) {
             activity = this._lastActivity;
         }
@@ -146,17 +148,18 @@ class GatewayClient {
         return true;
     }
     clearFlashStatus() { this._flashStatus = null; }
+    clearLastActivity() { this._lastActivity = null; }
 
     setCustomStatus(text, emoji) {
         if (!this.connected) return false;
         const now = Date.now();
         const minGwInterval = Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000;
         if (minGwInterval > 0 && this._presenceSentTimes.length && now - this._presenceSentTimes[this._presenceSentTimes.length - 1] < minGwInterval) {
-            Debug_1.Debug.write(`[GatewayClient] op3 min interval (${minGwInterval}ms) not elapsed — skipping`);
+            Debug_1.Debug.write(`[GatewayClient] op3 min interval (${minGwInterval}ms) not elapsed â€” skipping`);
             return false;
         }
         while (this._presenceSentTimes.length && now - this._presenceSentTimes[0] > 20000) this._presenceSentTimes.shift();
-        if (this._presenceSentTimes.length >= 5) { Debug_1.Debug.write(`[GatewayClient] op3 rate limit (5/20s) — skipping`); return false; }
+        if (this._presenceSentTimes.length >= 5) { Debug_1.Debug.write(`[GatewayClient] op3 rate limit (5/20s) â€” skipping`); return false; }
         this._presenceSentTimes.push(now);
         const pref = Settings_1.Settings.gateway?.presenceStatus || "online";
         const status = this._flashStatus || (pref === "mobile" ? "online" : pref);
