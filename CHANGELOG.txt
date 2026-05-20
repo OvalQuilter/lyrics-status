@@ -365,3 +365,65 @@ index.js:
     loop appeared stuck on "GW reconnecting" in the terminal.
   - Fix: _wsInstance++ before ws.terminate() -- _reset now controls its own
     reconnect delay (op7=500ms, op9=5s, HB miss=1s) as intended.
+
+─────────────────────────────────────────────────────────────────────
+[Next entry — Panel cosmetic features 1–5 + bug fixes] (May 2026)
+    Files: static/index.html, static/panel-ui.js, static/panel.js,
+           dist/Panel/Server.js, dist/index.js
+─────────────────────────────────────────────────────────────────────
+Implemented all 5 panel cosmetic features from codereduction.txt plan,
+accounting for all B-1 through B-7 bug watches.
+
+Feature 1 — Animated now-playing header (#now-playing):
+  Persistent bar between <header> and #sections showing current song,
+  artist, playback progress bar, and pulsing equalizer animation when
+  lyrics are actively sending. Polled every 1s via GET /status.
+  Lives OUTSIDE .section elements (B-4 stacking context safe).
+
+Feature 2 — Discord preview card:
+  Replaced .preview-badge plain text in the preview section body with
+  a mock Discord profile card showing avatar circle, status dot,
+  username ("You"), emoji, and status text (truncated at 128 chars).
+  Updates live as template/emoji/unicode style/presence settings change.
+  Presence dot color syncs with gateway.presenceStatus (B-3: default "You").
+
+Feature 3 — Lyric line animations:
+  #np-title and #np-artist slide in from below when song changes.
+  #dc-status-text in the Discord card also animates when lastSentText
+  changes (polled via /status). Uses synchronous void el.offsetWidth
+  reflow to restart animation (B-5: NOT inside requestAnimationFrame).
+
+Feature 4 — Glassmorphism / blur style:
+  body::after adds a slow animated radial gradient blob (z-index:0,
+  behind #app z-index:1). .section cards use backdrop-filter:blur(12px).
+  .sub-box, .modal-box, #now-playing, #discord-card also use blur.
+  Light-theme overrides added for all new glassmorphism elements.
+
+Feature 5 — Toast redesign:
+  Slide-in from right with spring easing, colored left border per type
+  (green/red/accent), and a ::after progress bar that drains over the
+  toast lifetime. B-6: --toast-drain-dur is (duration - 250ms) so drain
+  completes before toastOut animation begins.
+
+Backend changes (Server.js):
+  startServer(playbackState, statusChanger) — B-1: signature updated,
+  existing WS behaviour unchanged. Added GET /status endpoint returning
+  { songName, songAuthor, songProgress, songDuration, isPlaying,
+    hasLyrics, lastSentText, lyricsSource, lastSentAt }.
+  Both args are optional (null-safe via ?. and ?? throughout).
+
+index.js:
+  (0, Server_1.startServer)(playbackState, statusChanger) — passes live
+  objects to the server after they are constructed (B-1).
+
+
+─────────────────────────────────────────────────────────────────────
+65. BUGFIX — GW skipping lines when rate-limited (May 2026)
+    Files: dist/StatusChanger.js, dist/StatusChangerBase.js
+─────────────────────────────────────────────────────────────────────
+  - Removed redundant GW rate-limit pre-check in changeStatus() — early return
+    prevented sentLines from being updated, causing lines to be permanently skipped.
+  - buildMergedLines now passes ignoreStale=true when usingGateway — prior-sent
+    lines are no longer excluded from the merge window on GW.
+  - When setCustomStatus returns false (min-interval not elapsed), sentLines is now
+    rolled back and _lastSentText/_lastSentAt cleared so the next tick retries.

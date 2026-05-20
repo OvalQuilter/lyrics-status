@@ -5,129 +5,58 @@ const Settings_1 = require("./Settings");
 const Autooffset_1 = require("./Autooffset");
 const Debug_1 = require("./Debug");
 
-function cpLen(s) { return [...s].length; }
-function cpSlice(s, n) { return [...s].slice(0, n).join(""); }
+// cpFitsIn is the core iterator; cpLen and cpSlice are kept for external callers
 function cpFitsIn(s, limit) { let n = 0; for (const _ of s) { if (++n > limit) return false; } return true; }
-function lcFirst(s) { if (!s) return s; const chars = [...s]; chars[0] = chars[0].toLowerCase(); return chars.join(""); }
+function cpLen(s) { let n = 0; for (const _ of s) n++; return n; }
+function cpSlice(s, n) { return [...s].slice(0, n).join(""); }
+function lcFirst(s) { if (!s) return s; const c = [...s]; c[0] = c[0].toLowerCase(); return c.join(""); }
 function endsWithTerminal(s) { return /[.!?]\s*$/.test(s); }
 
-const _BOLD_LO = 0x1D41A - 0x61;
-const _BOLD_HI = 0x1D400 - 0x41;
-const _ITAL_LO = 0x1D44E - 0x61;
-const _ITAL_HI = 0x1D434 - 0x41;
+// Generic unicode codepoint shifter. exceptions = { codepoint: replacementChar }
+function _unicodeShift(s, loOff, hiOff, exceptions) {
+    return [...s].map(ch => {
+        const cp = ch.codePointAt(0);
+        if (exceptions && cp in exceptions) return exceptions[cp];
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + loOff);
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + hiOff);
+        return ch;
+    }).join("");
+}
 
-function toUnicodeBold(s) {
-    return [...s].map(ch => {
-        const cp = ch.codePointAt(0);
-        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + _BOLD_LO);
-        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + _BOLD_HI);
-        return ch;
-    }).join("");
-}
-function toUnicodeItalic(s) {
-    return [...s].map(ch => {
-        const cp = ch.codePointAt(0);
-        if (cp === 0x68) return "\u210E";
-        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + _ITAL_LO);
-        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + _ITAL_HI);
-        return ch;
-    }).join("");
-}
-function toUnicodeBoldItalic(s) {
-    return [...s].map(ch => {
-        const cp = ch.codePointAt(0);
-        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D482 - 0x61));
-        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D468 - 0x41));
-        return ch;
-    }).join("");
-}
-function toUnicodeSans(s) {
-    return [...s].map(ch => {
-        const cp = ch.codePointAt(0);
-        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D5BA - 0x61));
-        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D5A0 - 0x41));
-        return ch;
-    }).join("");
-}
-function toUnicodeSansBold(s) {
-    return [...s].map(ch => {
-        const cp = ch.codePointAt(0);
-        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D5EE - 0x61));
-        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D5D4 - 0x41));
-        return ch;
-    }).join("");
-}
-function toUnicodeSansItalic(s) {
-    return [...s].map(ch => {
-        const cp = ch.codePointAt(0);
-        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D622 - 0x61));
-        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D608 - 0x41));
-        return ch;
-    }).join("");
-}
-function toUnicodeSansBoldItalic(s) {
-    return [...s].map(ch => {
-        const cp = ch.codePointAt(0);
-        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D656 - 0x61));
-        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D63C - 0x41));
-        return ch;
-    }).join("");
-}
-function toUnicodeDoubleStruck(s) {
-    return [...s].map(ch => {
-        const cp = ch.codePointAt(0);
-        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D552 - 0x61));
-        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D538 - 0x41));
-        return ch;
-    }).join("");
-}
-function toUnicodeFraktur(s) {
-    return [...s].map(ch => {
-        const cp = ch.codePointAt(0);
-        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D51E - 0x61));
-        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D504 - 0x41));
-        return ch;
-    }).join("");
-}
-function toUnicodeFrakturBold(s) {
-    return [...s].map(ch => {
-        const cp = ch.codePointAt(0);
-        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + (0x1D586 - 0x61));
-        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + (0x1D56C - 0x41));
-        return ch;
-    }).join("");
-}
-function sanitizeLyric(s) {
-    return s
-        .replace(/[\u266A\u266B\u266C\u266D\u266E\u266F]/g, "")
-        .replace(/\u2026/g, "...")
-        .replace(/[\u2018\u2019]/g, "'")
-        .replace(/[\u201C\u201D]/g, '"')
-        .replace(/\u2013/g, "-")
-        .replace(/\u2014/g, "-")
-        .replace(/[\uE000-\uF8FF]/g, "")
-        .replace(/[\uFFF0-\uFFFF]/g, "")
-        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
-        .replace(/\uFEFF/g, "")
-        .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2064]/g, "")
-        .trim();
-}
+const _STYLES = {
+    bold:             [0x1D41A - 0x61, 0x1D400 - 0x41, null],
+    italic:           [0x1D44E - 0x61, 0x1D434 - 0x41, { 0x68: "\u210E" }],
+    bold_italic:      [0x1D482 - 0x61, 0x1D468 - 0x41, null],
+    sans:             [0x1D5BA - 0x61, 0x1D5A0 - 0x41, null],
+    sans_bold:        [0x1D5EE - 0x61, 0x1D5D4 - 0x41, null],
+    sans_italic:      [0x1D622 - 0x61, 0x1D608 - 0x41, null],
+    sans_bold_italic: [0x1D656 - 0x61, 0x1D63C - 0x41, null],
+    double_struck:    [0x1D552 - 0x61, 0x1D538 - 0x41, null],
+    fraktur:          [0x1D51E - 0x61, 0x1D504 - 0x41, null],
+    fraktur_bold:     [0x1D586 - 0x61, 0x1D56C - 0x41, null],
+};
 
 function applyUnicodeStyle(s, style) {
-    if (style === "bold")            return toUnicodeBold(s);
-    if (style === "italic")          return toUnicodeItalic(s);
-    if (style === "bold_italic")     return toUnicodeBoldItalic(s);
-    if (style === "sans")             return toUnicodeSans(s);
-    if (style === "sans_bold")        return toUnicodeSansBold(s);
-    if (style === "sans_italic")      return toUnicodeSansItalic(s);
-    if (style === "sans_bold_italic") return toUnicodeSansBoldItalic(s);
-    if (style === "double_struck")    return toUnicodeDoubleStruck(s);
-    if (style === "fraktur")          return toUnicodeFraktur(s);
-    if (style === "fraktur_bold")     return toUnicodeFrakturBold(s);
+    const entry = _STYLES[style];
+    if (!entry) return s;
+    return _unicodeShift(s, entry[0], entry[1], entry[2]);
 }
 
+const _SANITIZE = [
+    [/[\u266A-\u266F]/g, ""],
+    [/\u2026/g, "..."],
+    [/[\u2018\u2019]/g, "'"],
+    [/[\u201C\u201D]/g, '"'],
+    [/[\u2013\u2014]/g, "-"],
+    [/[\uE000-\uF8FF]/g, ""],
+    [/[\uFFF0-\uFFFF]/g, ""],
+    [/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ""],
+    [/\uFEFF/g, ""],
+    [/[\u200B-\u200F\u202A-\u202E\u2060-\u2064]/g, ""],
+];
+function sanitizeLyric(s) { return _SANITIZE.reduce((r, [p, v]) => r.replace(p, v), s).trim(); }
+
 // FIX: accept `now` param so caller controls the timestamp — avoids bucket desync
-// when interval boundary falls between changeStatus's bucket check and this call
 function resolveUnicodeStyle(adv, now) {
     if (adv.styleAlternateEnabled) {
         const intervalMs = adv.styleAlternateIntervalMs > 0 ? adv.styleAlternateIntervalMs : 3000;
@@ -139,10 +68,19 @@ function resolveUnicodeStyle(adv, now) {
 
 const VARS = ["lyrics","timestamp","song_name","song_author","source","progress","duration","line_number"];
 const SUFFIXES = ["","_upper","_lower","_title_case","_letters_only","_upper_letters_only","_lower_letters_only","_cropped","_upper_cropped","_lower_cropped"];
-const TEMPLATE_RE = new Map();
-for (const v of VARS) for (const s of SUFFIXES) TEMPLATE_RE.set(v + s, new RegExp(`\\{${v}${s}\\}`, "g"));
+const TEMPLATE_RE = new Map(
+    VARS.flatMap(v => SUFFIXES.map(s => [v + s, new RegExp(`\\{${v}${s}\\}`, "g")]))
+);
 
 const VALID_FLASH_STATES = new Set(["online", "idle", "dnd", "invisible"]);
+
+// Shared helper: log a discord PATCH response
+function _patchLog(promise, label) {
+    return promise.then(res => {
+        if (res.status === 200) Debug_1.Debug.write(`[StatusChanger] ${label} OK`);
+        else res.text().then(b => Debug_1.Debug.write(`[StatusChanger] ${label} HTTP ${res.status}: ${b}`)).catch(() => {});
+    }).catch(e => Debug_1.Debug.write(`[StatusChanger] ${label} error: ${e}`));
+}
 
 class StatusChangerBase {
     constructor(playbackState, savedStatus, gatewayClient) {
@@ -190,6 +128,11 @@ class StatusChangerBase {
             } else {
                 this._gwRateLimitSkips = (this._gwRateLimitSkips || 0) + 1;
                 if (this._gwRateLimitSkips >= 5) { this._gwRateLimitSkips = 0; this._iOSSyncPending = null; Debug_1.Debug.write('[StatusChanger] GW rate-limit skip limit -- cleared iOSSyncPending'); }
+                // GW skipped -- roll back so next tick retries this line
+                if (mergedLines) for (const ml of mergedLines) this.sentLines.delete(ml);
+                this._lastSentText = "";
+                this._lastSentAt = 0;
+                Debug_1.Debug.write('[StatusChanger] GW skipped -- rolled back sentLines for retry');
             }
             return Promise.resolve();
         }
@@ -211,12 +154,8 @@ class StatusChangerBase {
                     } else {
                         Debug_1.Debug.write(`[StatusChanger] Rate limit (backoff disabled): ${retryAfter}s suggested`);
                     }
-                    if (this._lastMergedLines) {
-                        for (const ml of this._lastMergedLines) this.sentLines.delete(ml);
-                    }
-                    if (sentLine && this.playbackState.currentLine === sentLine) {
-                        this.playbackState.currentLine = null;
-                    }
+                    if (this._lastMergedLines) for (const ml of this._lastMergedLines) this.sentLines.delete(ml);
+                    if (sentLine && this.playbackState.currentLine === sentLine) this.playbackState.currentLine = null;
                     this._lastSentText = "";
                     this._lastSentAt = 0;
                 }).catch(e => {
@@ -237,11 +176,10 @@ class StatusChangerBase {
         const s = this._savedStatus;
         if (!s) return;
         Debug_1.Debug.write(`[StatusChanger] Restoring saved status: "${s.text}"`);
-        this._discordPatch({ custom_status: { text: s.text || "", emoji_name: s.emoji_name || null, emoji_id: s.emoji_id || null, expires_at: s.expires_at || null } })
-            .then(res => {
-                if (res.status === 200) Debug_1.Debug.write(`[StatusChanger] Status restored OK`);
-                else res.text().then(b => Debug_1.Debug.write(`[StatusChanger] Restore failed HTTP ${res.status}: ${b}`)).catch(() => {});
-            }).catch(e => Debug_1.Debug.write(`[StatusChanger] Restore fetch error: ${e}`));
+        _patchLog(
+            this._discordPatch({ custom_status: { text: s.text || "", emoji_name: s.emoji_name || null, emoji_id: s.emoji_id || null, expires_at: s.expires_at || null } }),
+            "Restore"
+        );
     }
 
     smartTruncate(text, limit = 128, lyricLines = null) {
@@ -276,7 +214,6 @@ class StatusChangerBase {
                 const gapFromAnchor = anchor.time - lines[j].time;
                 if (gapFromAnchor > mergeWindowMs) break;
                 if (!lines[j].text) break;
-                // FIX: skip stale check when caller forces a resend (e.g. style bucket change)
                 if (!ignoreStale && this.sentLines.has(lines[j]) && !this._staleLines.has(lines[j])) break;
                 lyricLines.unshift(sanitizeLyric(lines[j].text));
                 mergedLines.unshift(lines[j]);
@@ -304,9 +241,10 @@ class StatusChangerBase {
         };
         let out = template;
         for (const [k, v] of Object.entries(vars)) {
-            const clean      = v.replace(/[^a-zA-Z\s]/g, "");
-            const crop       = k.startsWith("song_") ? v.replace(/( ?- ?.+)|(\(.+\))/gi, "") : v;
-            const titleCase  = v.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+            if (!out.includes("{" + k)) continue;
+            const clean     = v.replace(/[^a-zA-Z\s]/g, "");
+            const crop      = k.startsWith("song_") ? v.replace(/( ?- ?.+)|(\(.+\))/gi, "") : v;
+            const titleCase = v.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
             const vals = [v, v.toUpperCase(), v.toLowerCase(), titleCase, clean, clean.toUpperCase(), clean.toLowerCase(), crop, crop.toUpperCase(), crop.toLowerCase()];
             SUFFIXES.forEach((s, i) => { out = out.replace(TEMPLATE_RE.get(k + s), vals[i]); });
         }
@@ -320,11 +258,10 @@ class StatusChangerBase {
         if (now - this._iOSSyncSentAt < 10000) return;
         this._iOSSyncSentAt = now;
         Debug_1.Debug.write('[StatusChanger] iOS REST sync: ' + JSON.stringify(text));
-        this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji || null, expires_at: new Date(now + 60000).toISOString() } })
-            .then(res => {
-                if (res.status === 200) Debug_1.Debug.write('[StatusChanger] iOS REST sync OK');
-                else res.text().then(b => Debug_1.Debug.write('[StatusChanger] iOS REST sync HTTP ' + res.status + ': ' + b)).catch(() => {});
-            }).catch(e => Debug_1.Debug.write('[StatusChanger] iOS REST sync error: ' + e));
+        _patchLog(
+            this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji || null, expires_at: new Date(now + 60000).toISOString() } }),
+            "iOS REST sync"
+        );
     }
 
     _onGatewayReady() {
