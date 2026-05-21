@@ -6,7 +6,7 @@ const DEFAULTS = {
     timings:   { sendTimeOffset:500, enableAutooffset:true, autooffset:3 },
     update:    { enableAutoupdate:true },
     rateLimit: { enableBackoff:true, enableMinInterval:true, minIntervalMs:5000, enableMergeLines:true, mergeWindowMs:8000 },
-    sources:   { enableSpotify:true, enableMusixmatch:true, enableLrcLib:true, enableNetEase:true, enableQQMusic:true, sourceOrder:["Spotify","Musixmatch","LrcLib","NetEase","QQMusic"] },
+    sources:   { enableSpotify:true, enableMusixmatch:true, enableLrcLib:true, enableNetEase:true, enableQQMusic:true, enableGenius:true, sourceOrder:["Spotify","Musixmatch","LrcLib","NetEase","QQMusic","Genius"] },
     chineseConversion: "off",
     restore: { enabled:true, savedStatus:null, delayMs:15000 },
     gateway: { enabled:false, presenceStatus:"online", minGwIntervalMs:5000 },
@@ -52,7 +52,8 @@ const SOURCE_META = {
     Musixmatch: { key:"enableMusixmatch", desc:"auto token via SyncLyrics", badge:"Auto" },
     LrcLib:     { key:"enableLrcLib",     desc:"no key required",           badge:"Free" },
     NetEase:    { key:"enableNetEase",    desc:"strong Asian coverage",     badge:"CN" },
-    QQMusic:    { key:"enableQQMusic",    desc:"strong Chinese coverage",   badge:"CN" }
+    QQMusic:    { key:"enableQQMusic",    desc:"strong Chinese coverage",   badge:"CN" },
+    Genius:     { key:"enableGenius",     desc:"scraped plain lyrics, no timestamps", badge:"EN" }
 };
 
 const HELP = {

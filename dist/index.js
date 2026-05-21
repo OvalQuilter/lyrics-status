@@ -9,6 +9,7 @@ const NetEaseMusicSource_1 = require("./Sources/NetEaseMusicSource");
 const LrcLibSource_1 = require("./Sources/LrcLibSource");
 const QQMusicSource_1 = require("./Sources/QQMusicSource");
 const MusixmatchSource_1 = require("./Sources/MusixmatchSource");
+const GeniusSource_1 = require("./Sources/GeniusSource");
 const PlaybackStateUpdater_1 = require("./PlaybackStateUpdater");
 const PlaybackState_1 = require("./PlaybackState");
 const StatusChanger_1 = require("./StatusChanger");
@@ -45,9 +46,10 @@ function init() {
         LrcLib:     () => new LrcLibSource_1.LrcLibSource(),
         NetEase:    () => new NetEaseMusicSource_1.NetEaseMusicSource(),
         QQMusic:    () => new QQMusicSource_1.QQMusicSource(),
+        Genius:     () => new GeniusSource_1.GeniusSource(),
     };
-    const ENABLE_KEY = { Spotify:"enableSpotify", Musixmatch:"enableMusixmatch", LrcLib:"enableLrcLib", NetEase:"enableNetEase", QQMusic:"enableQQMusic" };
-    const DEFAULT_ORDER = ["Spotify","Musixmatch","LrcLib","NetEase","QQMusic"];
+    const ENABLE_KEY = { Spotify:"enableSpotify", Musixmatch:"enableMusixmatch", LrcLib:"enableLrcLib", NetEase:"enableNetEase", QQMusic:"enableQQMusic", Genius:"enableGenius" };
+    const DEFAULT_ORDER = ["Spotify","Musixmatch","LrcLib","NetEase","QQMusic","Genius"];
     const order = src.sourceOrder?.length ? src.sourceOrder : DEFAULT_ORDER;
     const activeNames = order.filter(n => src[ENABLE_KEY[n]] !== false && SOURCE_MAP[n]);
     for (const n of activeNames) lyricsFetcher.addSource(SOURCE_MAP[n]());
