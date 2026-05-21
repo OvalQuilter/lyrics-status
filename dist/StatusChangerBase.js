@@ -234,6 +234,8 @@ class StatusChangerBase {
             // Strip NetEase composer/arranger credit lines and instrumental placeholder
             mergedText = mergedText.replace(/作曲\s*[:：][^\n]*/g, '').replace(/作词\s*[:：][^\n]*/g, '').replace(/编曲\s*[:：][^\n]*/g, '').replace(/纯音乐[，,]请欣赏/g, '').replace(/此歌曲为没有填词的纯音乐/g, '').trim();
         }
+        // Fall back to song name if lyrics empty after filtering
+        if (!mergedText) template = '{song_name}';
         const durationSec = isFinite(ps.songDuration) ? +(ps.songDuration / 1000).toFixed(0) : 0;
         const progressSec = isFinite(ps.songProgress) ? +(ps.songProgress / 1000).toFixed(0) : 0;
         const vars = {
