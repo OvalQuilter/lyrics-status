@@ -230,6 +230,7 @@ class StatusChangerBase {
     }
 
     applyTemplate(template, mergedText, line, ps, lineIndex, totalLines) {
+        if (['纯音乐，请欣赏','纯音乐,请欣赏','此歌曲为没有填词的纯音乐'].some(p => (mergedText || '').trim() === p)) mergedText = '';
         const durationSec = isFinite(ps.songDuration) ? +(ps.songDuration / 1000).toFixed(0) : 0;
         const progressSec = isFinite(ps.songProgress) ? +(ps.songProgress / 1000).toFixed(0) : 0;
         const vars = {
