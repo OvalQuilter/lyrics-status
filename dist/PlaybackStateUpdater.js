@@ -34,7 +34,7 @@ class PlaybackStateUpdater {
         ps.isPlaying = json.is_playing;
         Debug_1.Debug.write(`[PlaybackStateUpdater] isPlaying:${json.is_playing} | song: "${json.item.name}" | progress: ${json.progress_ms}ms`);
         if (ps.songId !== json.item.id) {
-            ps.songName = json.item.name.replace(/ \(.+\)/, "");
+            ps.songName = json.item.name;
             ps.songAuthor = json.item.artists?.[0]?.name ?? "Unknown";
             ps.oldSongId = ps.songId; ps.songId = json.item.id; ps.songDuration = json.item.duration_ms;
             Debug_1.Debug.write(`[PlaybackStateUpdater] New song: "${ps.songName}" by ${ps.songAuthor}`);
