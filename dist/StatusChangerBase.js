@@ -255,6 +255,8 @@ class StatusChangerBase {
             const vals = [v, v.toUpperCase(), v.toLowerCase(), titleCase, clean, clean.toUpperCase(), clean.toLowerCase(), crop, crop.toUpperCase(), crop.toLowerCase()];
             SUFFIXES.forEach((s, i) => { out = out.replace(TEMPLATE_RE.get(k + s), vals[i]); });
         }
+        // Clean up orphaned leading punctuation when lyrics resolved to empty
+        out = out.replace(/^[\s\.,;:\-!?]+/, '').trim();
         return out;
     }
 
