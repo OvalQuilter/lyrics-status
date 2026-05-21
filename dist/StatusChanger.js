@@ -57,8 +57,20 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
     changeStatus() {
         this.autooffset.setLimit(Settings_1.Settings.timings.autooffset);
         const playbackState = this.playbackState;
-        if (playbackState.ended || !playbackState.hasLyrics || !playbackState.isPlaying || !playbackState.lyrics) {
+        if (playbackState.ended || !playbackState.isPlaying) {
             this._stopFlash(true);
+            return;
+        }
+        // No lyrics — send song name as status
+        if (!playbackState.hasLyrics || !playbackState.lyrics) {
+            this._stopFlash(false);
+            const songText = playbackState.songName || "";
+            if (songText && songText !== this._lastSentText) {
+                this._lastSentText = songText;
+                const adv = Settings_1.Settings.view.advanced;
+                const emoji = (adv && adv.enabled && adv.customEmoji) ? adv.customEmoji : null;
+                this.changeStatusRequest(songText, Settings_1.Settings.credentials.token, emoji, null, null);
+            }
             return;
         }
         const lyrics = playbackState.lyrics;
