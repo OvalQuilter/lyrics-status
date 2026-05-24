@@ -1,4 +1,4 @@
-// panel-ui.js â€” HTML builders and DOM rendering
+// panel-ui.js â€" HTML builders and DOM rendering
 // Depends on: panel-data.js (DEFAULTS, SOURCE_META, SECTION_DEFS, SECTION_BODIES keys,
 //             PRESENCE_OPTIONS, FLASH_STATE_OPTIONS, RESTORE_STATUS_OPTIONS)
 // Depends on: panel.js globals: settings, save()
@@ -27,9 +27,9 @@ const SECTION_BODIES = {
         h.row(h.label("Client ID"),       h.field(h.input("client-id","Spotify app client ID"))) +
         h.row(h.label("Client secret"),   h.field(h.input("client-secret","Spotify app client secret"))) +
         h.row(h.label("Redirect URI"),    h.field(h.input("custom-redirect-uri","Must match URI in Spotify app settings"))) +
-        h.row("", h.field(`<button id="btn-authorize" class="primary" style="width:100%;margin-bottom:8px">\u2192 Authorize Spotify</button><div class="auth-bottom">${h.check("use-external-auth-server","Use external auth server")}<span id="spotify-ok">\u2713 Authorized</span></div>`)),
+        h.row("", h.field(`<button id="btn-authorize" class="primary" style="width:100%;margin-bottom:8px">\u2192 Authorize Spotify</button><div class="auth-bottom">${h.check("use-external-auth-server","Use external auth server")}<span id="spotify-ok">\u2713 Authorized</span></div>`)),,
 
-    preview: () =>
+    display: () =>
         h.row("", h.field(h.check("enable-timestamp","Show playback timestamp"))) +
         h.row("", h.field(h.check("enable-label","Show label before lyrics"))) +
         h.row(h.label("Live preview"), h.field(`<span class="preview-badge" id="status-preview">[2:17] Song lyrics \u2014 La-la-la</span>`)) +
@@ -43,14 +43,12 @@ const SECTION_BODIES = {
             `<div id="style-alternate-interval-row">` +
                 h.row(h.label("Alternate interval"), h.inline(h.number("style-alternate-interval",500,60000,500) + h.muted("ms per style"))) +
             `</div>` +
-        `</div>`,
-
-    timing: () =>
+        `</div>`, +
+        h.divider() +
         h.row(h.label("Send offset (ms)"), h.inline(h.number("send-time-offset",-2000,5000,100) + h.ibtn("send-time-offset-help","Offset help"))) +
         h.row("", h.inline(h.check("enable-autooffset","Enable autooffset") + h.ibtn("autooffset-help","Autooffset help"))) +
-        h.row(h.label("Autooffset samples"), h.inline(h.number("autooffset",1,20,1) + h.muted("requests"))),
-
-    ratelimit: () =>
+        h.row(h.label("Autooffset samples"), h.inline(h.number("autooffset",1,20,1) + h.muted("requests"))), +
+        h.divider() +
         h.row("", h.field(h.check("enable-backoff","Auto backoff on rate limit"))) +
         h.indent(h.hint("Pauses sending for Discord\u2019s suggested retry window on 429.")) +
         h.row("", h.field(h.check("enable-min-interval","Minimum interval between updates"))) +
@@ -58,13 +56,7 @@ const SECTION_BODIES = {
         h.indent(h.hint("5000\u2009ms (5\u2009s) is a safe default.")) +
         h.row("", h.field(h.check("enable-merge-lines","Merge nearby lyric lines"))) +
         h.indent(h.row(h.inline(h.number("merge-window-ms",1000,30000,500) + h.muted("ms merge window")))) +
-        h.indent(h.hint("Lines within this window are joined into one status update.")),
-
-    restore: () =>
-        h.row("", h.field(h.check("restore-enabled","Enable status restore"))) +
-        h.row(h.label("Saved status"), `<div class="row-field" style="flex-direction:row;gap:8px;align-items:center"><span id="restore-status-display">Not set</span>${h.btn("btn-refresh-status","\u21BB Refresh")}${h.btn("btn-store-status","\u2713 Store")}</div>`) +
-        h.row(h.label("Restore delay"), h.inline(h.number("restore-delay-ms",0,60000,1000) + h.muted("ms after song ends"))) +
-        h.indent(h.hint("15\u2009000\u2009ms (15\u2009s) recommended to avoid rate limits on skips.")),
+        h.indent(h.hint("Lines within this window are joined into one status update.")),,
 
     gateway: () =>
         h.row("", h.inline(h.check("gateway-enabled","Use gateway (op\u00a03) instead of REST") + h.ibtn("gateway-help","Gateway help"))) +
@@ -77,9 +69,8 @@ const SECTION_BODIES = {
             `</div>`
         ) +
         h.row(h.label("GW min interval"), h.inline(h.number("gw-min-interval-ms",0,60000,500) + h.muted("ms between op\u00a03 sends"))) +
-        h.indent(h.hint("Throttles gateway sends. 0\u2009=\u2009only Discord\u2019s hard cap (5/20\u2009s). Default: 5000\u2009ms.")),
-
-    flash: () =>
+        h.indent(h.hint("Throttles gateway sends. 0\u2009=\u2009only Discord\u2019s hard cap (5/20\u2009s). Default: 5000\u2009ms.")), +
+        h.divider() +
         h.row("", h.inline(h.check("flash-enabled","Enable status flash") + h.ibtn("flash-help","Flash help"))) +
         h.row(h.label("Cycle states"),
             `<div class="row-field">` +
@@ -98,17 +89,34 @@ const SECTION_BODIES = {
             `</select>` +
             h.hint("Presence status to restore when playback stops.") +
             `</div>`
-        ),
+        ), +
+        h.divider() +
+        h.row("", h.inline(h.check("rp-enabled","Enable rich presence (type\u00a02)") + h.ibtn("rp-help","Rich Presence help"))) +
+        h.row("", h.field(`<small class="hint" id="rp-gw-warn" style="color:var(--amber);display:none">\u26a0 Gateway must be enabled for rich presence to work.</small>`)) +
+        h.row(h.label("App name"),        h.field(h.input("rp-app-name","e.g. Spotify") + h.hint(`Shown as \u201cListening to [App name]\u201d in Discord.`))) +
+        h.row(h.label("Details (line 1)"),h.field(`<textarea id="rp-details-template" class="full"></textarea>` + h.inline(h.hint("Top line. Same variables as custom status template.") + h.ibtn("custom-status-help","Template help")))) +
+        h.row(h.label("State (line 2)"),  h.field(h.input("rp-state-template","e.g. {song_author}") + h.hint("Artist/subtitle row."))) +
+        h.row("", h.field(h.check("rp-show-progress-bar","Show progress bar (uses timestamps)"))) +
+        h.row("", h.field(h.check("rp-show-album-art","Show album art (Spotify CDN)"))) +
+        `<div id="rp-album-art-url-row">` +
+            h.indent(h.row(h.label("Album art URL"), h.field(h.input("rp-album-art-url","Override URL (leave blank for auto)")))) +
+        `</div>` +
+        h.row(h.label("Button label"),   h.field(h.input("rp-button-label","Leave blank to hide button"))) +
+        h.row(h.label("Button URL"),     h.field(h.input("rp-button-url","https://...") + h.hint("Must start with http/https."))),,
 
-    updates: () =>
-        h.row("", h.field(h.check("enable-autoupdate","Automatic update checks"))),
-
-    sources: () =>
+    restore: () =>
+        h.row("", h.field(h.check("restore-enabled","Enable status restore"))) +
+        h.row(h.label("Saved status"), `<div class="row-field" style="flex-direction:row;gap:8px;align-items:center"><span id="restore-status-display">Not set</span>${h.btn("btn-refresh-status","\u21BB Refresh")}${h.btn("btn-store-status","\u2713 Store")}</div>`) +
+        h.row(h.label("Restore delay"), h.inline(h.number("restore-delay-ms",0,60000,1000) + h.muted("ms after song ends"))) +
+        h.indent(h.hint("15\u2009000\u2009ms (15\u2009s) recommended to avoid rate limits on skips.")), +
+        h.divider() +
         `<ul id="source-list"></ul>` +
         h.row(h.label("Chinese script"), h.field(
             `<select id="chinese-conversion"><option value="off">Off</option><option value="toTraditional">Simplified \u2192 Traditional</option><option value="toSimplified">Traditional \u2192 Simplified</option></select>` +
             h.hint("Converts Chinese lyrics at fetch time. Clear cache to reprocess existing songs.")
-        )),
+        )), +
+        h.divider() +
+        h.row("", h.field(h.check("enable-autoupdate","Automatic update checks"))),,
 };
 
 function renderSections() {
@@ -136,7 +144,6 @@ function renderSections() {
 let _lastSourceSnapshot = null;
 function renderSourceList() {
     const order = settings.sources?.sourceOrder || Object.keys(SOURCE_META);
-    // BUG 3 fix: snapshot built from sourceOrder, not Object.keys(SOURCE_META)
     const snapshot = order.join(",") + "|" + order.map(n => SOURCE_META[n] ? settings.sources[SOURCE_META[n].key] : "").join(",");
     if (snapshot === _lastSourceSnapshot) return;
     _lastSourceSnapshot = snapshot;
@@ -148,7 +155,6 @@ function renderSourceList() {
         const meta = SOURCE_META[name]; if (!meta) continue;
         const li = document.createElement("li");
         li.dataset.source = name; li.draggable = true;
-        // BUG 4 fix: pointer-events:none on child spans so e.target is always the li
         li.innerHTML = `<span class="drag-handle" style="pointer-events:none">\u2630</span><span class="source-name" style="pointer-events:none">${name}</span><span class="source-desc" style="pointer-events:none">${meta.desc}</span><span class="source-badge" style="pointer-events:none">${meta.badge}</span><input type="checkbox" ${settings.sources[meta.key]!==false?"checked":""} style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex-shrink:0">`;
         ul.appendChild(li);
     }

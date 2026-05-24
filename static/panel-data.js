@@ -11,6 +11,7 @@ const DEFAULTS = {
     restore: { enabled:true, savedStatus:null, delayMs:15000 },
     gateway: { enabled:false, presenceStatus:"online", minGwIntervalMs:5000 },
     statusFlash: { enabled:false, states:["online","idle","dnd"], intervalMs:500, restoreStatus:null },
+    richPresence: { enabled:false, appName:"Spotify", showAlbumArt:true, albumArtUrl:"", showProgressBar:true, buttonLabel:"", buttonUrl:"", detailsTemplate:"{lyrics}", stateTemplate:"{song_author}" },
 };
 
 const BINDINGS = [
@@ -45,6 +46,16 @@ const BINDINGS = [
     ["#gw-min-interval-ms",      "gateway.minGwIntervalMs",           "number"],
     ["#flash-enabled",           "statusFlash.enabled",               "checkbox"],
     ["#flash-interval-ms",       "statusFlash.intervalMs",            "number"],
+    // Rich Presence
+    ["#rp-enabled",              "richPresence.enabled",              "checkbox"],
+    ["#rp-app-name",             "richPresence.appName",              "text"],
+    ["#rp-details-template",     "richPresence.detailsTemplate",      "textarea"],
+    ["#rp-state-template",       "richPresence.stateTemplate",        "text"],
+    ["#rp-show-album-art",       "richPresence.showAlbumArt",         "checkbox"],
+    ["#rp-album-art-url",        "richPresence.albumArtUrl",          "text"],
+    ["#rp-show-progress-bar",    "richPresence.showProgressBar",      "checkbox"],
+    ["#rp-button-label",         "richPresence.buttonLabel",          "text"],
+    ["#rp-button-url",           "richPresence.buttonUrl",            "text"],
 ];
 
 const SOURCE_META = {
@@ -95,18 +106,17 @@ Cropped to <strong>128 Unicode code points</strong>.`
         title: "Status flash",
         html: `Cycles your Discord presence orb color (\uD83D\uDFE2 online / \uD83C\uDF19 idle / \u26D4 dnd) on an interval while lyrics are playing.<br><br>Select which states to include in the cycle using the buttons. At least one must be selected.<br><br><strong>Interval:</strong> minimum ~300&nbsp;ms. Below that Discord clients may not visually update fast enough to see the effect. 400&ndash;600&nbsp;ms is a good range.<br><br><strong>Restore status:</strong> when playback stops, presence returns to this value. Defaults to your gateway presence setting.<br><br>Works via Gateway (op&nbsp;3) when connected, or REST as fallback. Gateway flash sends bypass the 5/20&nbsp;s rate-limit tracker.`
     },
+    "#rp-help": {
+        title: "Rich Presence",
+        html: `Shows lyrics as a Discord rich presence activity (type 2 &ldquo;Listening to&rdquo;).<br><br>Requires <strong>Gateway</strong> to be enabled &mdash; rich presence is not possible via REST.<br><br>Uses the same template variables as the custom status field. <strong>Details</strong> maps to the top line; <strong>State</strong> maps to the artist/subtitle line.<br><br>The progress bar is derived from song start/end timestamps. Album art is fetched from Spotify&rsquo;s CDN automatically.`
+    },
 };
 
 const SECTION_DEFS = [
-    ["\uD83D\uDD11", "Authentication",  "Discord and Spotify credentials, stored locally.",        "auth",      true],
-    ["\uD83C\uDFA4", "Status Preview",  "What appears in your Discord status while music plays.", "preview",   true],
-    ["\u23F1",       "Timing",          "Fine-tune when your status changes relative to lyrics.",  "timing",    false],
-    ["\uD83D\uDEE1", "Rate Limiting",   "Keep within Discord\u2019s update limits.",              "ratelimit", false],
-    ["\u267B",       "Restore Status",  "Restore your original status after playback ends.",       "restore",   false],
-    ["\u26A1",       "Gateway",         "WebSocket updates (op 3) with automatic iOS REST sync.",  "gateway",   false],
-    ["\uD83D\uDCA5", "Status Flash",    "Cycle presence orb colors while lyrics are playing.",     "flash",     false],
-    ["\uD83D\uDD04", "Updates",         "Automatic update checks.",                                "updates",   false],
-    ["\uD83C\uDFB5", "Lyrics Sources",  "Drag to reorder. Changes take effect on restart.",       "sources",   true],
+    ["\uD83D\uDD11", "Authentication",   "Discord and Spotify credentials, stored locally.",                "auth",    true],
+    ["\uD83C\uDFA4", "Status Display",   "What appears in your Discord status, timing, and rate limiting.", "display", true],
+    ["\u26A1",       "Gateway",          "WebSocket updates, status flash, and rich presence.",             "gateway", false],
+    ["\u267B",       "Restore & Sources","Status restore, lyrics sources, and updates.",                    "restore", false],
 ];
 
 // BUG 4 fix: child spans use pointer-events:none (see index.html CSS or inline on li render)
