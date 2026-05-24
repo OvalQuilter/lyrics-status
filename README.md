@@ -1,6 +1,6 @@
 ﻿# lyrics-status
 
-> Fork of [OvalQuilter/lyrics-status](https://github.com/OvalQuilter/lyrics-status) (v3.0.7).
+> Fork of [OvalQuilter/lyrics-status](https://github.com/OvalQuilter/lyrics-status) (v3.0.7). The original repo is no longer maintained — this is the actively maintained continuation.
 
 ![Terminal](res/screenie2.png)
 
