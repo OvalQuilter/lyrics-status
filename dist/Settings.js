@@ -19,13 +19,16 @@ class Settings {
             if (typeof this[k] === "object" && !Array.isArray(this[k])) {
                 this[k] = { ...this[k], ...d[k] };
                 if (k === "view" && d[k].advanced) this[k].advanced = { ...this.view.advanced, ...d[k].advanced };
+                if (k === "richPresence") this[k] = { ...Settings.richPresence, ...d[k] };
             } else this[k] = d[k];
         }
     }
 }
-Settings._KEYS = ["credentials","view","timings","update","rateLimit","sources","cache","chineseConversion","restore","gateway","statusFlash"];
+Settings._KEYS = ["credentials","view","timings","update","rateLimit","sources","cache","chineseConversion","restore","gateway","statusFlash","richPresence"];
 exports.Settings = Settings;
-Settings.credentials = { token:"", cookies:"", musixmatchToken:"", spotifyWebToken:"", spotifyWebTokenExpiry:0, clientID:"", clientSecret:"", useExternalAuthServer:"", code:"", refreshToken:"", uuid:"", customRedirectUri:"" };
+// useDealer: true = use Spotify dealer WebSocket push (instant track change, no polling overhead)
+//            false = fall back to 5s REST polling (original behaviour)
+Settings.credentials = { token:"", cookies:"", musixmatchToken:"", spotifyWebToken:"", spotifyWebTokenExpiry:0, clientID:"", clientSecret:"", useExternalAuthServer:"", code:"", refreshToken:"", uuid:"", customRedirectUri:"", useDealer:true };
 Settings.view = { timestamp:true, label:true, advanced:{ enabled:false, customEmoji:"\uD83C\uDFB6", customStatus:"[{timestamp}] [{lyrics}]", unicodeStyle:"none", styleAlternateEnabled:false, styleAlternateIntervalMs:3000 } };
 Settings.timings = { sendTimeOffset:500, enableAutooffset:true, autooffset:3 };
 Settings.update = { enableAutoupdate:true };
@@ -35,8 +38,5 @@ Settings.cache = { path:"", lyricsTtlDays:30, emptyTtlDays:7, errorTtlHours:1, m
 Settings.chineseConversion = "off";
 Settings.restore = { enabled:true, savedStatus:null, delayMs:15000 };
 Settings.gateway = { enabled:false, presenceStatus:"online", minGwIntervalMs:5000 };
-// statusFlash: cycles presence status (orb color) while lyrics are playing
-// states: array of "online"|"idle"|"dnd" to cycle through
-// intervalMs: ms per state (min ~300ms recommended)
-// restoreStatus: presence status to restore when not playing (null = use gateway.presenceStatus)
 Settings.statusFlash = { enabled:false, states:["online","idle","dnd"], intervalMs:2000, restoreStatus:null };
+Settings.richPresence = { enabled:false, appName:"Spotify", showAlbumArt:true, albumArtUrl:"", showProgressBar:true, buttonLabel:"", buttonUrl:"", detailsTemplate:"{lyrics}", stateTemplate:"{song_author}" };

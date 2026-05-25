@@ -16,6 +16,7 @@ class GatewayClient {
         this.connected = false; this._reconnecting = false;
         this._destroyed = false; this._ackReceived = false; this._presenceSentTimes = [];
         this._wsInstance = 0; this._hbGeneration = 0; this._lastActivity = null; this._flashStatus = null;
+        this._lastRichPresenceActivity = null;
         this._reconnectDelay = 1000;
         this.onReady = null;
     }
@@ -29,8 +30,6 @@ class GatewayClient {
         this._ws = null;
         ++this._wsInstance;
         try { ws?.terminate(); } catch (_) {}
-        // Schedule directly here, bypassing _scheduleReconnect guard, then set _reconnecting=true
-        // so the close handler triggered by terminate() cannot also schedule a reconnect (#2/#25)
         if (!this._destroyed) {
             this._reconnecting = true;
             let delay;
@@ -116,7 +115,6 @@ class GatewayClient {
     _startHB(interval) {
         this._clearHB();
         this._ackReceived = true;
-        // Fix #1: use separate _hbGeneration counter so _wsInstance (socket identity) is not stomped
         const gen = ++this._hbGeneration;
         this._hbTimeout = setTimeout(() => {
             this._hbTimeout = null;
@@ -150,19 +148,19 @@ class GatewayClient {
     flashPresence(status, text, emoji) {
         if (!this.connected) return false;
         this._flashStatus = status;
-        let activity = null;
+        let type4 = null;
         if (typeof text === "string" && text !== "") {
-            activity = { type: 4, name: "Custom Status", state: text, emoji: emoji ? { name: emoji } : null };
+            type4 = { type: 4, name: "Custom Status", state: text, emoji: emoji ? { name: emoji } : null };
         } else if (text == null && this._lastActivity) {
-            activity = this._lastActivity;
+            type4 = this._lastActivity;
         }
-        const activities = activity ? [activity] : [];
+        const activities = [type4, this._lastRichPresenceActivity].filter(Boolean);
         this._send({ op: 3, d: { since: status === "idle" ? Date.now() : 0, afk: status === "idle", status, activities } });
-        Debug_1.Debug.write("[GatewayClient] flashPresence " + status + " | " + (activity ? activity.state : "none"));
+        Debug_1.Debug.write("[GatewayClient] flashPresence " + status + " | " + (type4 ? type4.state : "none"));
         return true;
     }
     clearFlashStatus() { this._flashStatus = null; }
-    clearLastActivity() { this._lastActivity = null; }
+    clearLastActivity() { this._lastActivity = null; this._lastRichPresenceActivity = null; }
 
     setCustomStatus(text, emoji) {
         if (!this.connected) return false;
@@ -177,9 +175,10 @@ class GatewayClient {
         this._presenceSentTimes.push(now);
         const pref = Settings_1.Settings.gateway?.presenceStatus || "online";
         const status = this._flashStatus || (pref === "mobile" ? "online" : pref);
-        const activity = { type: 4, name: "Custom Status", state: text || "", emoji: emoji ? { name: emoji } : null };
-        this._lastActivity = activity;
-        this._send({ op: 3, d: { since: status === "idle" ? now : 0, afk: status === "idle", status, activities: [activity] } });
+        const type4 = { type: 4, name: "Custom Status", state: text || "", emoji: emoji ? { name: emoji } : null };
+        this._lastActivity = type4;
+        const activities = [type4, this._lastRichPresenceActivity].filter(Boolean);
+        this._send({ op: 3, d: { since: status === "idle" ? now : 0, afk: status === "idle", status, activities } });
         return true;
     }
 }

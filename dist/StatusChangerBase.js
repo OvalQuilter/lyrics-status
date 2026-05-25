@@ -31,7 +31,7 @@ const _STYLES = {
     sans_bold:        [0x1D5EE - 0x61, 0x1D5D4 - 0x41, null],
     sans_italic:      [0x1D622 - 0x61, 0x1D608 - 0x41, null],
     sans_bold_italic: [0x1D656 - 0x61, 0x1D63C - 0x41, null],
-    double_struck:    [0x1D552 - 0x61, 0x1D538 - 0x41, null],
+    double_struck:    [0x1D552 - 0x61, 0x1D538 - 0x41, { 0x43: "\u2102", 0x48: "\u210D", 0x4E: "\u2115", 0x50: "\u2119", 0x51: "\u211A", 0x52: "\u211D", 0x5A: "\u2124" }],
     fraktur:          [0x1D51E - 0x61, 0x1D504 - 0x41, null],
     fraktur_bold:     [0x1D586 - 0x61, 0x1D56C - 0x41, null],
 };
@@ -129,11 +129,12 @@ class StatusChangerBase {
             } else {
                 this._gwRateLimitSkips = (this._gwRateLimitSkips || 0) + 1;
                 if (this._gwRateLimitSkips >= 5) { this._gwRateLimitSkips = 0; this._iOSSyncPending = null; Debug_1.Debug.write('[StatusChanger] GW rate-limit skip limit -- cleared iOSSyncPending'); }
-                // GW skipped -- roll back so next tick retries this line
+                // FIX RL1: roll back sentLines for retry, but stamp _lastSentAt=now so the
+                // minInterval guard in changeStatus() throttles re-entry instead of tight-looping
                 if (mergedLines) for (const ml of mergedLines) this.sentLines.delete(ml);
                 this._lastSentText = "";
-                this._lastSentAt = 0;
-                Debug_1.Debug.write('[StatusChanger] GW skipped -- rolled back sentLines for retry');
+                this._lastSentAt = Date.now();
+                Debug_1.Debug.write('[StatusChanger] GW skipped -- rolled back sentLines, throttling retry');
             }
             return Promise.resolve();
         }

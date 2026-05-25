@@ -7,6 +7,7 @@ class PlaybackState {
         this.songDuration = 0; this.songProgress = 0;
         this.lyrics = null; this.currentLine = null;
         this.hasLyrics = false; this.isPlaying = false; this.lyricsSource = "";
+        this.albumArtUrl = ""; this.songStartEpoch = 0;
     }
     // Bug 8 fix: require songDuration > 0 to prevent ended=true on init or mid-song-change frame
     get ended() { return this.songDuration > 0 && this.songDuration < this.songProgress; }

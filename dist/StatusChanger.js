@@ -7,6 +7,14 @@ const StatusChangerBase_1 = require("./StatusChangerBase");
 
 const { VALID_FLASH_STATES, applyUnicodeStyle, resolveUnicodeStyle, cpLen, sanitizeLyric } = StatusChangerBase_1;
 
+// Convert Spotify CDN URL to spotify: image key format accepted by Discord op3 activities
+// https://i.scdn.co/image/<hash> → spotify:<hash>
+function _toSpotifyImageKey(url) {
+    if (!url) return null;
+    const m = url.match(/\/image\/([a-f0-9]+)$/i);
+    return m ? `spotify:${m[1]}` : null;
+}
+
 class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
 
     _flashSend(status, label) {
@@ -54,6 +62,32 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
         this._flashSend(base, "Restore");
     }
 
+    _buildRichPresence(line, ps) {
+        const rp = Settings_1.Settings.richPresence;
+        if (!rp || !rp.enabled) return null;
+        const details = this.applyTemplate(rp.detailsTemplate || "{lyrics}", sanitizeLyric(line.text || ""), line, ps, null, null);
+        const state   = this.applyTemplate(rp.stateTemplate   || "{song_author}", sanitizeLyric(line.text || ""), line, ps, null, null);
+        const activity = {
+            type: 2,
+            name: rp.appName || "Spotify",
+            details: details || undefined,
+            state:   state   || undefined,
+        };
+        if (rp.showProgressBar && ps.songStartEpoch > 0) {
+            activity.timestamps = { start: ps.songStartEpoch, end: ps.songStartEpoch + (ps.songDuration || 0) };
+        }
+        if (rp.showAlbumArt) {
+            // Use override URL if set, otherwise auto-convert Spotify CDN URL to spotify: key
+            const imageUrl = rp.albumArtUrl || ps.albumArtUrl;
+            const imageKey = _toSpotifyImageKey(imageUrl) || imageUrl || null;
+            if (imageKey) activity.assets = { large_image: imageKey, small_text: ps.lyricsSource || undefined };
+        }
+        if (rp.buttonLabel && rp.buttonUrl) {
+            activity.buttons = [{ label: rp.buttonLabel, url: rp.buttonUrl }];
+        }
+        return activity;
+    }
+
     changeStatus() {
         this.autooffset.setLimit(Settings_1.Settings.timings.autooffset);
         const playbackState = this.playbackState;
@@ -61,7 +95,6 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
             this._stopFlash(true);
             return;
         }
-        // No lyrics — send song name as status
         if (!playbackState.hasLyrics || !playbackState.lyrics) {
             this._stopFlash(false);
             const songText = playbackState.songName || "";
@@ -83,7 +116,6 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
         if (adv.styleAlternateEnabled) {
             const b = Math.floor(now / (adv.styleAlternateIntervalMs > 0 ? adv.styleAlternateIntervalMs : 3000));
             if (b !== this._lastStyleBucket) { this._lastStyleBucket = b; _styleBucketChanged = true; }
-            // FIX: don't clear _lastSentText - TUI reads it and would show blank for up to 1s
         }
 
         const { style: _uStyle } = resolveUnicodeStyle(adv, now);
@@ -93,7 +125,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
         const { enableBackoff, enableMinInterval, minIntervalMs, enableMergeLines, mergeWindowMs } = Settings_1.Settings.rateLimit;
         if (!usingGateway && enableBackoff && now < this._rateLimitedUntil) return;
         const minInterval = enableMinInterval ? (minIntervalMs || 5000) : 0;
-        if (!usingGateway && minInterval > 0 && now - this._lastSentAt < minInterval) return;
+        if (minInterval > 0 && now - this._lastSentAt < minInterval) return;
         const songProgress = playbackState.songProgress;
         const lines = lyrics.lines;
         const offset = Settings_1.Settings.timings.enableAutooffset
@@ -165,6 +197,9 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                     for (const ml of mergedLines) { if (!this.sentLines.has(ml)) this.sentLines.add(ml); }
                 }
                 if (Settings_1.Settings.gateway && Settings_1.Settings.gateway.enabled) this._iOSSyncPending = { t: statusText, em: emoji };
+                if (usingGateway && this._gateway) {
+                    this._gateway._lastRichPresenceActivity = this._buildRichPresence(line, playbackState);
+                }
                 this.changeStatusRequest(statusText, Settings_1.Settings.credentials.token, emoji, mergedLines, line);
                 break;
             }

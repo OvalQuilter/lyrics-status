@@ -7,7 +7,60 @@ const ExternalAuthServerAPI_1 = require("./ExternalAuthServerAPI");
 const Debug_1 = require("./Debug");
 
 class PlaybackStateUpdater {
-    constructor(playbackState, lyricsFetcher) { this.playbackState = playbackState; this.lyricsFetcher = lyricsFetcher; }
+    constructor(playbackState, lyricsFetcher) {
+        this.playbackState = playbackState;
+        this.lyricsFetcher = lyricsFetcher;
+    }
+
+    /**
+     * Handle a player_state payload pushed from the Spotify dealer WebSocket.
+     * This is the primary update path when useDealer=true. Also called as a
+     * one-shot fetch after dealer connects to populate initial state.
+     */
+    async applyDealerState(playerState) {
+        const ps = this.playbackState;
+        if (!playerState) return;
+
+        const track = playerState.track;
+        if (!track) {
+            ps.isPlaying = playerState.is_playing ?? false;
+            return;
+        }
+
+        const progressMs = parseInt(playerState.position_as_of_timestamp || "0", 10);
+        const t0 = Date.now();
+        ps.isPlaying = playerState.is_playing ?? false;
+        ps.songProgress = progressMs + (Date.now() - t0);
+
+        const trackId = track.uri?.split(":track:")[1] || track.id || "";
+        Debug_1.Debug.write(`[PlaybackStateUpdater][Dealer] isPlaying:${ps.isPlaying} | track: "${track.name}" | progress: ${progressMs}ms`);
+
+        if (ps.songId !== trackId) {
+            ps.songName   = track.name || "";
+            ps.songAuthor = track.artists?.[0]?.name || track.artist?.name || "Unknown";
+            ps.oldSongId  = ps.songId;
+            ps.songId     = trackId;
+            ps.songDuration = parseInt(track.duration || track.duration_ms || "0", 10);
+            ps.albumArtUrl  = track.album?.images?.[0]?.url || track.image_url || "";
+            ps.songStartEpoch = Date.now() - progressMs;
+            Debug_1.Debug.write(`[PlaybackStateUpdater][Dealer] New track: "${ps.songName}" by ${ps.songAuthor}`);
+            ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, trackId);
+            ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
+        } else if (!ps.lyrics) {
+            this.lyricsFetcher.lastAttemptedFor = "";
+            ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, trackId);
+            ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
+        } else if (this.lyricsFetcher.lastAttemptedFor !== `${ps.songName}\0${ps.songAuthor}`) {
+            ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, trackId);
+            ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
+        }
+    }
+
+    /**
+     * REST polling update — original behaviour.
+     * Used when useDealer=false, or as a periodic sync/fallback when dealer is connected
+     * (runs every 30s in dealer mode to keep progress in sync).
+     */
     async update() {
         Debug_1.Debug.write(`[PlaybackStateUpdater] Polling Spotify API...`);
         const res = await fetch("https://api.spotify.com/v1/me/player", {
@@ -37,9 +90,10 @@ class PlaybackStateUpdater {
             ps.songName = json.item.name;
             ps.songAuthor = json.item.artists?.[0]?.name ?? "Unknown";
             ps.oldSongId = ps.songId; ps.songId = json.item.id; ps.songDuration = json.item.duration_ms;
+            ps.albumArtUrl = json.item.album?.images?.[0]?.url || "";
+            ps.songStartEpoch = Date.now() - (json.progress_ms || 0);
             Debug_1.Debug.write(`[PlaybackStateUpdater] New song: "${ps.songName}" by ${ps.songAuthor}`);
             ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id);
-            // FIX: removed duplicate ps.currentLine = null
             ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
             Debug_1.Debug.write(`[PlaybackStateUpdater] Lyrics: ${ps.hasLyrics} | source: ${ps.lyricsSource}`);
         } else if (!ps.lyrics) {
@@ -49,7 +103,6 @@ class PlaybackStateUpdater {
             ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
             Debug_1.Debug.write(`[PlaybackStateUpdater] Re-fetch result: ${ps.hasLyrics} | source: ${ps.lyricsSource}`);
         } else if (this.lyricsFetcher.lastAttemptedFor !== `${ps.songName}\0${ps.songAuthor}`) {
-            // FIX: use \0 separator to match LyricsFetcher's lastAttemptedFor format (was name+author concat = never matched)
             ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id);
             ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
         }

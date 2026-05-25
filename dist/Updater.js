@@ -5,23 +5,24 @@ const { join, resolve } = require("path");
 const { existsSync, rmSync, mkdirSync, readdirSync, copyFileSync, createWriteStream, readFileSync } = require("fs");
 const { Readable } = require("stream");
 const StreamZip = require("node-stream-zip");
+const Debug_1 = require("./Debug");
 
 const EXCLUDE = ["settings.json","cache",".git","temp","log.txt","node_modules","package-lock.json"];
 
 class Updater {
     static async tryUpdate() {
-        console.log("Checking for updates...");
+        Debug_1.Debug.write("[Updater] Checking for updates...");
         if (await Updater.checkUpdate()) {
-            console.log("Found an update. Starting download...");
+            Debug_1.Debug.write("[Updater] Found an update. Starting download...");
             await Updater.forceUpdate();
-            console.log("Updated! Run \"npm install\" & restart.");
+            Debug_1.Debug.write("[Updater] Updated! Run npm install & restart.");
             process.exit(0);
         }
     }
     static async checkUpdate() {
         // Bug 3 fix: use fork URL, not upstream
-        const remote = await (await fetch("https://github.com/RamenFighter03/lyrics-status/raw/refs/heads/v3/VERSION")).text();
-        return readFileSync(join(__dirname, "../VERSION"), "utf-8") !== remote;
+        const remote = (await (await fetch("https://github.com/RamenFighter03/lyrics-status/raw/refs/heads/v3/VERSION")).text()).trim();
+        return readFileSync(join(__dirname, "../VERSION"), "utf-8").trim() !== remote;
     }
     static async forceUpdate() {
         const tmp = join(__dirname, "../temp");

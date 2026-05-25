@@ -15,7 +15,6 @@ function mergeSettings(parsed) {
     const s = { ...DEFAULTS, ...parsed };
     s.credentials = { ...DEFAULTS.credentials, ...(parsed.credentials||{}) };
     s.view        = { ...DEFAULTS.view,        ...(parsed.view||{}) };
-    // spread covers all advanced fields; no redundant explicit lines needed (BUG 2 / dead code fix)
     s.view.advanced = { ...DEFAULTS.view.advanced, ...(parsed.view?.advanced||{}) };
     s.timings     = { ...DEFAULTS.timings,     ...(parsed.timings||{}) };
     s.update      = { ...DEFAULTS.update,      ...(parsed.update||{}) };
@@ -26,10 +25,10 @@ function mergeSettings(parsed) {
     s.restore     = { ...DEFAULTS.restore,     ...(parsed.restore||{}) };
     s.gateway     = { ...DEFAULTS.gateway,     ...(parsed.gateway||{}) };
     s.statusFlash = { ...DEFAULTS.statusFlash, ...(parsed.statusFlash||{}) };
-    // BUG 9 fix: always re-assign states after spread to guard against corrupt non-array value
     s.statusFlash.states = Array.isArray(parsed.statusFlash?.states) && parsed.statusFlash.states.length
         ? parsed.statusFlash.states.slice()
         : DEFAULTS.statusFlash.states.slice();
+    s.richPresence = { ...DEFAULTS.richPresence, ...(parsed.richPresence||{}) };
     return s;
 }
 
@@ -68,7 +67,6 @@ function connectWS() {
     ws.onmessage = ({ data }) => {
         try {
             const parsed = JSON.parse(data);
-            // BUG 2 fix: only overwrite local settings if we have no dirty unsaved changes
             if (!_dirty) {
                 settings = mergeSettings(parsed);
                 applyToDom();
@@ -102,7 +100,6 @@ function toast(msg, type="info", duration=2500) {
 
 const fmtTime = ms => { const s = Math.round(ms/1000); return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
 
-// BUG 5 fix: extracted helper so both applyToDom and bindAll share one implementation
 function syncAdvancedSwt(on) {
     const advBox = document.getElementById("advanced-swt");
     if (advBox) advBox.classList.toggle("show", on);
@@ -161,6 +158,18 @@ function updateStyleAlternateIntervalVisibility() {
     row.style.display = settings.view?.advanced?.styleAlternateEnabled ? "" : "none";
 }
 
+function updateRpGwWarn() {
+    const el = document.getElementById("rp-gw-warn");
+    if (!el) return;
+    el.style.display = (settings.richPresence?.enabled && !settings.gateway?.enabled) ? "" : "none";
+}
+
+function updateRpAlbumArtRow() {
+    const row = document.getElementById("rp-album-art-url-row");
+    if (!row) return;
+    row.style.display = settings.richPresence?.showAlbumArt ? "none" : "";
+}
+
 function applyToDom() {
     try {
         for (const [sel, path, type] of BINDINGS) {
@@ -171,14 +180,14 @@ function applyToDom() {
             if (type === "checkbox") el.checked = !!val;
             else el.value = val;
         }
-        syncAdvancedSwt(!!settings.view?.advanced?.enabled); // BUG 5 fix: use shared helper
+        syncAdvancedSwt(!!settings.view?.advanced?.enabled);
         const ok = document.getElementById("spotify-ok");
         if (ok) ok.classList.toggle("show", !!(settings.credentials?.refreshToken||settings.credentials?.code));
         updateSpotifyTokenStatus(); updateRestoreDisplay(); updatePreview(); updatePresenceToggle();
         updateFlashStateToggle(); updateFlashRestoreSelect();
         renderSourceList(); updateStyleAlternateIntervalVisibility();
+        updateRpGwWarn(); updateRpAlbumArtRow();
     } catch(e) { console.error("applyToDom:", e); }
-    // BUG 5 fix: loaded=true only on success path, moved inside try
     loaded = true;
 }
 
@@ -189,16 +198,17 @@ function bindAll() {
         if (type === "checkbox") {
             el.addEventListener("change", () => {
                 setPath(settings, path, el.checked);
-                if (sel === "#enable-advanced-swt") syncAdvancedSwt(el.checked); // BUG 5 fix: shared helper
+                if (sel === "#enable-advanced-swt") syncAdvancedSwt(el.checked);
                 if (sel === "#style-alternate-enabled") updateStyleAlternateIntervalVisibility();
                 if (sel==="#enable-timestamp"||sel==="#enable-label") updatePreview();
+                if (sel==="#rp-enabled"||sel==="#gateway-enabled") updateRpGwWarn();
+                if (sel==="#rp-show-album-art") updateRpAlbumArtRow();
                 _dirty = true; save();
             });
         } else if (type === "select") {
             el.addEventListener("change", () => { setPath(settings, path, el.value); _dirty = true; save(); });
         } else if (type === "number") {
             el.addEventListener("input", () => {
-                // BUG 6 fix: clamp to input min/max before saving
                 let v = parseFloat(el.value);
                 if (isNaN(v)) return;
                 const mn = el.min !== "" ? parseFloat(el.min) : -Infinity;
@@ -263,7 +273,6 @@ function showModal(title, html) {
 }
 
 function btnFlash(btn, orig, cls, text, ms=2000) {
-    // removed redundant btn.disabled=false — withBtnSpinner already re-enables
     btn.classList.remove("success","danger"); btn.classList.add(cls); btn.textContent=text;
     setTimeout(()=>{ btn.classList.remove(cls); btn.textContent=orig; }, ms);
 }
@@ -284,7 +293,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     document.getElementById("check-token")?.addEventListener("click", function() {
-        // BUG 7 fix: button disabled on click prevents double-click origRef capture issue
         withBtnSpinner(this, (orig, reset) => {
             fetch("https://discordapp.com/api/v8/users/@me", { headers:{ Authorization:settings.credentials.token } })
                 .then(r => { btnFlash(this,orig,r.ok?"success":"danger",r.ok?"\u2713 Valid":"\u2717 Invalid",3000); toast(r.ok?"Discord token is valid":"Discord token is invalid",r.ok?"success":"error"); })
@@ -304,7 +312,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const token=settings.credentials?.token;
         if(!token){ toast("No Discord token set","error"); return; }
         withBtnSpinner(this, (orig, reset) => {
-            // inlined fetchDiscordStatus (Step 5)
             fetch("https://discordapp.com/api/v8/users/@me/settings", { headers:{ Authorization:token } })
                 .then(r => { if(!r.ok) throw r.status; return r.json(); })
                 .then(j => {
@@ -326,7 +333,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById("btn-store-status")?.addEventListener("click", function() {
         const origRef = this.textContent;
-        // BUG 7 fix: withBtnSpinner disables button immediately, preventing double-click origRef="…"
         const persist = s => {
             if (!settings.restore) settings.restore = {};
             settings.restore.savedStatus = s?.text ? s : null;
@@ -341,7 +347,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const token = settings.credentials?.token;
         if (!token) { toast("No Discord token set","error"); return; }
         withBtnSpinner(this, (orig, reset) => {
-            // inlined fetchDiscordStatus (Step 5)
             fetch("https://discordapp.com/api/v8/users/@me/settings", { headers:{ Authorization:token } })
                 .then(r => { if(!r.ok) throw r.status; return r.json(); })
                 .then(j => persist(j?.custom_status))
@@ -410,7 +415,6 @@ document.addEventListener("DOMContentLoaded", () => {
             .catch(() => {});
     }
 
-    // Poll settings for token + hook into WS updates for song info
     const _origApply = typeof applyToDom === "function" ? applyToDom : null;
 
     function onSettingsUpdate() {
@@ -422,7 +426,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Patch applyToDom to piggyback profile updates
     if (typeof window !== "undefined") {
         const _orig = window.applyToDom;
         if (typeof _orig === "function") {
@@ -430,12 +433,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Poll for song name from WS status display via a shared variable if available,
-    // or just show a static "playing" indicator driven by the EQ
-    // We expose a global for index.js TUI to optionally update
     window._setNowPlaying = updateSongDisplay;
 
-    // On load, check immediately once settings exist
     document.addEventListener("DOMContentLoaded", function() {
         setTimeout(function poll() {
             if (typeof settings !== "undefined") onSettingsUpdate();
