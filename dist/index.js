@@ -1,7 +1,5 @@
 "use strict";
-require("./instrument");
 Object.defineProperty(exports, "__esModule", { value: true });
-const Sentry = require("@sentry/node");
 const LyricsFetcher_1 = require("./LyricsFetcher");
 const CacheStore_1 = require("./CacheStore");
 const SpotifySource_1 = require("./Sources/SpotifySource");
@@ -14,6 +12,7 @@ const PlaybackStateUpdater_1 = require("./PlaybackStateUpdater");
 const PlaybackState_1 = require("./PlaybackState");
 const StatusChanger_1 = require("./StatusChanger");
 const GatewayClient_1 = require("./GatewayClient");
+const SpotifyDealerClient_1 = require("./SpotifyDealerClient");
 const Debug_1 = require("./Debug");
 const Server_1 = require("./Panel/Server");
 const Settings_1 = require("./Settings");
@@ -62,6 +61,49 @@ function init() {
     gatewayClient.onReady = () => statusChanger._onGatewayReady();
     gatewayClient.connect();
 
+    // --- Dealer WS or REST polling setup ---
+    const useDealer = Settings_1.Settings.credentials.useDealer !== false && !!Settings_1.Settings.credentials.cookies;
+    let dealerClient = null;
+    let _dealerConnected = false;
+
+    if (useDealer) {
+        Debug_1.Debug.write("[init] Dealer mode enabled — starting Spotify dealer WebSocket");
+        dealerClient = new SpotifyDealerClient_1.SpotifyDealerClient();
+
+        // On each push from dealer, apply state immediately
+        dealerClient.onPlayerState = (playerState) => {
+            playbackStateUpdater.applyDealerState(playerState).catch(e =>
+                Debug_1.Debug.write(`[Dealer] applyDealerState error: ${e.stack || e}`)
+            );
+        };
+
+        dealerClient.onReady = () => {
+            _dealerConnected = true;
+            // Fetch initial state via REST once on connect so we don't wait for next push
+            playbackStateUpdater.update().catch(e =>
+                Debug_1.Debug.write(`[Dealer] Initial REST sync error: ${e.stack || e}`)
+            );
+        };
+
+        dealerClient.connect();
+
+        // Periodic REST sync in dealer mode: every 30s to keep progress accurate
+        // and as a safety net if dealer misses a pause/resume event
+        setInterval(() => {
+            playbackStateUpdater.update().catch(e =>
+                Debug_1.Debug.write(`[PlaybackStateUpdater][dealer-sync] Error: ${e.stack || e}`)
+            );
+        }, 30000);
+
+        Debug_1.Debug.write("[init] Dealer mode: REST polling suppressed (30s sync only)");
+    } else {
+        // Original 5s REST polling
+        Debug_1.Debug.write("[init] Dealer mode disabled — using 5s REST polling");
+        setInterval(() => playbackStateUpdater.update().catch(e =>
+            Debug_1.Debug.write(`[PlaybackStateUpdater] Unhandled error: ${e.stack || e}`)
+        ), 5000);
+    }
+
     if (Settings_1.Settings.restore?.enabled) {
         const token = Settings_1.Settings.credentials.token;
         if (token) {
@@ -75,8 +117,6 @@ function init() {
                 .finally(() => { statusChanger._captureReady = true; Debug_1.Debug.write(`[init] Capture gate opened`); });
         } else { statusChanger._captureReady = true; Debug_1.Debug.write(`[init] No token for capture — gate opened immediately`); }
     }
-
-    setInterval(() => playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater] Unhandled error: ${e.stack || e}`)), 5000);
 
     let _now = Date.now(), _songEndedFired = false, _lastKnownSongId = "", _wasPlaying = false, _lastProgress = 0;
     setInterval(() => {
@@ -94,7 +134,6 @@ function init() {
         }
         if (!_songChanged && playbackState.isPlaying && !_wasPlaying) statusChanger.songChanged(false);
         _wasPlaying = playbackState.isPlaying;
-        // FIX: advance songProgress BEFORE changeStatus so lyric-line comparisons use current progress
         if (playbackState.isPlaying) { playbackState.songProgress += now - _now; _lastProgress = playbackState.songProgress; }
         _now = now;
         statusChanger.changeStatus();
@@ -113,7 +152,6 @@ function init() {
     let _cachedSourceOrderRef = null, _cachedSourcesLine = "";
     setInterval(() => {
         const lyrics = playbackState.lyrics, progress = playbackState.songProgress;
-        // FIX: || 0 so TUI dueLine doesn't use NaN offset if sendTimeOffset is missing
         const offset = Settings_1.Settings.timings.sendTimeOffset || 0;
         const lines = lyrics?.lines;
         let dueLine = "Not available", nextLine = "Not available";
@@ -157,6 +195,9 @@ function init() {
             ? (statusChanger._restoreTimer ? `\x1b[33mPending\x1b[0m` : `\x1b[32mArmed\x1b[0m`) : `\x1b[31mOff\x1b[0m`;
         const playing = playbackState.isPlaying ? "\x1b[32m\u25b6 Playing\x1b[0m" : "\x1b[33m\u23f8 Paused\x1b[0m";
         const lyricsYN = playbackState.hasLyrics ? `\x1b[32m\u2713\x1b[0m ${lyricsFetcher.lastFetchedFrom}` : "\x1b[31m\u2717 None\x1b[0m";
+        const dealerLine = useDealer
+            ? (dealerClient?.connected ? `\x1b[32mDealer WS\x1b[0m` : `\x1b[33mDealer reconnecting\x1b[0m`)
+            : `\x1b[33mREST poll\x1b[0m`;
         const sep = "  " + "\u2500".repeat(50);
         const lbl = s => `  \x1b[1m${s.padEnd(9)}\x1b[0m`;
 
@@ -172,7 +213,7 @@ function init() {
             `${lbl("Next:")}${nextLine}`,
             sep,
             `${lbl("Sent:")}${statusChanger._lastSentText || "Nothing sent yet"}`,
-            `${lbl("Send:")}${rateStatus}    \x1b[1mGW:\x1b[0m ${gwStatus}`,
+            `${lbl("Send:")}${rateStatus}    \x1b[1mGW:\x1b[0m ${gwStatus}    \x1b[1mSpotify:\x1b[0m ${dealerLine}`,
             `${lbl("Restore:")}${restoreStatus}    \x1b[1mSaved:\x1b[0m ${savedLabel}`,
             sep,
             `${lbl("Interval:")}${enableMinInterval ? `\x1b[32m${((minIntervalMs||0)/1000).toFixed(1)}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}    \x1b[1mMerge:\x1b[0m ${enableMergeLines ? `\x1b[32m${((mergeWindowMs||0)/1000).toFixed(1)}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}    \x1b[1mBackoff:\x1b[0m ${enableBackoff ? "\x1b[32mOn\x1b[0m" : "\x1b[31mOff\x1b[0m"}`,
@@ -184,11 +225,9 @@ function init() {
 
 process.on("uncaughtException", e => {
     Debug_1.Debug.write(e.stack + "\n" + e.cause);
-    Sentry.captureException(e);
     try { _store?.close(); } catch (_) {}
     if (!e.message.includes("fetch failed")) process.exit(1);
 });
 process.on("unhandledRejection", reason => {
     Debug_1.Debug.write(`[unhandledRejection] ${reason instanceof Error ? reason.stack : String(reason)}`);
-    Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason)));
 });

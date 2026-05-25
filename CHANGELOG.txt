@@ -1,429 +1,88 @@
-﻿LYRICS-STATUS — CHANGELOG (entries 47+)
-========================================
-Continued from CHANGELOG_old.txt (entries 1-46).
-
-─────────────────────────────────────────────────────────────────────
-53. REFACTOR — StatusChanger split into StatusChangerBase + StatusChanger (May 2026)
-    Files: dist/StatusChangerBase.js (new), dist/StatusChanger.js
-─────────────────────────────────────────────────────────────────────
-StatusChanger.js split into two files:
-
-  StatusChangerBase.js (new) — shared base class. Contains:
-    constructor, _discordPatch, changeStatusRequest, restoreStatus,
-    smartTruncate, buildMergedLines, applyTemplate, _iOSSync,
-    _onGatewayReady, formatSeconds.
-    Also exports helpers: VALID_FLASH_STATES, applyUnicodeStyle,
-    resolveUnicodeStyle, cpLen, sanitizeLyric, unicode bold/italic utils,
-    TEMPLATE_RE map.
-
-  StatusChanger.js — extends StatusChangerBase. Contains only:
-    Flash manager (_startFlash, _stopFlash, _flashTick),
-    changeStatus() loop, songChanged().
-
-─────────────────────────────────────────────────────────────────────
-52. BUGFIX — Status flash dnd/idle not showing; setCustomStatus reset orb (May 2026)
-    Files: dist/GatewayClient.js, dist/StatusChanger.js
-─────────────────────────────────────────────────────────────────────
-Root cause: setCustomStatus always built the op3 status field from
-gateway.presenceStatus. When a flash tick set the orb to "dnd", the next
-lyric send (100ms loop) immediately overwrote it back to "online", so the
-flash was invisible to observers.
-
-  GatewayClient.js — Added _flashStatus field. flashPresence() now stores the
-    current flash status in _flashStatus. setCustomStatus() uses _flashStatus
-    when set, falling back to gateway.presenceStatus when not flashing. Added
-    clearFlashStatus() to reset _flashStatus to null.
-
-  StatusChanger.js — _stopFlash() now calls this._gateway.clearFlashStatus()
-    after stopping the interval, so subsequent setCustomStatus calls revert
-    to the base presence status.
-
-─────────────────────────────────────────────────────────────────────
-51. FEATURE — Status Flash panel UI (May 2026)
-    Files: static/panel.js, static/index.html
-─────────────────────────────────────────────────────────────────────
-Added "Status Flash" section to the web panel (between Gateway and Updates).
-
-  panel.js — Added statusFlash to DEFAULTS and mergeSettings. Added bindings
-    for flash-enabled (checkbox) and flash-interval-ms (number). Added
-    FLASH_STATE_OPTIONS and RESTORE_STATUS_OPTIONS arrays. Added flash section
-    body with: enable checkbox + help button, multi-select state toggle buttons,
-    interval number input, and restore-to dropdown. Added updateFlashStateToggle()
-    and updateFlashRestoreSelect() called from applyToDom(). Added click handler
-    for flash-state-toggle (multi-select, enforces minimum 1 state, keeps
-    canonical order online/idle/dnd/invisible). Added change handler for
-    flash-restore-status select (stores null when empty = use gateway setting).
-
-  index.html — Added .flash-state-toggle and .flash-state-btn CSS with per-value
-    active colors matching the presence button scheme (green/amber/red/muted).
-
-─────────────────────────────────────────────────────────────────────
-50. FEATURE — Status flash: cycle presence orb color while playing (May 2026)
-    Files: dist/GatewayClient.js, dist/StatusChanger.js, dist/Settings.js
-─────────────────────────────────────────────────────────────────────
-CONTEXT:
-  While lyrics are playing, the Discord presence orb (online/idle/dnd) can now
-  cycle through a configurable list of statuses on an interval, creating a
-  flashing color effect. Designed to work with both Gateway (WS) and REST.
-
-CHANGES:
-  Settings.js — Added statusFlash block to _KEYS and defaults:
-    { enabled:false, states:["online","idle","dnd"], intervalMs:500, restoreStatus:null }
-
-  GatewayClient.js — Added _lastActivity field (cached on each setCustomStatus call).
-    flashPresence(status): sends op3 with the cached activity so lyric text is
-    preserved during flash ticks. Does NOT push to _presenceSentTimes (bypasses
-    the 5/20s rate-limit tracker). Bug fix: previous version sent activities:[]
-    which cleared the custom status text on every tick.
-
-  StatusChanger.js — Added flash manager:
-    _startFlash(): starts setInterval at max(intervalMs, 300ms), cycles states.
-    _stopFlash(restorePresence): clears interval; if restorePresence=true, sends
-      one final op3/REST to restore the base presence status (debounced 2s).
-    _flashTick(): advances _flashIndex, calls gateway.flashPresence() or
-      REST PATCH /users/@me/settings with { status } as fallback when GW is off.
-    changeStatus(): calls _startFlash() when lyrics are playing, _stopFlash(true)
-      when not playing or no lyrics.
-    songChanged(isEnd=true): calls _stopFlash(true) to restore presence on end.
-
-BEHAVIOR:
-  - Gateway mode: flash op3s bypass the rate-limit tracker; lyric text preserved.
-  - REST mode: PATCH presence status field on each tick (Discord ToS caveat noted).
-  - On stop: presence is restored to statusFlash.restoreStatus or gateway.presenceStatus.
-  - Disabled by default (statusFlash.enabled = false in settings.json).
-
-─────────────────────────────────────────────────────────────────────
-49. BUGFIX -- buildMergedLines: continue -> break on sent line (May 2026)
-    Files: dist/StatusChanger.js, src/StatusChanger.ts
-─────────────────────────────────────────────────────────────────────
-When walking backward to collect lines into the merge window, a line already in
-sentLines caused a continue instead of break. This incorrectly included earlier
-unsent lines separated from the anchor by an already-sent line, producing gaps
-in merged status text. Fixed to break, stopping the walk at the first sent line.
-
-
-
-─────────────────────────────────────────────────────────────────────
-48. FEATURE — Fake mobile presence option (May 2026)
-    Files: dist/GatewayClient.js, static/panel.js, static/index.html
-─────────────────────────────────────────────────────────────────────
-CONTEXT:
-  Discord shows a phone icon next to a user's status when their gateway session
-  identifies with browser="Discord iOS". This tricks clients into thinking the
-  connection is from a mobile device. Previously only online/idle/dnd were available
-  in the Presence Status selector on the panel.
-
-CHANGES:
-  panel.js — Added { value:"mobile", label:"📱 Fake Mobile" } to PRESENCE_OPTIONS.
-  index.html — Added .presence-btn.presence-active[data-value="mobile"] CSS rule
-               (accent/blue color to distinguish from the status options).
-  GatewayClient.js — _identify(): when presenceStatus is "mobile", sends
-               properties { os:"Android", browser:"Discord Android", device:"discord-android" }
-               "Discord Android" is the correct browser value.
-               op 3 with status="online" (mobile is not a valid Discord status value).
-
-NOTE:
-  Requires a full gateway reconnect to take effect (the identify payload is only
-  sent on connection). Restart the app or toggle gateway off/on after switching.
-
-
-─────────────────────────────────────────────────────────────────────
-47. DISPLAY — Gateway + op3 status visibility (May 2026)
-    Files: dist/index.js, src/index.ts
-─────────────────────────────────────────────────────────────────────
-CONTEXT:
-  Gateway disconnects and failed sends were only visible in log.txt.
-  The terminal Send row showed "GW" or "REST" with no further detail.
-  Op3 (presence update) rate limiting was already implemented in GatewayClient
-  (_presenceSentTimes, 5/20s window) but was not surfaced anywhere in the UI.
-
-CHANGES (dist/index.js display interval):
-  - gwStatus now has three gateway states:
-      [GW 3/5]         green  — connected, op3 window usage shown (x out of 5 in last 20s)
-      [GW reconnecting] yellow — _reconnecting is true (socket dropped, waiting to retry)
-      [GW disconnected] red    — gateway enabled but neither connected nor reconnecting
-      [REST]            yellow — gateway disabled in settings (unchanged)
-  - op3Used is computed each tick by filtering _presenceSentTimes to the last 20 000ms.
-  - No new state added; reads existing GatewayClient fields (_presenceSentTimes, _reconnecting,
-    connected) and Settings.gateway.enabled.
-
-
-─────────────────────────────────────────────────────────────────────
-46. REFACTOR — line reduction, bug fixes, file deletions (May 2026)
-    Files: all dist/ sources, static/panel.js
-─────────────────────────────────────────────────────────────────────
-DELETED:
-  dist/SpotifyAccessToken.js — duplicate of Server.js refreshSpotifyWebToken, unused.
-  dist/Sources/BaseSource.js — empty class; sources are duck-typed, no base needed.
-
-LINE REDUCTION (-521 lines, -47% across dist/):
-  Autooffset: class body collapsed to 4 one-liners.
-  Debug: static class replaced with destructured imports, log path inlined.
-  PlaybackState: constructor compacted to 3 lines.
-  Settings: fixed latent view.advanced depth-2 merge bug (nested props from defaults
-    lost on partial load); load/save condensed.
-  SpotifyService: _tokenReq() shared helper eliminates duplication between exchange/
-    refresh; getBearerToken() added, consolidating duplicate logic from SpotifySource
-    and PlaybackStateUpdater.
-  ExternalAuthServerAPI: _req() helper extracted; __awaiter removed.
-  LyricsFetcher: 3-function opencc init collapsed to single getConverter(); sanitize inlined.
-  PlaybackStateUpdater: uses SpotifyService.getBearerToken(); local duplicate removed.
-  GatewayClient: _reset(ms) helper eliminates op7/op9 teardown duplication.
-  Panel/Server: WS handler loops KEYS array instead of manual per-key assigns;
-    __importDefault removed; refreshSpotifyWebToken condensed.
-  Updater: __awaiter removed; EXCLUDE constant extracted; replaceFiles path resolve
-    bug fixed (see bugs below).
-  SpotifySource: BaseSource extend removed; getBearerToken() replaced with
-    SpotifyService.getBearerToken(); parseLyrics inlined.
-  LrcLibSource: BaseSource removed; LRC_RE_G hoisted to module level.
-  MusixmatchSource: BaseSource removed; constructor callbacks compacted to one-liners.
-  NetEaseMusicSource: isMetadata + isSection checks merged into single JUNK_RE;
-    constants hoisted to module level.
-  QQMusicSource: all __awaiter removed; constants hoisted; parseLyrics inlined.
-  panel.js: event delegation on <ul> replaces 5 per-li listener blocks (A);
-    setIndicator() generic helper replaces structurally identical setWsStatus/
-    setSaveStatus (B); withBtnSpinner() wrapper eliminates duplicated btn.disabled/
-    textContent reset in refresh/store handlers (C).
-
-BUGS FIXED:
-  LrcLibSource — LRC_RE_G stateful global regex: after refactor the /g regex was
-    hoisted to module level and used in both the exec loop and .replace(). While
-    lastIndex resets to 0 on exhaustion (safe), the pattern is fragile if call order
-    ever changes. Renamed explicitly to LRC_RE_G; .replace() reuses the same ref
-    with lastIndex reliably at 0 post-loop.
-  NetEaseMusicSource.parseLyrics — timestamp-less lines silently dropped: the
-    original pushed { time: 0, text: line } for lines with no LRC timestamp as a
-    fallback. Refactor removed this path. Restored.
-  Updater.replaceFiles — path resolve mismatch: rSrc/rDst were computed via
-    resolve() but never used; all join() calls inside the function used the raw
-    src/dst params (potentially relative), while the exclude list used resolve().
-    Exclude matching was broken for relative paths. All paths now run through
-    resolve() before use; forceUpdate() also passes pre-resolved paths.
-
-
-─────────────────────────────────────────────────────────────────────
-47. iOS STATUS SYNC (May 2026)
-    Files: dist/StatusChanger.js, dist/GatewayClient.js, dist/index.js
-─────────────────────────────────────────────────────────────────────
-Gateway (op 3) doesn't persist to account — iOS Discord caches its own
-session state and misses op 3 updates. Two REST sync strategies added:
-
-Per-song sync (_iOSSyncPending):
-  songChanged(false) sets _iOSSyncPending={t:null,em:null} when gateway active.
-  changeStatus() stamps actual statusText/emoji into it before each send.
-  changeStatusRequest() fires _iOSSync() on first successful op 3 — skipped
-  if op 3 rate-limited (sent=false), retries on next successful send.
-  songChanged(true) clears _iOSSyncPending to prevent stale fire after restore.
-
-Reconnect sync (_onGatewayReady):
-  GatewayClient.onReady callback wired in index.js to statusChanger._onGatewayReady().
-  Fires on op 0 READY; re-syncs _lastSentText via REST so iOS catches up after
-  gateway reconnect (the moment iOS is most likely to be out of sync).
-
-_iOSSync() guards:
-  _captureReady, non-empty text, no restore pending (_restoreTimer),
-  gateway enabled, 10s debounce (_iOSSyncSentAt) prevents double-fire
-  if both triggers occur within 10s of each other.
-  No-ops silently in REST-only mode.
-
-─────────────────────────────────────────────────────────────────────
-48. BUG FIXES — Spotify token, lyrics retry, StatusChanger, GatewayClient (May 2026)
-    Files: dist/SpotifyService.js, dist/Sources/SpotifySource.js,
-           dist/LyricsFetcher.js, dist/StatusChanger.js, dist/GatewayClient.js
-─────────────────────────────────────────────────────────────────────
-SpotifyService: refresh()/exchange() now call Settings.save() — refreshToken was
-  lost on restart. refresh() no-ops when refreshToken empty.
-
-SpotifySource: 401 on lyrics fetch now calls SpotifyService.refresh() and retries
-  once instead of throwing; previously lyrics were permanently missed for that song.
-
-LyricsFetcher: on full source waterfall failure, lastAttemptedFor is cleared so
-  the next poll retries; previously the song was silently skipped forever.
-
-StatusChanger (changeStatus):
-  - mergeWindow===0 branch referenced undefined `anchor`; fixed to `line`.
-  - _iOSSyncPending update was gated on itself being truthy — it was never populated
-    if gateway wasn't enabled at song-change time. Now always set when gateway enabled.
-
-GatewayClient:
-  - _reset() nulled this._ws before terminate(); stale close events now checked via
-    _wsInstance counter — eliminates double-reconnect race.
-  - Op 7 now sends op 6 RESUME instead of fresh identify.
-  - Op 9 respects d field (true=resumable, false=re-identify).
-  - session_id and resume_gateway_url stored from READY payload for resume support.
-  - Op 0 RESUMED handled — connected flag was never set after successful resume.
-  - First HB beat no longer calls _sendHB() to avoid false ACK-miss on first interval tick.
-  - Rate limit window fixed: >= 20000 → > 20000.
-
-─────────────────────────────────────────────────────────────────────
-49. BUG FIXES — multi-file audit (May 2026)
-    Files: Updater.js, index.js, StatusChanger.js, PlaybackState.js,
-           PlaybackStateUpdater.js, SpotifyService.js, Panel/Server.js,
-           Sources/LrcLibSource.js, Sources/NetEaseMusicSource.js
-─────────────────────────────────────────────────────────────────────
-Updater:
-  checkUpdate/downloadRepo — URL changed OvalQuilter → RamenFighter03 (fork).
-  forceUpdate — extracted dir now found dynamically (was hardcoded "lyrics-status-3" → ENOENT).
-  replaceFiles — delete logic rewrote: build del as dst∖src by name; old cross-product loop spuriously deleted matched files.
-
-index.js:
-  statusChanger declared before gatewayClient.connect() so onReady closure resolves safely.
-
-StatusChanger:
-  _lastMergedLines init'd null in constructor (was undefined; unguarded 429 handler).
-  sentLines trim: currentLine ref kept in rebuilt Set to preserve === check after cap-at-200.
-  _iOSSyncPending fire: uses text/emoji passed into changeStatusRequest directly, not stale .t field (fixed missed iOS sync when first line dedup-matches previous song's last line).
-  _onGatewayReady: emoji now respects advanced.customEmoji instead of hardcoded 🎶.
-
-PlaybackState:
-  ended getter: added songDuration > 0 guard — prevents spurious ended=true on init/song-change frame.
-
-PlaybackStateUpdater:
-  t0 captured after response received, not before fetch — removes full RTT from songProgress offset.
-
-SpotifyService:
-  exchange()/refresh(): write expires_in → spotifyWebTokenExpiry so OAuth token expiry is tracked.
-
-Panel/Server.js:
-  WS message handler: all object keys now deep-merged (+ view.advanced second level); previously full replacement nuked nested props on partial panel update.
-
-Sources/LrcLibSource:
-  parseLyrics: split LRC_RE_G (exec loop) and LRC_RE (replace) — eliminates shared stateful /g regex.
-
-Sources/NetEaseMusicSource:
-  parseLyrics: timestamp-less lines skipped (was pushed as time:0 → spurious status at song start).
-
-─────────────────────────────────────────────────────────────────────
-54. BUGFIX — Multi-file bug sweep (May 2026)
-    Files: StatusChangerBase.js, StatusChanger.js, GatewayClient.js,
-           PlaybackStateUpdater.js, index.js
-─────────────────────────────────────────────────────────────────────
-StatusChangerBase.js:
-  - resolveUnicodeStyle now accepts `now` param — prevents bucket desync at interval boundaries
-  - buildMergedLines accepts `ignoreStale` param — style-bucket resends no longer silently truncate merged lines
-
-StatusChanger.js:
-  - _styleBucketChanged no longer clears _lastSentText — prevents TUI "Sent" showing blank for up to 1s
-  - Dedup check also skips on _styleBucketChanged so resend still fires
-  - sendTimeOffset || 0 — prevents NaN offset blocking all sends when setting missing
-  - _presenceSentTimes guarded with || [] — prevents crash on uninitialized gateway
-
-GatewayClient.js:
-  - flashPresence(status, "", null) now clears _lastActivity — prevents stale lyric resent on reconnect after song end
-
-PlaybackStateUpdater.js:
-  - lastAttemptedFor comparison now uses \0 separator matching LyricsFetcher format — was firing re-fetch every poll
-  - Duplicate ps.currentLine = null removed
-
-index.js:
-  - songProgress advanced before changeStatus() — was feeding stale progress to lyric-line comparison
-  - TUI offset fallback to || 0 — prevents NaN in "Now" line display
-
-─────────────────────────────────────────────────────────────────────
-55. BUGFIX -- panel.js bug sweep (May 2026)
-    File: static/panel.js
-  - setWsStatus: renamed dead "default" key to "connecting" so the indicator
-    actually updates while reconnecting; removed now-redundant fallback block
-  - btn-store-status: origRef now captured at click time (this.textContent)
-    instead of via a late let declaration -- eliminates latent undefined risk
-  - DEFAULTS.credentials: added spotifyWebToken field so BINDINGS entry has
-    a matching default and cold panel load shows correct token status
-  - CSS: added presence-btn.presence-active rule for data-value="invisible"
-    so the Invisible button highlights when selected
-
-─────────────────────────────────────────────────────────────────────
-63. REFACTOR — panel.js split + dead code removal + 9 bug fixes (May 2026)
-    Files: static/panel.js (rewritten), static/panel-data.js (new),
-           static/panel-ui.js (new), static/index.html (+2 script tags)
-─────────────────────────────────────────────────────────────────────
-  - panel.js split 3 files: panel-data.js (constants), panel-ui.js (h
-    helpers, SECTION_BODIES, renderSections, renderSourceList), panel.js
-    (runtime core). ~600 -> ~440 lines total.
-  - Dead code: removed mergeSettings redundant explicit lines (covered by
-    spread); btnFlash disabled=false; unused reset param; inlined +
-    removed setIndicator + fetchDiscordStatus; pruned 4 comments.
-  - Data dedup: BASE_STATUS_OPTIONS -> FLASH_STATE_OPTIONS + RESTORE_STATUS_OPTIONS.
-  - syncAdvancedSwt(on) extracted (was duplicated in applyToDom + bindAll).
-  - BUG 1: setSaveStatus timer leak — clearTimeout before reschedule.
-  - BUG 2: _dirty flag — WS reconnect won't overwrite unsaved edits.
-  - BUG 3: renderSourceList snapshot from sourceOrder, not Object.keys.
-  - BUG 4: pointer-events:none on source list child spans (drag flicker).
-  - BUG 5: loaded=true inside try block only (not finally).
-  - BUG 6: number inputs clamped to el.min/el.max before save.
-  - BUG 7: withBtnSpinner disables button immediately (double-click race).
-  - BUG 9: statusFlash.states re-assigned after spread (guards corrupt server value).
-
-─────────────────────────────────────────────────────────────────────
-64. FIX — GatewayClient _reset delay ignored, stuck on reconnecting (May 2026)
-    File: dist/GatewayClient.js
-─────────────────────────────────────────────────────────────────────
-  - _reset increments _wsInstance before terminate() so the close handler
-    exits early (stale instance check). Previously close handler always called
-    _scheduleReconnect(5000) regardless of the delay _reset was given, and
-    _reset's own _scheduleReconnect was blocked by the _reconnecting guard.
-    Result: op 7 reconnected in 5s instead of 500ms; any rapid disconnect
-    loop appeared stuck on "GW reconnecting" in the terminal.
-  - Fix: _wsInstance++ before ws.terminate() -- _reset now controls its own
-    reconnect delay (op7=500ms, op9=5s, HB miss=1s) as intended.
-
-─────────────────────────────────────────────────────────────────────
-[Next entry — Panel cosmetic features 1–5 + bug fixes] (May 2026)
-    Files: static/index.html, static/panel-ui.js, static/panel.js,
-           dist/Panel/Server.js, dist/index.js
-─────────────────────────────────────────────────────────────────────
-Implemented all 5 panel cosmetic features from codereduction.txt plan,
-accounting for all B-1 through B-7 bug watches.
-
-Feature 1 — Animated now-playing header (#now-playing):
-  Persistent bar between <header> and #sections showing current song,
-  artist, playback progress bar, and pulsing equalizer animation when
-  lyrics are actively sending. Polled every 1s via GET /status.
-  Lives OUTSIDE .section elements (B-4 stacking context safe).
-
-Feature 2 — Discord preview card:
-  Replaced .preview-badge plain text in the preview section body with
-  a mock Discord profile card showing avatar circle, status dot,
-  username ("You"), emoji, and status text (truncated at 128 chars).
-  Updates live as template/emoji/unicode style/presence settings change.
-  Presence dot color syncs with gateway.presenceStatus (B-3: default "You").
-
-Feature 3 — Lyric line animations:
-  #np-title and #np-artist slide in from below when song changes.
-  #dc-status-text in the Discord card also animates when lastSentText
-  changes (polled via /status). Uses synchronous void el.offsetWidth
-  reflow to restart animation (B-5: NOT inside requestAnimationFrame).
-
-Feature 4 — Glassmorphism / blur style:
-  body::after adds a slow animated radial gradient blob (z-index:0,
-  behind #app z-index:1). .section cards use backdrop-filter:blur(12px).
-  .sub-box, .modal-box, #now-playing, #discord-card also use blur.
-  Light-theme overrides added for all new glassmorphism elements.
-
-Feature 5 — Toast redesign:
-  Slide-in from right with spring easing, colored left border per type
-  (green/red/accent), and a ::after progress bar that drains over the
-  toast lifetime. B-6: --toast-drain-dur is (duration - 250ms) so drain
-  completes before toastOut animation begins.
-
-Backend changes (Server.js):
-  startServer(playbackState, statusChanger) — B-1: signature updated,
-  existing WS behaviour unchanged. Added GET /status endpoint returning
-  { songName, songAuthor, songProgress, songDuration, isPlaying,
-    hasLyrics, lastSentText, lyricsSource, lastSentAt }.
-  Both args are optional (null-safe via ?. and ?? throughout).
-
-index.js:
-  (0, Server_1.startServer)(playbackState, statusChanger) — passes live
-  objects to the server after they are constructed (B-1).
-
-
-─────────────────────────────────────────────────────────────────────
-65. BUGFIX — GW skipping lines when rate-limited (May 2026)
-    Files: dist/StatusChanger.js, dist/StatusChangerBase.js
-─────────────────────────────────────────────────────────────────────
-  - Removed redundant GW rate-limit pre-check in changeStatus() — early return
-    prevented sentLines from being updated, causing lines to be permanently skipped.
-  - buildMergedLines now passes ignoreStale=true when usingGateway — prior-sent
-    lines are no longer excluded from the merge window on GW.
-  - When setCustomStatus returns false (min-interval not elapsed), sentLines is now
-    rolled back and _lastSentText/_lastSentAt cleared so the next tick retries.
+# lyrics-status CHANGELOG (combined, all entries)
+Base v3.0.7 fork. All edits to dist/ compiled JS directly.
+
+## entries 1–46 (Mar–May 2026)
+1: logging — extended to PlaybackStateUpdater+StatusChanger; removed 60fps log spam
+2: LyricsFetcher — lastFetchedFor set on cache hits (was only set on live fetch; caused re-fetch every poll)
+3: rate limiting — 429 auto backoff, minInterval, line merging, song boundary protection
+4: smartTruncate — drop lines→word-boundary→hard cut; template mode re-renders with fewer lines
+5: null safety — null guards on songName/songAuthor/artists[0]; smartTruncate handles null
+6: rateLimit settings UI — enableBackoff/enableMinInterval/minIntervalMs/enableMergeLines/mergeWindowMs wired to panel
+7: terminal display — 60fps loop (changeStatus only), 1s display loop (ANSI cursor overwrite, no clear spam)
+8: panel BOM+mojibake fix — stripped UTF-8 BOM, fixed emoji corruption
+9: src sync — StatusChanger.ts+Settings.ts synced to dist; rateLimit block added to TS
+10: panel overhaul — HTML→index.html, panel.js rewritten with BINDINGS map (~500→~160 lines)
+11: terminal flicker fix — 60fps loop no longer renders; 1s setInterval ESC[H+ESC[K per line
+12: null safety pass 2 — songChanged sets _lastSentAt unconditionally; optional chaining on rateLimit
+13: Unicode cpLen/cpSlice — Discord counts code points not JS .length; surrogate pair safe truncation
+14: buildMergedLines bug — was scanning FORWARD (no lines ever merged); rewritten to scan BACKWARD from anchor
+15: Musixmatch source — unofficial desktop API, manual token, LRC parser. Source toggle settings block (enableXxx per source, fixed order)
+16: Musixmatch cookie extraction + /check-mxm proxy (browser strips Cookie header on cross-origin)
+17: song skip detection — _lastKnownSongId check fires songChanged() on id change before changeStatus()
+18: 429 body logging — res.text() first, raw body logged; JSON.parse with try/catch fallback 30s
+19: Spotify cookie field — sp_dc only, Cookie header in SpotifySource
+20: source toggles TS fix; panel/Server sync; TS2454 definite assignment; sp_dc clarification
+21: configurable source order — sourceOrder[] in Settings; index.ts loop over SOURCE_MAP; panel drag-drop reorder
+22: source order ignored in dist fixed; cache write in own try/catch (invalid filename chars); double songChanged fix
+23: SpotifySource null guards; Server.js refreshSpotifyWebToken at startup (auto web token from sp_dc)
+24: LrcLib /g regex stateful bug (moved inside loop); QQMusic+NetEase null guards
+25: Spotify web token manual paste — expiry check removed; any non-empty token used directly
+26: Musixmatch double-await fix (source never worked); NetEase ms normalization (padEnd 3); NetEase URL newline; TS sync
+27: Chinese conversion — opencc-js, display.chineseConversion setting (off/toTraditional/toSimplified); ERR_REQUIRE_ESM fixed via dynamic import; QQMusic ms fix
+28: dead code removal (parseStatusString); async/await replacing __awaiter; Autooffset zero-padding fix
+29: Musixmatch → @stef-0012/synclyrics (auto-token, no user config). Removed /check-mxm, removed token field from panel
+30: Spotify token field hint update (optional, auto-fetched from cookies)
+31: terminal sources line — enabled sources in configured order
+32: LyricsFetcher cache before source loop; lastAttemptedFor guard; _lastSentAt+currentLine after dedup; ♪ global replace fix; _songEndedFired reset
+33: terminal layout collapse — emoji header, fields consolidated, ~8 lines saved
+34: panel bugs — setPath silent fail, _pendingSave order, event binding outside ready(), drag-to-last-position broken
+35: exception safety — async update .catch(); unhandledRejection handler; formatSeconds NaN guard; request.json throw; progress_ms NaN; cache sanitizeFilename; sentLines cap 200; applyTemplate /regex/g
+36: status restore — _savedStatus capture on init, restoreStatus() after song end (delayMs), panel Restore section, terminal Restore line
+37: pause/resume fix — songProgress advances only when isPlaying; _wasPlaying false→true fires songChanged(false)
+38: 100ms loop (was 60fps); sentLines Array.includes (object identity, no timestamp collision); _captureReady gate
+39: panel fixes — sourceOrder wholesale overwrite (not index-merge); ul drag listeners stacking guard; $.ajax→fetch; Refresh/Store collapsed to fetchDiscordStatus helper
+40: GatewayClient.js — Discord WS op3 status sender; op10→op2+HB; op11/op1/op0/op9 handlers; 5s reconnect; REST fallback
+41: panel HTML→JS generation (index.html 21.9→6.3KB); gateway toggle; 7 bugs fixed
+42: GatewayClient op7 handler (500ms reconnect); FATAL_CODES documented
+43: template vars {source},{progress},{duration},{line_number}; lyricsSource in PlaybackState; _title_case modifier
+44: _captureReady gate never opened — .finally() sets true; !token immediate open
+45: GatewayClient _presenceSentTimes (5 op3/20s limit); cpFitsIn short-circuit; TEMPLATE_RE precompiled (80 RegExp); songId param skips redundant Spotify player GET; sourcesLine memoized
+46: panel visual overhaul — Geist font, glassmorphism cards, collapse/expand, badge pills, save indicator, WS dot, toast notifications; jQuery removed
+
+## entries 47–70 (May 2026)
+47: terminal GW display — [GW x/5] green/yellow/red; op3 rate viz from _presenceSentTimes
+48: fake mobile presence — presenceStatus="mobile" → identify with browser="Discord Android"; op3 status="online"; requires restart
+49: buildMergedLines continue→break fix (unsent lines separated by sent line were incorrectly included)
+50: status flash feature — statusFlash settings block {enabled,states,intervalMs,restoreStatus}; GatewayClient _lastActivity + flashPresence() bypasses rate tracker; StatusChanger flash manager (_startFlash/_stopFlash/_flashTick)
+51: status flash panel UI — section with enable checkbox, state multi-toggle (min 1, canonical order), interval input, restore dropdown
+52: GatewayClient _flashStatus field — setCustomStatus uses it; clearFlashStatus(); _stopFlash calls clearFlashStatus() so subsequent sends revert to base presence
+53: StatusChanger split → StatusChangerBase.js (base: HTTP,truncate,merge,template,iOSSync,helpers) + StatusChanger.js (flash+changeStatus+songChanged)
+54: iOS status sync — _iOSSyncPending per-song (fires on first successful op3); _onGatewayReady REST re-sync after reconnect; 10s debounce
+55: multi-bug fix — SpotifyService refresh no-op when empty+calls Settings.save; SpotifySource 401 retry; LyricsFetcher clears lastAttemptedFor on waterfall fail; StatusChanger anchor fix + _iOSSyncPending always set; GatewayClient _wsInstance counter+_reset null before terminate+op7 RESUME+op9 d field+RESUMED handler+first HB fix+rate window >20000
+56: multi-bug fix — Updater URL→RamenFighter03+dynamic dir+delete logic; index.js statusChanger before connect; StatusChanger _lastMergedLines init+sentLines keep currentLine+_iOSSyncPending uses passed params+customEmoji respected; PlaybackState ended requires songDuration>0; PlaybackStateUpdater t0 after response; SpotifyService expires_in tracking; Server WS deep merge; LrcLibSource split LRC_RE_G/LRC_RE; NetEase timestamp-less skip
+57: StatusChanger.songChanged() _lastSentAt→0 (no delay on first lyric after change/resume); currentLine→null
+58: index.js _songChanged flag prevents double-fire when id-change+resume same tick
+59: gateway.minGwIntervalMs (default 5000), enforced in setCustomStatus, panel Gateway section
+60: terminal overhaul — emoji removed from title, lbl() alignment, Send+GW one row, Restore+Saved one row, nextSendIn fixed, saved text truncated 60 chars, \x1b[J cleanup
+61: merge bug — _staleLines fast-forwarded tracking; buildMergedLines breaks on sentLines AND NOT _staleLines; lcFirst continuation lines lowercased unless prev ends in .!?
+62: punctuation-aware lcFirst — endsWithTerminal() helper; applied in buildMergedLines + displayReduced
+63: replay cache bug — songChanged(true) clears playbackState.lyrics+hasLyrics+lastAttemptedFor; PSU !ps.lyrics guard
+64: seek sentLines — _lastProgress in index.js; songProgress<_lastProgress-3000 → songChanged(false)
+65: unicode style (view.advanced.unicodeStyle) — none/bold/italic applied to lyric text only; panel select
+66: sanitizeLyric — strips music symbols/PUA/control/zero-width/bidi/BOM; normalises ellipsis/quotes/dashes
+67: various bugs — double sanitize, unicodeStyle scope, _lastProgress reset, currentLine after re-fetch, dead ♪→🎶, gateway since:0
+68: gateway pre-check removed from changeStatus() (was causing line skips); buildMergedLines ignoreStale=true for GW; sentLines rollback when setCustomStatus returns false
+69: GatewayClient critical fixes — #14 purge before interval check; #15/#25 _reconnecting before terminate; #16 HB interval starts after first HB sent; #17 ACK miss canResume=false; #18 backoff only on no explicit ms; #20 since=0; #21 RESUME only if _seq!=null; #23 separate _hbGeneration counter; #24 _destroyed recheck in timeout; #2 _reset bypasses guard; #6 destroy+connect reset _reconnecting; #7 op1 raw send without _ackReceived; #4 HB jitter min 1ms
+70: panel layout full-width (CSS columns:2, no max-width)
+71: panel equalizer bar + Discord profile card — animated 5-bar EQ in header, #discord-card with avatar/pip/status; /users/@me fetch for profile; window._setNowPlaying exposed
+72: NetEase instrumental placeholder (纯音乐) stripped in applyTemplate; composer credit lines stripped; fallback to {song_name} if empty; orphaned punctuation stripped; no-lyrics path sends songName
+73: Genius source (GeniusSource.js) — scrape search API, extract data-lyrics-container, evenly-spaced fake timestamps ~4s/line; Settings.sources.enableGenius; panel badge "EN"; runs last; Cloudflare fragile
+74: panel cosmetic features — animated now-playing header bar, Discord preview card, lyric line animations, glassmorphism blur style, toast redesign; Server.js GET /status endpoint; startServer(playbackState,statusChanger)
+75: GatewayClient _reset delay fix — _wsInstance++ before terminate() so close handler exits early; op7 reconnects in 500ms not 5s
+76: panel bugs — setWsStatus "connecting" key fix, btn-store origRef at click time, DEFAULTS.credentials.spotifyWebToken, invisible btn CSS
+77: StatusChangerBase resolveUnicodeStyle now param; buildMergedLines ignoreStale param; StatusChanger _styleBucketChanged no clear _lastSentText, dedup skips on _styleBucketChanged, sendTimeOffset||0, _presenceSentTimes||[]; GatewayClient flashPresence clears _lastActivity; PSU lastAttemptedFor separator fix; duplicate currentLine=null removed; index.js songProgress before changeStatus, NaN fallback
+78: panel split → panel-data.js(constants) + panel-ui.js(builders) + panel.js(runtime ~440 lines); BASE_STATUS_OPTIONS dedup; syncAdvancedSwt(); 9 bugs: setSaveStatus timer leak, WS reconnect _dirty, sourceOrder snapshot, drag pointer-events, loaded=true in try, number input clamping, double-click race, statusFlash.states guard
+78: SpotifyDealerClient.js — dealer WS replaces 5s polling when credentials.useDealer=true (default). Connects wss://guc3-dealer.spotify.com, gets connectionId, subscribes via PUT /me/notifications/user + fake device register + connect-state PUT. onPlayerState push → applyDealerState(). 30s REST sync as safety net. Falls back to 5s polling if useDealer=false or no cookies. TUI shows "Dealer WS" / "Dealer reconnecting" / "REST poll" on Send row.
+79: dist/ minification — esbuild added as devDependency; npm run build:min bundles+minifies dist/index.js → dist/index.min.js; npm run start:min to use. Native modules (better-sqlite3, @sentry/node, discord-rpc, opencc-js) marked external.
+80: jQuery confirmed absent from static/index.html — no change needed.
+81: dist/index.js — removed require("./instrument") and require("@sentry/node"); stripped Sentry.captureException() from uncaughtException and unhandledRejection handlers. instrument.js was never committed to git so new installs crashed on startup with "Cannot find module './instrument'". No behavior change — errors still logged via Debug.write and process exits on fatal exceptions.
