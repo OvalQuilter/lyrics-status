@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CacheStore = exports.cacheKey = void 0;
 const Database = require("better-sqlite3");
 const { createHash } = require("crypto");
-const { renameSync } = require("fs");
+const { renameSync, mkdirSync } = require("fs");
 const Settings_1 = require("./Settings");
 
 const CACHE_VERSION = 1;

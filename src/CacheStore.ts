@@ -1,6 +1,7 @@
 import Database, { Database as DB } from "better-sqlite3"
 import { createHash } from "crypto"
-import { renameSync } from "fs"
+import { renameSync, mkdirSync } from "fs"
+import { dirname } from "path"
 import { Settings } from "./Settings"
 import { LyricsLine } from "./Sources/BaseSource"
 
@@ -37,6 +38,9 @@ export class CacheStore {
     private stmtEvict: ReturnType<DB["prepare"]>
 
     constructor(dbPath: string) {
+        // 0. Ensure cache directory exists
+        mkdirSync(dirname(dbPath), { recursive: true })
+
         // 1. Open DB
         this.db = new Database(dbPath)
 
