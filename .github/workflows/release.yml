@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build release zip
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          ZIP_NAME="lyrics-status-${VERSION}.zip"
+          zip -r "$ZIP_NAME" \
+            dist/ \
+            src/ \
+            static/ \
+            res/ \
+            package.json \
+            package-lock.json \
+            tsconfig.json \
+            README.md \
+            CHANGELOG.txt \
+            VERSION \
+            --exclude "dist/_check.js" \
+            --exclude "dist/_fix*.js" \
+            --exclude "dist/instrument.js" \
+            --exclude "dist/*_patch.txt"
+          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP_NAME }}
+          generate_release_notes: true

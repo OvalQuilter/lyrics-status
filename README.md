@@ -1,4 +1,4 @@
-﻿# lyrics-status
+# lyrics-status
 
 > Fork of [OvalQuilter/lyrics-status](https://github.com/OvalQuilter/lyrics-status) (v3.0.7). The original repo is no longer maintained — this is the actively maintained continuation.
 
@@ -42,6 +42,8 @@ cd lyrics-status
 npm install
 npm start
 ```
+
+> ⚠️ **Downloaded a zip from GitHub?** The auto-generated zip archives may be missing pre-built files. Always use `git clone` as shown above.
 
 Open **http://localhost:8999** to configure.
 
