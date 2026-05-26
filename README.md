@@ -85,6 +85,7 @@ Enable **Gateway** in the panel to send updates via WebSocket instead of REST. E
 
 | Problem | Fix |
 |---|---|
+| `npm start` exits immediately with no output | Check `log.txt` in the install folder for the error. Most common cause is a Node.js version mismatch with `better-sqlite3` — try `npm rebuild` |
 | No lyrics | Check Spotify cookies are fresh and a lyrics-supported song is playing |
 | `RBAC: access denied` | Re-paste a fresh `sp_dc` from DevTools |
 | Status not updating | Re-verify your Discord token |
