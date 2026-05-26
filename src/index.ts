@@ -1,3 +1,30 @@
+import { execSync } from "child_process"
+import * as path from "path"
+
+// --- Startup checks ---
+const _nodeVer = process.versions.node.split(".").map(Number)
+if (_nodeVer[0] < 17) {
+    console.error(`\x1b[31m[lyrics-status] Node.js v${process.versions.node} is not supported. Please upgrade to v17 or later.\x1b[0m`)
+    process.exit(1)
+}
+try {
+    require("better-sqlite3")
+} catch (e: any) {
+    if (e.code === "ERR_DLOPEN_FAILED" || (e.message && e.message.includes("NODE_MODULE_VERSION"))) {
+        console.error(`\x1b[33m[lyrics-status] Native module mismatch - rebuilding better-sqlite3 for Node.js v${process.versions.node}...\x1b[0m`)
+        try {
+            execSync("npm rebuild better-sqlite3", { stdio: "inherit", cwd: path.resolve(__dirname, "..") })
+            console.log("\x1b[32m[lyrics-status] Rebuild successful - starting...\x1b[0m")
+        } catch {
+            console.error("\x1b[31m[lyrics-status] Rebuild failed. Try running 'npm rebuild' manually.\x1b[0m")
+            process.exit(1)
+        }
+    } else {
+        console.error(`\x1b[31m[lyrics-status] Failed to load better-sqlite3: ${e.message}\x1b[0m`)
+        process.exit(1)
+    }
+}
+// --- End startup checks ---
 import { LyricsFetcher } from "./LyricsFetcher"
 import { CacheStore } from "./CacheStore"
 import { SpotifySource } from "./Sources/SpotifySource"

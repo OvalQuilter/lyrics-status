@@ -1,5 +1,32 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+
+// --- Startup checks ---
+const _nodeVer = process.versions.node.split(".").map(Number);
+if (_nodeVer[0] < 17) {
+    console.error("\x1b[31m[lyrics-status] Node.js v" + process.versions.node + " is not supported. Please upgrade to v17 or later.\x1b[0m");
+    process.exit(1);
+}
+try {
+    require("better-sqlite3");
+} catch (e) {
+    if (e.code === "ERR_DLOPEN_FAILED" || (e.message && e.message.includes("NODE_MODULE_VERSION"))) {
+        console.error("\x1b[33m[lyrics-status] Native module mismatch - rebuilding better-sqlite3 for Node.js v" + process.versions.node + "...\x1b[0m");
+        const { execSync } = require("child_process");
+        try {
+            execSync("npm rebuild better-sqlite3", { stdio: "inherit", cwd: require("path").resolve(__dirname, "..") });
+            console.log("\x1b[32m[lyrics-status] Rebuild successful - starting...\x1b[0m");
+        } catch (rebuildErr) {
+            console.error("\x1b[31m[lyrics-status] Rebuild failed. Try running 'npm rebuild' manually.\x1b[0m");
+            process.exit(1);
+        }
+    } else {
+        console.error("\x1b[31m[lyrics-status] Failed to load better-sqlite3: " + e.message + "\x1b[0m");
+        process.exit(1);
+    }
+}
+// --- End startup checks ---
+
 const LyricsFetcher_1 = require("./LyricsFetcher");
 const CacheStore_1 = require("./CacheStore");
 const SpotifySource_1 = require("./Sources/SpotifySource");
@@ -225,8 +252,12 @@ function init() {
 
 process.on("uncaughtException", e => {
     Debug_1.Debug.write(e.stack + "\n" + e.cause);
-    try { _store?.close(); } catch (_) {}
-    if (!e.message.includes("fetch failed")) process.exit(1);
+    if (!e.message.includes("fetch failed")) {
+        console.error("\x1b[31m[lyrics-status] Fatal error: " + e.message + "\x1b[0m");
+        console.error("Check log.txt for full details.");
+        try { _store?.close(); } catch (_) {}
+        process.exit(1);
+    }
 });
 process.on("unhandledRejection", reason => {
     Debug_1.Debug.write(`[unhandledRejection] ${reason instanceof Error ? reason.stack : String(reason)}`);
