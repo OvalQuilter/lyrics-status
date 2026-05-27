@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 "use strict";
 // Launch lyrics-status detached (no visible terminal window on Windows).
 // Usage: node launcher.js  OR  double-click via .bat/.sh wrapper.
@@ -13,3 +13,4 @@ const child = spawn(process.execPath, [entry], {
     cwd: __dirname,
 });
 child.unref();
+process.exit(0);
