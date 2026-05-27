@@ -1,10 +1,11 @@
-"use strict";
+﻿"use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startServer = startServer;
 const express = require("express");
 const { createServer } = require("node:http");
 const { WebSocketServer, WebSocket } = require("ws");
 const { join } = require("node:path");
+const { existsSync } = require("node:fs");
 const Settings_1 = require("../Settings");
 const SpotifyService_1 = require("../SpotifyService");
 const Debug_1 = require("../Debug");
@@ -32,9 +33,14 @@ function refreshSpotifyWebToken() {
 }
 
 function startServer() {
+    if (!existsSync(STATIC)) {
+        console.error("\x1b[31m[lyrics-status] static/ directory not found at: " + STATIC + "\n  The panel UI will not load. Re-download the release zip.\x1b[0m");
+        Debug_1.Debug.write("[Server] static/ directory missing: " + STATIC);
+    }
+
     const app = express();
     const httpServer = createServer(app);
-    const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+    const wss = new WebSocketServer({ server: httpServer, path: "/ws", maxPayload: 65536 });
     app.use("/", express.static(STATIC));
     app.get("/", (_, res) => res.sendFile(join(STATIC, "index.html")));
     app.get("/callback", (req, res) => {
@@ -49,7 +55,20 @@ function startServer() {
         }
         res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Authorized</title><script>(function(){try{if(window.opener&&!window.opener.closed)window.close();}catch(e){}})()</\script></head><body><p>Authorization complete. You can close this window.</p></body></html>`);
     });
+
+    // Ping/pong heartbeat — terminates zombie panel connections
+    const heartbeat = setInterval(() => {
+        for (const ws of wss.clients) {
+            if (!ws.isAlive) { ws.terminate(); continue; }
+            ws.isAlive = false;
+            ws.ping();
+        }
+    }, 30000);
+    wss.on("close", () => clearInterval(heartbeat));
+
     wss.on("connection", ws => {
+        ws.isAlive = true;
+        ws.on("pong", () => { ws.isAlive = true; });
         ws.on("error", e => Debug_1.Debug.write(`[Server] WS error: ${e}`));
         ws.on("message", data => {
             let p; try { p = JSON.parse(data.toString()); } catch { return; }
@@ -68,6 +87,27 @@ function startServer() {
         const payload = JSON.stringify(Object.fromEntries(KEYS.map(k => [k, Settings_1.Settings[k]])));
         if (ws.readyState === WebSocket.OPEN) try { ws.send(payload); } catch (e) { Debug_1.Debug.write(`[Server] Send failed: ${e}`); }
     });
+
+    httpServer.on("error", e => {
+        if (e.code === "EADDRINUSE") {
+            console.error("\x1b[31m[lyrics-status] Port 8999 is already in use.\n  Another instance may be running. Close it and try again.\x1b[0m");
+            process.exit(1);
+        }
+        Debug_1.Debug.write("[Server] httpServer error: " + e.stack);
+    });
+
+    // Graceful shutdown
+    function shutdown() {
+        for (const ws of wss.clients) {
+            try { ws.send(JSON.stringify({ type: "server_shutdown" })); } catch (_) {}
+        }
+        wss.close();
+        httpServer.close(() => process.exit(0));
+        setTimeout(() => process.exit(1), 10000);
+    }
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+
     httpServer.listen(8999);
     refreshSpotifyWebToken();
 }

@@ -34,7 +34,7 @@
         }
 
         html, body { height: 100%; background: var(--bg); }
-        body { font-family: var(--font); color: var(--text); font-size: 13px; line-height: 1.55; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+        body { font-family: var(--font); color: var(--text); font-size: 14px; line-height: 1.55; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
 
         body::before {
             content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .025;
@@ -66,7 +66,7 @@
 
         #sections { columns: 2; column-gap: 6px; }
         #sections > .section { break-inside: avoid; margin-bottom: 6px; }
-        @media (max-width: 700px) { #sections { columns: 1; } }
+        @media (max-width: 700px) { #sections { columns: 1; } .row { flex-wrap: wrap; } .row-label { width: 100%; min-width: 120px; } }
 
         .section { border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border); overflow: hidden; transition: border-color .15s; }
         .section:hover { border-color: rgba(255,255,255,.11); }
@@ -155,7 +155,6 @@
         .toast.error   .toast-icon { color: var(--red); }
         .toast.info    .toast-icon { color: var(--accent); }
 
-        /* -- Equalizer bar -- */
         .eq-bar-wrap { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
         .eq-bar { width: 3px; border-radius: 2px; background: var(--accent); animation: eq-bounce var(--d) ease-in-out infinite alternate; opacity: .85; }
         .eq-bar:nth-child(1){ --d:.55s; height:60%; }
@@ -166,7 +165,6 @@
         .eq-bar.paused { animation-play-state: paused; opacity: .35; }
         @keyframes eq-bounce { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
 
-        /* -- Discord profile card -- */
         #discord-card { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 24px; min-height: 72px; transition: border-color .2s; }
         #discord-card:hover { border-color: rgba(255,255,255,.13); }
         .dc-avatar-wrap { position: relative; flex-shrink: 0; }
@@ -185,99 +183,10 @@
         .dc-song { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-soft); }
         .dc-song-text { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .dc-not-playing { font-size: 12px; color: var(--muted); font-style: italic; }
+
         ::-webkit-scrollbar { width: 6px; }
-        /* -- Equalizer bar -- */
-        .eq-bar-wrap { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
-        .eq-bar { width: 3px; border-radius: 2px; background: var(--accent); animation: eq-bounce var(--d) ease-in-out infinite alternate; opacity: .85; }
-        .eq-bar:nth-child(1){ --d:.55s; height:60%; }
-        .eq-bar:nth-child(2){ --d:.38s; height:100%; }
-        .eq-bar:nth-child(3){ --d:.65s; height:45%; }
-        .eq-bar:nth-child(4){ --d:.42s; height:80%; }
-        .eq-bar:nth-child(5){ --d:.58s; height:35%; }
-        .eq-bar.paused { animation-play-state: paused; opacity: .35; }
-        @keyframes eq-bounce { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
-
-        /* -- Discord profile card -- */
-        #discord-card { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 24px; min-height: 72px; transition: border-color .2s; }
-        #discord-card:hover { border-color: rgba(255,255,255,.13); }
-        .dc-avatar-wrap { position: relative; flex-shrink: 0; }
-        .dc-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); object-fit: cover; }
-        .dc-avatar-placeholder { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--muted); }
-        .dc-status-pip { position: absolute; bottom: 1px; right: 1px; width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--surface); background: var(--muted); transition: background .3s; }
-        .dc-status-pip.online  { background: var(--green); }
-        .dc-status-pip.idle    { background: var(--amber); }
-        .dc-status-pip.dnd     { background: var(--red); }
-        .dc-status-pip.invisible { background: #747f8d; }
-        .dc-info { flex: 1; min-width: 0; }
-        .dc-name { font-size: 14px; font-weight: 700; letter-spacing: -.02em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .dc-tag  { font-size: 11px; color: var(--muted); margin-top: 1px; font-family: var(--mono); }
-        .dc-custom-status { font-size: 12px; color: var(--text-soft); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
-        .dc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
-        .dc-song { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-soft); }
-        .dc-song-text { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .dc-not-playing { font-size: 12px; color: var(--muted); font-style: italic; }
         ::-webkit-scrollbar-track { background: transparent; }
-        /* -- Equalizer bar -- */
-        .eq-bar-wrap { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
-        .eq-bar { width: 3px; border-radius: 2px; background: var(--accent); animation: eq-bounce var(--d) ease-in-out infinite alternate; opacity: .85; }
-        .eq-bar:nth-child(1){ --d:.55s; height:60%; }
-        .eq-bar:nth-child(2){ --d:.38s; height:100%; }
-        .eq-bar:nth-child(3){ --d:.65s; height:45%; }
-        .eq-bar:nth-child(4){ --d:.42s; height:80%; }
-        .eq-bar:nth-child(5){ --d:.58s; height:35%; }
-        .eq-bar.paused { animation-play-state: paused; opacity: .35; }
-        @keyframes eq-bounce { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
-
-        /* -- Discord profile card -- */
-        #discord-card { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 24px; min-height: 72px; transition: border-color .2s; }
-        #discord-card:hover { border-color: rgba(255,255,255,.13); }
-        .dc-avatar-wrap { position: relative; flex-shrink: 0; }
-        .dc-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); object-fit: cover; }
-        .dc-avatar-placeholder { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--muted); }
-        .dc-status-pip { position: absolute; bottom: 1px; right: 1px; width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--surface); background: var(--muted); transition: background .3s; }
-        .dc-status-pip.online  { background: var(--green); }
-        .dc-status-pip.idle    { background: var(--amber); }
-        .dc-status-pip.dnd     { background: var(--red); }
-        .dc-status-pip.invisible { background: #747f8d; }
-        .dc-info { flex: 1; min-width: 0; }
-        .dc-name { font-size: 14px; font-weight: 700; letter-spacing: -.02em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .dc-tag  { font-size: 11px; color: var(--muted); margin-top: 1px; font-family: var(--mono); }
-        .dc-custom-status { font-size: 12px; color: var(--text-soft); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
-        .dc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
-        .dc-song { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-soft); }
-        .dc-song-text { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .dc-not-playing { font-size: 12px; color: var(--muted); font-style: italic; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
-        /* -- Equalizer bar -- */
-        .eq-bar-wrap { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
-        .eq-bar { width: 3px; border-radius: 2px; background: var(--accent); animation: eq-bounce var(--d) ease-in-out infinite alternate; opacity: .85; }
-        .eq-bar:nth-child(1){ --d:.55s; height:60%; }
-        .eq-bar:nth-child(2){ --d:.38s; height:100%; }
-        .eq-bar:nth-child(3){ --d:.65s; height:45%; }
-        .eq-bar:nth-child(4){ --d:.42s; height:80%; }
-        .eq-bar:nth-child(5){ --d:.58s; height:35%; }
-        .eq-bar.paused { animation-play-state: paused; opacity: .35; }
-        @keyframes eq-bounce { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
-
-        /* -- Discord profile card -- */
-        #discord-card { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 24px; min-height: 72px; transition: border-color .2s; }
-        #discord-card:hover { border-color: rgba(255,255,255,.13); }
-        .dc-avatar-wrap { position: relative; flex-shrink: 0; }
-        .dc-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); object-fit: cover; }
-        .dc-avatar-placeholder { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hi); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--muted); }
-        .dc-status-pip { position: absolute; bottom: 1px; right: 1px; width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--surface); background: var(--muted); transition: background .3s; }
-        .dc-status-pip.online  { background: var(--green); }
-        .dc-status-pip.idle    { background: var(--amber); }
-        .dc-status-pip.dnd     { background: var(--red); }
-        .dc-status-pip.invisible { background: #747f8d; }
-        .dc-info { flex: 1; min-width: 0; }
-        .dc-name { font-size: 14px; font-weight: 700; letter-spacing: -.02em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .dc-tag  { font-size: 11px; color: var(--muted); margin-top: 1px; font-family: var(--mono); }
-        .dc-custom-status { font-size: 12px; color: var(--text-soft); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
-        .dc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
-        .dc-song { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-soft); }
-        .dc-song-text { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .dc-not-playing { font-size: 12px; color: var(--muted); font-style: italic; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.18); }
 
         @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
@@ -292,7 +201,6 @@
 
         #spotify-token-status { font-size: 12px; color: var(--muted); white-space: nowrap; }
 
-        /* Presence status toggle */
         .presence-toggle { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
         .presence-btn { height: 28px; padding: 0 12px; font-size: 12px; border-radius: var(--radius); border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); color: var(--text-soft); cursor: pointer; transition: background .12s, border-color .12s, color .12s, box-shadow .12s; }
         .presence-btn:hover { background: rgba(255,255,255,.1); color: var(--text); }
@@ -301,7 +209,6 @@
         .presence-btn.presence-active[data-value="dnd"]    { background: rgba(248,113,113,.15); border-color: rgba(248,113,113,.45); color: var(--red);   box-shadow: 0 0 0 2px rgba(248,113,113,.12); }
         .presence-btn.presence-active[data-value="mobile"]  { background: rgba(99,179,237,.15);  border-color: rgba(99,179,237,.45);  color: var(--accent); box-shadow: 0 0 0 2px rgba(99,179,237,.12); }
 
-        /* Flash state multi-select */
         .flash-state-toggle { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
         .flash-state-btn { height: 28px; padding: 0 12px; font-size: 12px; border-radius: var(--radius); border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); color: var(--text-soft); cursor: pointer; transition: background .12s, border-color .12s, color .12s, box-shadow .12s; }
         .flash-state-btn:hover { background: rgba(255,255,255,.1); color: var(--text); }
@@ -310,7 +217,6 @@
         .flash-state-btn.flash-state-active[data-value="dnd"]       { background: rgba(248,113,113,.15); border-color: rgba(248,113,113,.45); color: var(--red);    box-shadow: 0 0 0 2px rgba(248,113,113,.12); }
         .flash-state-btn.flash-state-active[data-value="invisible"] { background: rgba(90,94,102,.2);    border-color: rgba(90,94,102,.5);    color: var(--muted);  box-shadow: 0 0 0 2px rgba(90,94,102,.12); }
 
-        /* FAQ / Help */
         #help-section { margin-top: 28px; border-top: 1px solid var(--border); padding-top: 22px; }
         .help-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
         .help-bar-left { display: flex; align-items: center; gap: 10px; }
@@ -368,8 +274,8 @@
         </div>
         <div class="faq">
             <div class="faq-item">
-                <div class="faq-q">My status isn't updating â€” what do I check first? <span class="faq-chevron">&#9660;</span></div>
-                <div class="faq-a">Make sure Spotify is actively playing (not paused). Check the WebSocket dot in the header â€” it should be green. If it shows red, restart the app with <code>npm start</code>. Also verify your Discord token and Spotify <code>sp_dc</code> cookie are filled in under Authentication.</div>
+                <div class="faq-q">My status isn't updating — what do I check first? <span class="faq-chevron">&#9660;</span></div>
+                <div class="faq-a">Make sure Spotify is actively playing (not paused). Check the WebSocket dot in the header — it should be green. If it shows red, restart the app with <code>npm start</code>. Also verify your Discord token and Spotify <code>sp_dc</code> cookie are filled in under Authentication.</div>
             </div>
             <div class="faq-item">
                 <div class="faq-q">I'm getting HTTP 429 (rate limited) from Discord. <span class="faq-chevron">&#9660;</span></div>
@@ -377,15 +283,15 @@
             </div>
             <div class="faq-item">
                 <div class="faq-q">Spotify says "RBAC: access denied" or stops fetching lyrics. <span class="faq-chevron">&#9660;</span></div>
-                <div class="faq-a">Your <code>sp_dc</code> cookie has expired. Open DevTools in your browser, go to Application â†’ Cookies â†’ <code>https://open.spotify.com</code>, copy the value of <code>sp_dc</code>, and paste it into the Spotify cookies field. The token auto-refreshes on startup once the cookie is valid.</div>
+                <div class="faq-a">Your <code>sp_dc</code> cookie has expired. Open DevTools in your browser, go to Application → Cookies → <code>https://open.spotify.com</code>, copy the value of <code>sp_dc</code>, and paste it into the Spotify cookies field. The token auto-refreshes on startup once the cookie is valid.</div>
             </div>
             <div class="faq-item">
                 <div class="faq-q">No synced lyrics found for a song. <span class="faq-chevron">&#9660;</span></div>
-                <div class="faq-a">Not every song has timed lyrics in every source. The app tries each enabled source in order â€” if all fail, no status is sent for that song. <strong>LrcLib</strong> has the broadest free coverage and requires no token. Try enabling all sources and restarting.</div>
+                <div class="faq-a">Not every song has timed lyrics in every source. The app tries each enabled source in order — if all fail, no status is sent for that song. <strong>LrcLib</strong> has the broadest free coverage and requires no token. Try enabling all sources and restarting.</div>
             </div>
             <div class="faq-item">
                 <div class="faq-q">Musixmatch worked briefly then stopped (ok=false / captcha). <span class="faq-chevron">&#9660;</span></div>
-                <div class="faq-a">Musixmatch's unofficial desktop endpoint actively rate-limits and flags tokens via bot-detection â€” this is a known issue across many projects, not a paid-plan requirement. The token can be invalidated within minutes on some accounts. Use <strong>LrcLib</strong> as your primary stable fallback; it's free and has no token requirement.</div>
+                <div class="faq-a">Musixmatch's unofficial desktop endpoint actively rate-limits and flags tokens via bot-detection — this is a known issue across many projects, not a paid-plan requirement. The token can be invalidated within minutes on some accounts. Use <strong>LrcLib</strong> as your primary stable fallback; it's free and has no token requirement.</div>
             </div>
             <div class="faq-item">
                 <div class="faq-q">Source order or toggle changes aren't taking effect. <span class="faq-chevron">&#9660;</span></div>
@@ -393,7 +299,7 @@
             </div>
             <div class="faq-item">
                 <div class="faq-q">How do I get my Discord token? <span class="faq-chevron">&#9660;</span></div>
-                <div class="faq-a">Open Discord in your browser, open DevTools (F12), go to the Network tab, send any message or perform any action, find a request to <code>discord.com/api</code>, and look for the <code>Authorization</code> request header. That value is your user token. Keep it private â€” it grants full access to your account.</div>
+                <div class="faq-a">Open Discord in your browser, open DevTools (F12), go to the Network tab, send any message or perform any action, find a request to <code>discord.com/api</code>, and look for the <code>Authorization</code> request header. That value is your user token. Keep it private — it grants full access to your account.</div>
             </div>
         </div>
     </div>

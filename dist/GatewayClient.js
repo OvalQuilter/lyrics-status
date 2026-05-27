@@ -4,10 +4,37 @@ exports.GatewayClient = void 0;
 const WebSocket = require("ws");
 const Debug_1 = require("./Debug");
 const Settings_1 = require("./Settings");
+const fs = require("fs");
+const path = require("path");
 
 const GATEWAY_URL = "wss://gateway.discord.gg/?v=10&encoding=json";
-const FATAL_CODES = new Set([4004, 4010, 4011, 4012, 4013, 4014]);
+const FATAL_CODES = new Set([4004, 4010, 4011, 4012, 4013, 4014, 4021]);
 const NO_RESUME_CODES = new Set([4007, 4009]);
+const SESSION_PATH = path.resolve(__dirname, "../session.json");
+
+const FATAL_MESSAGES = {
+    4004: "Invalid Discord token — check your token in settings.",
+    4010: "Invalid shard.",
+    4011: "Sharding required.",
+    4012: "Invalid API version.",
+    4013: "Invalid intent(s).",
+    4014: "Disallowed intent(s).",
+    4021: "Gateway rate limited — too many reconnects.",
+};
+
+function _loadSession(token) {
+    try {
+        const d = JSON.parse(fs.readFileSync(SESSION_PATH, "utf8"));
+        if (d.token === token) return d;
+    } catch (_) {}
+    return null;
+}
+function _saveSession(token, sessionId, seq, resumeUrl) {
+    try { fs.writeFileSync(SESSION_PATH, JSON.stringify({ token, sessionId, seq, resumeUrl }), "utf8"); } catch (_) {}
+}
+function _clearSession() {
+    try { fs.unlinkSync(SESSION_PATH); } catch (_) {}
+}
 
 class GatewayClient {
     constructor() {
@@ -18,9 +45,21 @@ class GatewayClient {
         this._wsInstance = 0; this._hbGeneration = 0; this._lastActivity = null; this._flashStatus = null;
         this._lastRichPresenceActivity = null;
         this._reconnectDelay = 1000;
+        this._lastIdentifyAt = 0;
         this.onReady = null;
     }
-    connect() { this._destroyed = false; this._reconnecting = false; this._open(false); }
+    connect() {
+        this._destroyed = false; this._reconnecting = false;
+        const token = Settings_1.Settings.credentials.token;
+        const saved = token ? _loadSession(token) : null;
+        if (saved) {
+            this._sessionId = saved.sessionId;
+            this._seq = saved.seq;
+            this._resumeUrl = saved.resumeUrl;
+            Debug_1.Debug.write("[GatewayClient] Loaded session from disk — will attempt resume");
+        }
+        this._open(!!saved);
+    }
     destroy() { this._destroyed = true; this._reconnecting = false; this._clearHB(); try { this._ws?.terminate(); } catch (_) {} this._ws = null; this.connected = false; }
 
     _reset(ms, canResume) {
@@ -29,7 +68,7 @@ class GatewayClient {
         const ws = this._ws;
         this._ws = null;
         ++this._wsInstance;
-        try { ws?.terminate(); } catch (_) {}
+        try { ws?.close(4000); } catch (_) { try { ws?.terminate(); } catch (_) {} }
         if (!this._destroyed) {
             this._reconnecting = true;
             let delay;
@@ -49,7 +88,7 @@ class GatewayClient {
         ws.on("message", data => {
             if (this._wsInstance !== instance) return;
             let msg; try { msg = JSON.parse(data); } catch { return; }
-            if (msg.s != null) this._seq = msg.s;
+            if (msg.s != null) { this._seq = msg.s; _saveSession(token, this._sessionId, this._seq, this._resumeUrl); }
             switch (msg.op) {
                 case 10: {
                     const interval = msg.d.heartbeat_interval;
@@ -68,6 +107,7 @@ class GatewayClient {
                     if (msg.t === "READY") {
                         this._sessionId = msg.d.session_id;
                         this._resumeUrl = msg.d.resume_gateway_url || GATEWAY_URL;
+                        _saveSession(token, this._sessionId, this._seq, this._resumeUrl);
                         this.connected = true;
                         this._reconnecting = false;
                         this._resetReconnectDelay();
@@ -86,8 +126,9 @@ class GatewayClient {
                     this._reset(500, true);
                     break;
                 case 9:
-                    Debug_1.Debug.write(`[GatewayClient] Invalid session (resumable=${msg.d}) \u2014 reconnecting in 5s`);
-                    this._reset(5000, !!msg.d);
+                    Debug_1.Debug.write(`[GatewayClient] Invalid session (resumable=${msg.d}) \u2014 reconnecting`);
+                    if (!msg.d) _clearSession();
+                    this._reset(1000 + Math.random() * 4000, !!msg.d);
                     break;
             }
         });
@@ -95,7 +136,12 @@ class GatewayClient {
             if (this._wsInstance !== instance) return;
             this.connected = false; this._clearHB();
             if (this._destroyed) return;
-            if (FATAL_CODES.has(code)) { Debug_1.Debug.write(`[GatewayClient] Fatal close ${code} \u2014 not reconnecting`); return; }
+            if (FATAL_CODES.has(code)) {
+                const msg = FATAL_MESSAGES[code] || `Fatal gateway error (code ${code})`;
+                console.error(`\x1b[31m[lyrics-status] Discord Gateway: ${msg}\x1b[0m`);
+                Debug_1.Debug.write(`[GatewayClient] Fatal close ${code} \u2014 ${msg}`);
+                return;
+            }
             const canResume = !NO_RESUME_CODES.has(code);
             Debug_1.Debug.write(`[GatewayClient] Disconnected (${code}) \u2014 reconnecting in 5s (resume=${canResume})`);
             this._scheduleReconnect(5000, canResume);
@@ -104,6 +150,14 @@ class GatewayClient {
     }
 
     _identify(token) {
+        const now = Date.now();
+        if (now - this._lastIdentifyAt < 5000) {
+            const wait = 5000 - (now - this._lastIdentifyAt);
+            Debug_1.Debug.write(`[GatewayClient] Identify rate limit — waiting ${wait}ms`);
+            setTimeout(() => this._identify(token), wait);
+            return;
+        }
+        this._lastIdentifyAt = now;
         const pref = Settings_1.Settings.gateway?.presenceStatus || "online";
         const isMobile = pref === "mobile";
         const status = isMobile ? "online" : pref;
@@ -124,7 +178,7 @@ class GatewayClient {
             this._hbInterval = setInterval(() => {
                 if (!this._ackReceived) {
                     Debug_1.Debug.write("[GatewayClient] HB ACK missed \u2014 reconnecting");
-                    this._reset(1000, false);
+                    this._reset(1000, true);
                     return;
                 }
                 this._ackReceived = false; this._sendHB();

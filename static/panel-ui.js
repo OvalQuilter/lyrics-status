@@ -123,7 +123,7 @@ function renderSections() {
     const container = document.getElementById("sections");
     container.innerHTML = SECTION_DEFS.map(([icon, title, desc, id, open]) => `
         <div class="section${open?" open":""}" data-section="${id}">
-            <div class="section-header">
+            <div class="section-header" aria-expanded="${open}">
                 <div class="section-header-left">
                     <div class="section-icon">${icon}</div>
                     <div>
@@ -136,8 +136,24 @@ function renderSections() {
             <div class="section-body">${SECTION_BODIES[id]()}</div>
         </div>
     `).join("");
+    // UI-5: restore persisted open/close state
+    document.querySelectorAll(".section[data-section]").forEach(sec => {
+        const id = sec.dataset.section;
+        const stored = (() => { try { return localStorage.getItem("sec_" + id); } catch(_) { return null; } })();
+        if (stored === "1") sec.classList.add("open");
+        else if (stored === "0") sec.classList.remove("open");
+        const hdr = sec.querySelector(".section-header");
+        if (hdr) hdr.setAttribute("aria-expanded", sec.classList.contains("open"));
+    });
     document.querySelectorAll(".section-header").forEach(hdr => {
-        hdr.addEventListener("click", () => hdr.closest(".section").classList.toggle("open"));
+        hdr.addEventListener("click", () => {
+            const sec = hdr.closest(".section");
+            sec.classList.toggle("open");
+            const id = sec.dataset.section;
+            const isOpen = sec.classList.contains("open");
+            hdr.setAttribute("aria-expanded", isOpen);
+            try { localStorage.setItem("sec_" + id, isOpen ? "1" : "0"); } catch(_) {}
+        });
     });
 }
 

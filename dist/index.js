@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 
 // --- Startup checks ---
@@ -52,6 +52,10 @@ const path = require("path");
 let _store = null;
 
 Settings_1.Settings.load();
+
+// Cleanup leftover temp/ from failed autoupdate
+{ const { existsSync, rmSync } = require("fs"); const _tmp = require("path").join(__dirname, "../temp"); try { if (existsSync(_tmp)) { rmSync(_tmp, { recursive: true, force: true }); Debug_1.Debug.write("[init] Cleaned up leftover temp/ dir"); } } catch (e) { Debug_1.Debug.write("[init] Failed to clean temp/: " + e.message); } }
+
 if (Settings_1.Settings.update.enableAutoupdate) {
     Updater_1.Updater.tryUpdate().catch(e => { Debug_1.Debug.write("LyricsStatus failed to update. Error: " + e.stack); }).finally(() => init());
 } else { init(); }
@@ -248,6 +252,7 @@ function init() {
     }, 1000);
 
     (0, Server_1.startServer)();
+    const Tray_1 = require('./Tray'); Tray_1.startTray(() => { try { _store?.close(); } catch(_){} process.exit(0); });
 }
 
 process.on("uncaughtException", e => {

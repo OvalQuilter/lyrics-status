@@ -1,4 +1,4 @@
-// panel.js — runtime core
+﻿// panel.js — runtime core
 // Depends on: panel-data.js, panel-ui.js (loaded before this file)
 
 const getPath = (obj, path) => path.split(".").reduce((o,k) => o != null ? o[k] : undefined, obj);
@@ -9,6 +9,7 @@ function setPath(obj, path, val) {
 }
 
 let settings = JSON.parse(JSON.stringify(DEFAULTS));
+let _disconnectToast = null;
 let loaded = false, ws = null, _pendingSave = false, _dirty = false;
 
 function mergeSettings(parsed) {
@@ -63,7 +64,7 @@ function setWsStatus(state) {
 function connectWS() {
     setWsStatus("connecting");
     ws = new WebSocket("ws://localhost:8999/ws");
-    ws.onopen = () => setWsStatus("connected");
+    ws.onopen = () => { setWsStatus("connected"); if (_disconnectToast) { clearTimeout(_disconnectToast); _disconnectToast = null; } };
     ws.onmessage = ({ data }) => {
         try {
             const parsed = JSON.parse(data);
@@ -75,7 +76,7 @@ function connectWS() {
         } catch(e) { console.error("WS parse error:", e); }
     };
     ws.onerror = () => { setWsStatus("error"); _pendingSave = true; };
-    ws.onclose = () => { setWsStatus("connecting"); setTimeout(connectWS, 2000); };
+    ws.onclose = () => { setWsStatus("connecting"); setTimeout(connectWS, 2000); if (!_disconnectToast) { _disconnectToast = setTimeout(() => { if (!ws || ws.readyState !== WebSocket.OPEN) toast("Panel disconnected â€” reconnecting\u2026", "error", 5000); _disconnectToast = null; }, 5000); } };
 }
 connectWS();
 
