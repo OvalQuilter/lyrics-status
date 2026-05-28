@@ -1,4 +1,4 @@
-﻿// panel.js — runtime core
+// panel.js — runtime core
 // Depends on: panel-data.js, panel-ui.js (loaded before this file)
 
 const getPath = (obj, path) => path.split(".").reduce((o,k) => o != null ? o[k] : undefined, obj);
@@ -9,7 +9,6 @@ function setPath(obj, path, val) {
 }
 
 let settings = JSON.parse(JSON.stringify(DEFAULTS));
-let _disconnectToast = null;
 let loaded = false, ws = null, _pendingSave = false, _dirty = false;
 
 function mergeSettings(parsed) {
@@ -61,13 +60,45 @@ function setWsStatus(state) {
     else                        {                                 if (lbl) lbl.textContent = "Connecting\u2026"; }
 }
 
+function updateNowPlaying(d) {
+    const bar = document.getElementById("np-bar");
+    const song = document.getElementById("np-song");
+    const badge = document.getElementById("np-status-badge");
+    const lyric = document.getElementById("np-lyric");
+    const author = document.getElementById("np-author");
+    const source = document.getElementById("np-source");
+    const progress = document.getElementById("np-progress");
+    const gw = document.getElementById("np-gw");
+    const send = document.getElementById("np-send");
+    if (!bar) return;
+    const playing = d.isPlaying;
+    bar.className = playing ? "" : "paused";
+    if (song) song.textContent = d.song || "Not playing";
+    if (badge) { badge.textContent = playing ? "\u25B6 Playing" : (d.song ? "\u23F8 Paused" : "Idle"); badge.className = "np-status-badge " + (playing ? "playing" : d.song ? "paused" : "idle"); }
+    if (lyric) { lyric.style.display = d.lyric ? "" : "none"; lyric.textContent = d.lyric || ""; }
+    if (author) author.textContent = d.author || "\u2014";
+    if (source) source.textContent = d.source || "\u2014";
+    if (progress) progress.textContent = d.progress || "\u2014";
+    if (gw) {
+        if (!d.gwEnabled) { gw.textContent = "REST"; gw.className = "off"; }
+        else if (d.gwConnected) { gw.textContent = "GW " + (d.gwRate||0) + "/5"; gw.className = d.gwRate >= 4 ? "warn" : "ok"; }
+        else if (d.gwReconnecting) { gw.textContent = "GW reconnecting"; gw.className = "warn"; } else { gw.textContent = "GW \u2014"; gw.className = "err"; }
+    }
+    if (send) {
+        if (d.rateLimited) { send.textContent = "Rate limited " + d.rateLimited + "s"; send.className = "rate"; }
+        else if (!d.nextSend || d.nextSend <= 0) { send.textContent = "Ready"; send.className = "ready"; }
+        else { send.textContent = "Next: " + (d.nextSend/1000).toFixed(1) + "s"; send.className = ""; }
+    }
+}
 function connectWS() {
     setWsStatus("connecting");
     ws = new WebSocket("ws://localhost:8999/ws");
-    ws.onopen = () => { setWsStatus("connected"); if (_disconnectToast) { clearTimeout(_disconnectToast); _disconnectToast = null; } };
+    ws.onopen = () => { setWsStatus("connected"); };
     ws.onmessage = ({ data }) => {
         try {
             const parsed = JSON.parse(data);
+            if (parsed.type === "status") { updateNowPlaying(parsed); return; }
+            if (parsed.type === "server_shutdown") return;
             if (!_dirty) {
                 settings = mergeSettings(parsed);
                 applyToDom();

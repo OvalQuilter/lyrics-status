@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startServer = startServer;
 const express = require("express");
@@ -12,6 +12,8 @@ const Debug_1 = require("../Debug");
 
 const STATIC = join(__dirname, "../../static");
 const KEYS = ["credentials","view","timings","update","rateLimit","sources","chineseConversion","restore","gateway","statusFlash","richPresence"];
+
+let _lastStatus = null;
 
 function refreshSpotifyWebToken() {
     const cookies = Settings_1.Settings.credentials.cookies;
@@ -51,9 +53,9 @@ function startServer() {
         } else {
             if (!req.query.code) return res.sendStatus(401);
             Settings_1.Settings.credentials.code = req.query.code;
-            SpotifyService_1.SpotifyService.exchange().then(() => Settings_1.Settings.save()).catch(e => Debug_1.Debug.write(`[Server] exchange failed: ${e}`));
+            SpotifyService_1.SpotifyService.exchange().then(() => Settings_1.Settings.save()).catch(e => Debug_1.Debug.write("[Server] exchange failed: " + e));
         }
-        res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Authorized</title><script>(function(){try{if(window.opener&&!window.opener.closed)window.close();}catch(e){}})()</\script></head><body><p>Authorization complete. You can close this window.</p></body></html>`);
+        res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Authorized</title><script>(function(){try{if(window.opener&&!window.opener.closed)window.close();}catch(e){}})()</\script></head><body><p>Authorization complete. You can close this window.</p></body></html>');
     });
 
     // Ping/pong heartbeat — terminates zombie panel connections
@@ -69,10 +71,12 @@ function startServer() {
     wss.on("connection", ws => {
         ws.isAlive = true;
         ws.on("pong", () => { ws.isAlive = true; });
-        ws.on("error", e => Debug_1.Debug.write(`[Server] WS error: ${e}`));
+        ws.on("error", e => Debug_1.Debug.write("[Server] WS error: " + e));
         ws.on("message", data => {
             let p; try { p = JSON.parse(data.toString()); } catch { return; }
             if (!p || typeof p !== "object") return;
+            // Guard: ignore status/shutdown messages sent from panel (shouldn't happen, but safe)
+            if (p.type === "status" || p.type === "server_shutdown") return;
             for (const k of KEYS) {
                 if (p[k] == null) continue;
                 if (typeof Settings_1.Settings[k] === "object" && !Array.isArray(Settings_1.Settings[k]) && typeof p[k] === "object") {
@@ -84,8 +88,11 @@ function startServer() {
             }
             Settings_1.Settings.save();
         });
+        // Send settings payload
         const payload = JSON.stringify(Object.fromEntries(KEYS.map(k => [k, Settings_1.Settings[k]])));
-        if (ws.readyState === WebSocket.OPEN) try { ws.send(payload); } catch (e) { Debug_1.Debug.write(`[Server] Send failed: ${e}`); }
+        if (ws.readyState === WebSocket.OPEN) try { ws.send(payload); } catch (e) { Debug_1.Debug.write("[Server] Send failed: " + e); }
+        // Send last cached status so panel shows data immediately on reload
+        if (_lastStatus && ws.readyState === WebSocket.OPEN) try { ws.send(JSON.stringify(_lastStatus)); } catch (e) { Debug_1.Debug.write("[Server] Send lastStatus failed: " + e); }
     });
 
     httpServer.on("error", e => {
@@ -96,18 +103,16 @@ function startServer() {
         Debug_1.Debug.write("[Server] httpServer error: " + e.stack);
     });
 
-    // Graceful shutdown
-    function shutdown() {
-        for (const ws of wss.clients) {
-            try { ws.send(JSON.stringify({ type: "server_shutdown" })); } catch (_) {}
-        }
-        wss.close();
-        httpServer.close(() => process.exit(0));
-        setTimeout(() => process.exit(1), 10000);
-    }
-    process.on("SIGINT", shutdown);
-    process.on("SIGTERM", shutdown);
-
     httpServer.listen(8999);
     refreshSpotifyWebToken();
+
+    function broadcast(statusObj) {
+        _lastStatus = statusObj;
+        for (const client of wss.clients) {
+            if (client.readyState === WebSocket.OPEN) {
+                try { client.send(JSON.stringify(statusObj)); } catch (e) { Debug_1.Debug.write("[Server] broadcast failed: " + e); }
+            }
+        }
+    }
+    return { broadcast };
 }

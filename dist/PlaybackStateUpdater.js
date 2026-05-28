@@ -75,9 +75,10 @@ class PlaybackStateUpdater {
             if (Settings_1.Settings.credentials.useExternalAuthServer) {
                 SpotifyService_1.SpotifyService.token = (await ExternalAuthServerAPI_1.ExternalAuthServerAPI.getToken()) || "";
             } else { await SpotifyService_1.SpotifyService.refresh(); }
+            // Retry immediately after token refresh instead of waiting for next poll interval
+            setTimeout(() => this.update().catch(() => {}), 1000);
             return;
         }
-        if (res.status === 204) { Debug_1.Debug.write(`[PlaybackStateUpdater] 204 — nothing playing`); return; }
         if (res.status !== 200) return;
         let json;
         try { json = await res.json(); } catch (e) { Debug_1.Debug.write(`[PlaybackStateUpdater] Failed to parse response: ${e}`); return; }

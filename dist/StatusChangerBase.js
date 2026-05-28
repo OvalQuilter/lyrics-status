@@ -125,13 +125,14 @@ class StatusChangerBase {
             const sent = this._gateway.setCustomStatus(text, emoji);
             if (sent) {
                 this._gwRateLimitSkips = 0;
-                if (this._iOSSyncPending) { this._iOSSyncPending = null; this._iOSSync(text, emoji); }
+                if (this._iOSSyncPending) { const _force = this._iOSSyncPending.t == null; this._iOSSyncPending = null; this._iOSSync(text, emoji, _force); }
             } else {
                 this._gwRateLimitSkips = (this._gwRateLimitSkips || 0) + 1;
                 if (this._gwRateLimitSkips >= 5) { this._gwRateLimitSkips = 0; this._iOSSyncPending = null; Debug_1.Debug.write('[StatusChanger] GW rate-limit skip limit -- cleared iOSSyncPending'); }
                 // FIX RL1: roll back sentLines for retry, but stamp _lastSentAt=now so the
                 // minInterval guard in changeStatus() throttles re-entry instead of tight-looping
                 if (mergedLines) for (const ml of mergedLines) this.sentLines.delete(ml);
+                this._lastMergedLines = null;
                 this._lastSentText = "";
                 this._lastSentAt = Date.now();
                 Debug_1.Debug.write('[StatusChanger] GW skipped -- rolled back sentLines, throttling retry');
@@ -217,7 +218,6 @@ class StatusChangerBase {
                 const gapFromAnchor = anchor.time - lines[j].time;
                 if (gapFromAnchor > mergeWindowMs) break;
                 if (!lines[j].text) continue;
-                if (ignoreStale && !this.sentLines.has(lines[j])) continue;
                 if (!ignoreStale && this.sentLines.has(lines[j]) && !this._staleLines.has(lines[j])) break;
                 lyricLines.unshift(sanitizeLyric(lines[j].text));
                 mergedLines.unshift(lines[j]);
@@ -263,24 +263,49 @@ class StatusChangerBase {
         return out;
     }
 
-    _iOSSync(text, emoji) {
+    _iOSSync(text, emoji, force = false) {
         if (!this._captureReady || !text || this._restoreTimer) return;
         if (!Settings_1.Settings.gateway || !Settings_1.Settings.gateway.enabled) return;
         const now = Date.now();
-        if (now - this._iOSSyncSentAt < 10000) return;
-        this._iOSSyncSentAt = now;
+        // Per-song cooldown: 10s from last *successful* sync; bypass with force=true on song change
+        if (!force && now - this._iOSSyncSentAt < 10000) return;
         Debug_1.Debug.write('[StatusChanger] iOS REST sync: ' + JSON.stringify(text));
-        _patchLog(
-            this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji || null, expires_at: new Date(now + 60000).toISOString() } }),
-            "iOS REST sync"
-        );
+        const req = this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji || null, expires_at: new Date(now + 60000).toISOString() } });
+        req.then(res => {
+            if (res.status === 200) {
+                this._iOSSyncSentAt = Date.now(); // stamp only on confirmed success
+                Debug_1.Debug.write('[StatusChanger] iOS REST sync OK');
+            } else if (res.status === 429) {
+                res.text().then(raw => {
+                    let retryAfter = 5;
+                    try { const b = JSON.parse(raw); if (typeof b.retry_after === 'number' && b.retry_after > 0) retryAfter = b.retry_after; } catch (_) {}
+                    Debug_1.Debug.write(`[StatusChanger] iOS REST sync 429 — retrying in ${retryAfter}s`);
+                    setTimeout(() => {
+                        if (this._captureReady && !this._restoreTimer && this._lastSentText === text)
+                            this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji || null, expires_at: new Date(Date.now() + 60000).toISOString() } })
+                                .then(r => { if (r.status === 200) { this._iOSSyncSentAt = Date.now(); Debug_1.Debug.write('[StatusChanger] iOS REST sync retry OK'); } })
+                                .catch(e => Debug_1.Debug.write(`[StatusChanger] iOS REST sync retry error: ${e}`));
+                    }, retryAfter * 1000);
+                }).catch(() => {});
+            } else {
+                res.text().then(b => Debug_1.Debug.write(`[StatusChanger] iOS REST sync HTTP ${res.status}: ${b}`)).catch(() => {});
+            }
+        }).catch(e => Debug_1.Debug.write(`[StatusChanger] iOS REST sync error: ${e}`));
     }
 
     _onGatewayReady() {
         if (!this._lastSentText || this._restoreTimer) return;
         const emoji = (Settings_1.Settings.view.advanced && Settings_1.Settings.view.advanced.enabled)
             ? Settings_1.Settings.view.advanced.customEmoji : "\uD83C\uDFB6";
-        this._iOSSync(this._lastSentText, emoji);
+        // Use pending sync text if available — more current than _lastSentText on reconnect
+        const pendingText = this._iOSSyncPending?.t;
+        const pendingEmoji = this._iOSSyncPending?.em;
+        if (pendingText) {
+            this._iOSSyncPending = null;
+            this._iOSSync(pendingText, pendingEmoji || emoji);
+        } else {
+            this._iOSSync(this._lastSentText, emoji);
+        }
     }
 
     formatSeconds(s) {

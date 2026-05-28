@@ -1,4 +1,4 @@
-﻿// panel-ui.js â€" HTML builders and DOM rendering
+// panel-ui.js â€" HTML builders and DOM rendering
 // Depends on: panel-data.js (DEFAULTS, SOURCE_META, SECTION_DEFS, SECTION_BODIES keys,
 //             PRESENCE_OPTIONS, FLASH_STATE_OPTIONS, RESTORE_STATUS_OPTIONS)
 // Depends on: panel.js globals: settings, save()
@@ -65,7 +65,7 @@ const SECTION_BODIES = {
             `<div class="presence-toggle" id="presence-toggle">` +
             PRESENCE_OPTIONS.map(o => `<button class="presence-btn" data-value="${o.value}" style="--pc:${o.color}">${o.label}</button>`).join("") +
             `</div>` +
-            h.hint("Sets your Discord status on each op\u00a03 send. Invisible hides you from others while still updating your custom status. Gateway must be enabled.") +
+            h.hint("Mobile presence requires a restart to take effect. Sets your Discord status on each op\u00a03 send. Invisible hides you from others while still updating your custom status. Gateway must be enabled.") +
             `</div>`
         ) +
         h.row(h.label("GW min interval"), h.inline(h.number("gw-min-interval-ms",0,60000,500) + h.muted("ms between op\u00a03 sends"))) +

@@ -1,4 +1,4 @@
-﻿{
+{
     "name": "lyrics-status",
     "version": "3.5.0.2",
     "dependencies": {
@@ -10,7 +10,6 @@
         "he": "^1.2.0",
         "node-notifier": "^10.0.1",
         "node-stream-zip": "^1.15.0",
-        "open": "^11.0.0",
         "opencc-js": "^1.0.5",
         "systray2": "^2.1.4",
         "totp-generator": "^1.0.0",

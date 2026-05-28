@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 
 // --- Startup checks ---
@@ -60,10 +60,24 @@ if (Settings_1.Settings.update.enableAutoupdate) {
     Updater_1.Updater.tryUpdate().catch(e => { Debug_1.Debug.write("LyricsStatus failed to update. Error: " + e.stack); }).finally(() => init());
 } else { init(); }
 
-function init() {
+async function init() {
     if (!Settings_1.Settings.credentials.uuid) { Settings_1.Settings.credentials.uuid = (0, uuid_1.v4)(); Settings_1.Settings.save(); }
     ExternalAuthServerAPI_1.ExternalAuthServerAPI.register();
-    SpotifyService_1.SpotifyService.refresh();
+    // Await initial token refresh so first poll has a valid token
+    if (Settings_1.Settings.credentials.refreshToken && !Settings_1.Settings.credentials.useExternalAuthServer) {
+        await SpotifyService_1.SpotifyService.refresh().catch(e => Debug_1.Debug.write("[init] Initial token refresh failed: " + e));
+        Debug_1.Debug.write('[init] Spotify token refreshed at startup');
+        // Proactively refresh ~5min before OAuth token expiry
+        const _expiry = Settings_1.Settings.credentials.spotifyWebTokenExpiry || 0;
+        const _refreshIn = Math.max(60000, (_expiry || Date.now() + 3600000) - Date.now() - 300000);
+        setTimeout(function _proactiveRefresh() {
+            SpotifyService_1.SpotifyService.refresh().catch(() => {});
+            const exp = Settings_1.Settings.credentials.spotifyWebTokenExpiry || 0;
+            setTimeout(_proactiveRefresh, Math.max(60000, exp - Date.now() - 300000));
+        }, _refreshIn);
+    } else if (Settings_1.Settings.credentials.useExternalAuthServer) {
+        SpotifyService_1.SpotifyService.token = (await ExternalAuthServerAPI_1.ExternalAuthServerAPI.getToken().catch(() => null)) || '';
+    }
 
     const dbPath = Settings_1.Settings.cache.path || path.resolve(__dirname, "../cache/cache.db");
     _store = new CacheStore_1.CacheStore(dbPath);
@@ -118,7 +132,19 @@ function init() {
 
         dealerClient.connect();
 
-        // Periodic REST sync in dealer mode: every 30s to keep progress accurate
+        // If dealer auth fails, fire an immediate REST poll so we don't wait 30s
+        const _origOnReady = dealerClient.onReady;
+        const _dealerFallbackTimer = setTimeout(() => {
+            if (!_dealerConnected) {
+                Debug_1.Debug.write("[init] Dealer not ready after 5s — firing immediate REST poll");
+                playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater][dealer-fallback] ${e.stack || e}`));
+            }
+        }, 5000);
+        dealerClient.onReady = () => { clearTimeout(_dealerFallbackTimer); _origOnReady?.(); };
+
+        // Fire one immediate REST poll so initial state loads without waiting 30s
+        playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater][dealer-init] ${e.stack || e}`));
+        // Periodic REST sync every 30s for progress accuracy / missed events
         // and as a safety net if dealer misses a pause/resume event
         setInterval(() => {
             playbackStateUpdater.update().catch(e =>
@@ -150,6 +176,9 @@ function init() {
     }
 
     let _now = Date.now(), _songEndedFired = false, _lastKnownSongId = "", _wasPlaying = false, _lastProgress = 0;
+
+    // Progress tick: runs every 100ms — advances songProgress, detects song changes/end.
+    // changeStatus() is NOT called here; it runs on its own smart schedule below.
     setInterval(() => {
         const now = Date.now();
         let _songChanged = false;
@@ -157,17 +186,18 @@ function init() {
             _lastKnownSongId = playbackState.songId; _songEndedFired = false; _wasPlaying = playbackState.isPlaying;
             _lastProgress = playbackState.songProgress;
             statusChanger.songChanged(false); _songChanged = true;
+            _rescheduleStatusCheck(0); // new song — check immediately
         }
         if (!_songChanged && playbackState.isPlaying && playbackState.songProgress < _lastProgress - 3000) {
             Debug_1.Debug.write(`[init] Progress regression (${_lastProgress}->${playbackState.songProgress}) -- songChanged`);
             _songEndedFired = false; _lastProgress = playbackState.songProgress;
             statusChanger.songChanged(false); _songChanged = true;
+            _rescheduleStatusCheck(0);
         }
-        if (!_songChanged && playbackState.isPlaying && !_wasPlaying) statusChanger.songChanged(false);
+        if (!_songChanged && playbackState.isPlaying && !_wasPlaying) { statusChanger.songChanged(false); _rescheduleStatusCheck(0); }
         _wasPlaying = playbackState.isPlaying;
         if (playbackState.isPlaying) { playbackState.songProgress += now - _now; _lastProgress = playbackState.songProgress; }
         _now = now;
-        statusChanger.changeStatus();
         if (playbackState.ended) {
             if (!_songEndedFired) {
                 _songEndedFired = true;
@@ -178,10 +208,68 @@ function init() {
         } else _songEndedFired = false;
     }, 100);
 
+    // Smart status scheduler: fires changeStatus() timed to the next lyric line's ETA.
+    // Falls back to 100ms polling only when: no lyrics, style-alternate active, or flash active.
+    let _statusCheckTimer = null;
+    function _scheduleNextStatusCheck() {
+        const ps = playbackState;
+        if (!ps.isPlaying || ps.ended) { _statusCheckTimer = setTimeout(_statusTick, 500); return; }
+
+        // Style-alternate or flash need fast ticks
+        const adv = Settings_1.Settings.view.advanced;
+        const needsFast = (adv?.styleAlternateEnabled) || (Settings_1.Settings.statusFlash?.enabled);
+        if (needsFast) { _statusCheckTimer = setTimeout(_statusTick, 100); return; }
+
+        if (!ps.hasLyrics || !ps.lyrics?.lines?.length) {
+            _statusCheckTimer = setTimeout(_statusTick, 200); return;
+        }
+
+        const lines = ps.lyrics.lines;
+        const offset = Settings_1.Settings.timings.enableAutooffset
+            ? statusChanger.autooffset.getAverageValue() + 100
+            : (Settings_1.Settings.timings.sendTimeOffset || 0);
+        const progress = ps.songProgress;
+        const minInterval = Settings_1.Settings.rateLimit.enableMinInterval
+            ? (Settings_1.Settings.rateLimit.minIntervalMs || 5000) : 0;
+
+        // Find the next line that hasn't been sent yet and is in the future
+        let nextLineMs = null;
+        for (let i = 0; i < lines.length; i++) {
+            const lineEta = lines[i].time - offset;
+            if (lineEta > progress) {
+                nextLineMs = lineEta - progress;
+                break;
+            }
+        }
+
+        if (nextLineMs === null) {
+            // Past all lines — check occasionally for song end
+            _statusCheckTimer = setTimeout(_statusTick, 500); return;
+        }
+
+        // Schedule slightly early (~50ms) so we don't miss the window;
+        // also respect minInterval — no point waking up before we can send
+        const sinceLastSent = Date.now() - statusChanger._lastSentAt;
+        const minIntervalRemaining = minInterval > 0 ? Math.max(0, minInterval - sinceLastSent) : 0;
+        const delay = Math.max(50, Math.min(nextLineMs - 50, minIntervalRemaining, 10000));
+        _statusCheckTimer = setTimeout(_statusTick, delay);
+    }
+    function _rescheduleStatusCheck(delay) {
+        if (_statusCheckTimer) { clearTimeout(_statusCheckTimer); _statusCheckTimer = null; }
+        _statusCheckTimer = setTimeout(_statusTick, delay ?? 0);
+    }
+    function _statusTick() {
+        _statusCheckTimer = null;
+        statusChanger.changeStatus();
+        _scheduleNextStatusCheck();
+    }
+    _statusCheckTimer = setTimeout(_statusTick, 100); // initial kick
+
     process.stdout.write("\x1b[2J\x1b[H");
 
+    const { broadcast: _broadcastStatus } = (0, Server_1.startServer)() || {};
     let _cachedSourceOrderRef = null, _cachedSourcesLine = "";
-    setInterval(() => {
+    const _displayInterval = setInterval(() => {
         const lyrics = playbackState.lyrics, progress = playbackState.songProgress;
         const offset = Settings_1.Settings.timings.sendTimeOffset || 0;
         const lines = lyrics?.lines;
@@ -214,7 +302,9 @@ function init() {
                 ? `\x1b[32mGW\x1b[0m \x1b[90m${op3Used}/5\x1b[0m`
                 : gatewayClient._reconnecting
                     ? `\x1b[33mGW reconnecting\x1b[0m`
-                    : `\x1b[31mGW disconnected\x1b[0m`)
+                    : gatewayClient._ws !== null
+                        ? `\x1b[33mGW connecting\x1b[0m`
+                        : `\x1b[31mGW disconnected\x1b[0m`)
             : `\x1b[33mREST\x1b[0m`;
         const rateStatus = rateLimitRemaining ? `\x1b[31mRATE LIMITED ${rateLimitRemaining}s\x1b[0m`
             : nextSendIn <= 0 ? `\x1b[32mReady\x1b[0m`
@@ -249,10 +339,34 @@ function init() {
             sep,
             `${lbl("Interval:")}${enableMinInterval ? `\x1b[32m${((minIntervalMs||0)/1000).toFixed(1)}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}    \x1b[1mMerge:\x1b[0m ${enableMergeLines ? `\x1b[32m${((mergeWindowMs||0)/1000).toFixed(1)}s\x1b[0m` : "\x1b[31mOff\x1b[0m"}    \x1b[1mBackoff:\x1b[0m ${enableBackoff ? "\x1b[32mOn\x1b[0m" : "\x1b[31mOff\x1b[0m"}`,
         ].map(r => r + "\x1b[K").join("\n") + "\n\x1b[J");
-    }, 1000);
 
-    (0, Server_1.startServer)();
-    const Tray_1 = require('./Tray'); Tray_1.startTray(() => { try { _store?.close(); } catch(_){} process.exit(0); });
+        // Broadcast live status to web panel clients
+        if (typeof _broadcastStatus === "function") {
+            _broadcastStatus({
+                type: "status",
+                song: playbackState.songName || "",
+                author: playbackState.songAuthor || "",
+                lyric: dueLine !== "Not available" ? dueLine : "",
+                source: lyricsFetcher.lastFetchedFrom || "",
+                progress: statusChanger.formatSeconds(+(progress / 1000).toFixed(0)) + " / " + statusChanger.formatSeconds(durationSec),
+                isPlaying: playbackState.isPlaying,
+                gwEnabled: !!(Settings_1.Settings.gateway?.enabled),
+                gwConnected: gatewayClient.connected,
+                gwReconnecting: gatewayClient._reconnecting || (!gatewayClient.connected && gatewayClient._ws !== null),
+                gwRate: op3Used,
+                rateLimited: rateLimitRemaining,
+                nextSend: nextSendIn,
+                dealer: useDealer ? (dealerClient?.connected ? "connected" : "reconnecting") : "rest",
+                restore: Settings_1.Settings.restore?.enabled
+                    ? (statusChanger._restoreTimer ? "pending" : "armed")
+                    : "off",
+            });
+        }
+    }, 1000);
+    const _cleanExit = () => { clearInterval(_displayInterval); process.stdout.write("\x1b[?25h\x1b[0m\n"); try { _store?.close(); } catch(_){} process.exit(0); };
+    process.on("SIGINT", _cleanExit);
+    process.on("SIGTERM", _cleanExit);
+    const Tray_1 = require('./Tray'); Tray_1.startTray(_cleanExit);
 }
 
 process.on("uncaughtException", e => {
