@@ -1,16 +1,13 @@
 name: Release
-
 on:
   push:
     tags:
       - 'v*'
-
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       contents: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,25 +21,28 @@ jobs:
         run: npm install
 
       - name: Build release zip
+        shell: pwsh
         run: |
-          VERSION=${GITHUB_REF_NAME}
-          ZIP_NAME="lyrics-status-${VERSION}.zip"
-          zip -r "$ZIP_NAME" \
-            dist/ \
-            src/ \
-            static/ \
-            res/ \
-            package.json \
-            package-lock.json \
-            tsconfig.json \
-            README.md \
-            CHANGELOG.txt \
-            VERSION \
-            --exclude "dist/_check.js" \
-            --exclude "dist/_fix*.js" \
-            --exclude "dist/instrument.js" \
-            --exclude "dist/*_patch.txt"
-          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+          $VERSION = $env:GITHUB_REF_NAME
+          $ZIP_NAME = "lyrics-status-$VERSION.zip"
+          $STAGING = "staging-$VERSION"
+
+          # Copy files to staging dir
+          New-Item -ItemType Directory -Path $STAGING -Force | Out-Null
+          Copy-Item -Recurse dist, src, static, res, package.json, package-lock.json, tsconfig.json, README.md, CHANGELOG.txt, VERSION -Destination $STAGING
+
+          # Remove unwanted dist files
+          Remove-Item "$STAGING\dist\_check.js","$STAGING\dist\instrument.js" -ErrorAction SilentlyContinue
+          Remove-Item "$STAGING\dist\_fix*.js" -ErrorAction SilentlyContinue
+          Remove-Item "$STAGING\dist\*_patch.txt" -ErrorAction SilentlyContinue
+
+          # Zip staging dir
+          Compress-Archive -Path "$STAGING\*" -DestinationPath $ZIP_NAME -Force
+
+          # Cleanup
+          Remove-Item -Recurse -Force $STAGING
+
+          "ZIP_NAME=$ZIP_NAME" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
