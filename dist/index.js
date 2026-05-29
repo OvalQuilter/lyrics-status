@@ -69,12 +69,15 @@ async function init() {
         Debug_1.Debug.write('[init] Spotify token refreshed at startup');
         // Proactively refresh ~5min before OAuth token expiry
         const _expiry = Settings_1.Settings.credentials.spotifyWebTokenExpiry || 0;
-        const _refreshIn = Math.max(60000, (_expiry || Date.now() + 3600000) - Date.now() - 300000);
-        setTimeout(function _proactiveRefresh() {
-            SpotifyService_1.SpotifyService.refresh().catch(() => {});
-            const exp = Settings_1.Settings.credentials.spotifyWebTokenExpiry || 0;
-            setTimeout(_proactiveRefresh, Math.max(60000, exp - Date.now() - 300000));
-        }, _refreshIn);
+        // CONN-06: only arm if expiry is known — prevents 60s spam on no-refreshToken setups
+        if (_expiry > 0) {
+            const _refreshIn = Math.max(60000, _expiry - Date.now() - 300000);
+            setTimeout(function _proactiveRefresh() {
+                SpotifyService_1.SpotifyService.refresh().catch(() => {});
+                const exp = Settings_1.Settings.credentials.spotifyWebTokenExpiry || 0;
+                if (exp > 0) setTimeout(_proactiveRefresh, Math.max(60000, exp - Date.now() - 300000));
+            }, _refreshIn);
+        }
     } else if (Settings_1.Settings.credentials.useExternalAuthServer) {
         SpotifyService_1.SpotifyService.token = (await ExternalAuthServerAPI_1.ExternalAuthServerAPI.getToken().catch(() => null)) || '';
     }
@@ -122,25 +125,22 @@ async function init() {
             );
         };
 
+        // CONN-01: single onReady before connect() — no reassignment race
         dealerClient.onReady = () => {
             _dealerConnected = true;
-            // Fetch initial state via REST once on connect so we don't wait for next push
+            clearTimeout(dealerClient._fallbackTimer); dealerClient._fallbackTimer = null;
             playbackStateUpdater.update().catch(e =>
                 Debug_1.Debug.write(`[Dealer] Initial REST sync error: ${e.stack || e}`)
             );
         };
-
-        dealerClient.connect();
-
-        // If dealer auth fails, fire an immediate REST poll so we don't wait 30s
-        const _origOnReady = dealerClient.onReady;
-        const _dealerFallbackTimer = setTimeout(() => {
+        dealerClient._fallbackTimer = setTimeout(() => {
+            dealerClient._fallbackTimer = null;
             if (!_dealerConnected) {
                 Debug_1.Debug.write("[init] Dealer not ready after 5s — firing immediate REST poll");
                 playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater][dealer-fallback] ${e.stack || e}`));
             }
         }, 5000);
-        dealerClient.onReady = () => { clearTimeout(_dealerFallbackTimer); _origOnReady?.(); };
+        dealerClient.connect();
 
         // Fire one immediate REST poll so initial state loads without waiting 30s
         playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater][dealer-init] ${e.stack || e}`));
@@ -188,7 +188,7 @@ async function init() {
             statusChanger.songChanged(false); _songChanged = true;
             _rescheduleStatusCheck(0); // new song — check immediately
         }
-        if (!_songChanged && playbackState.isPlaying && playbackState.songProgress < _lastProgress - 3000) {
+        if (!_songChanged && playbackState.isPlaying && playbackState.songProgress < _lastProgress - 5000) { // CONN-13
             Debug_1.Debug.write(`[init] Progress regression (${_lastProgress}->${playbackState.songProgress}) -- songChanged`);
             _songEndedFired = false; _lastProgress = playbackState.songProgress;
             statusChanger.songChanged(false); _songChanged = true;
@@ -196,7 +196,8 @@ async function init() {
         }
         if (!_songChanged && playbackState.isPlaying && !_wasPlaying) { statusChanger.songChanged(false); _rescheduleStatusCheck(0); }
         _wasPlaying = playbackState.isPlaying;
-        if (playbackState.isPlaying) { playbackState.songProgress += now - _now; _lastProgress = playbackState.songProgress; }
+        if (playbackState.isPlaying) { playbackState.songProgress += now - _now; }
+        _lastProgress = playbackState.songProgress;
         _now = now;
         if (playbackState.ended) {
             if (!_songEndedFired) {
@@ -251,7 +252,7 @@ async function init() {
         // also respect minInterval — no point waking up before we can send
         const sinceLastSent = Date.now() - statusChanger._lastSentAt;
         const minIntervalRemaining = minInterval > 0 ? Math.max(0, minInterval - sinceLastSent) : 0;
-        const delay = Math.max(50, Math.min(nextLineMs - 50, minIntervalRemaining, 10000));
+        const delay = minIntervalRemaining > 0 ? Math.max(50, Math.min(nextLineMs - 50, minIntervalRemaining, 10000)) : Math.max(50, Math.min(nextLineMs - 50, 10000)); // CONN-14
         _statusCheckTimer = setTimeout(_statusTick, delay);
     }
     function _rescheduleStatusCheck(delay) {
@@ -363,7 +364,7 @@ async function init() {
             });
         }
     }, 1000);
-    const _cleanExit = () => { clearInterval(_displayInterval); process.stdout.write("\x1b[?25h\x1b[0m\n"); try { _store?.close(); } catch(_){} process.exit(0); };
+    const _cleanExit = () => { clearInterval(_displayInterval); process.stdout.write("\x1b[?25h\x1b[0m\n"); try { dealerClient?.destroy(); } catch(_){} try { gatewayClient?.destroy(); } catch(_){} try { _store?.close(); } catch(_){} process.exit(0); };
     process.on("SIGINT", _cleanExit);
     process.on("SIGTERM", _cleanExit);
     const Tray_1 = require('./Tray'); Tray_1.startTray(_cleanExit);
@@ -371,13 +372,20 @@ async function init() {
 
 process.on("uncaughtException", e => {
     Debug_1.Debug.write(e.stack + "\n" + e.cause);
-    if (!e.message.includes("fetch failed")) {
+    const _isNetErr = e.message.includes("fetch failed") && (!e.cause || ["ECONNREFUSED","ENOTFOUND","ETIMEDOUT","ECONNRESET"].includes(e.cause?.code)); // CONN-23
+    if (!_isNetErr) {
         console.error("\x1b[31m[lyrics-status] Fatal error: " + e.message + "\x1b[0m");
         console.error("Check log.txt for full details.");
         try { _store?.close(); } catch (_) {}
         process.exit(1);
+    } else {
+        console.error("\x1b[33m[lyrics-status] Network error (fetch failed) — check connection.\x1b[0m");
     }
 });
 process.on("unhandledRejection", reason => {
-    Debug_1.Debug.write(`[unhandledRejection] ${reason instanceof Error ? reason.stack : String(reason)}`);
+    const msg = reason instanceof Error ? reason.stack : String(reason);
+    Debug_1.Debug.write("[unhandledRejection] " + msg);
+    if (!(reason instanceof Error && reason.message.includes("fetch failed"))) {
+        console.error("\x1b[33m[lyrics-status] Unhandled rejection: " + (reason instanceof Error ? reason.message : String(reason)) + "\x1b[0m");
+    }
 });

@@ -120,9 +120,10 @@ class StatusChangerBase {
             Debug_1.Debug.write(`[StatusChanger] Capture not ready — skipping send`);
             return Promise.resolve();
         }
-        if (Settings_1.Settings.gateway.enabled && this._gateway && this._gateway.connected) {
+        if (Settings_1.Settings.gateway?.enabled && this._gateway && this._gateway.connected) {
             Debug_1.Debug.write(`[StatusChanger] Sending via gateway: "${text}" | emoji: ${emoji}`);
             const sent = this._gateway.setCustomStatus(text, emoji);
+            if (sent === "hold") { Debug_1.Debug.write('[StatusChanger] GW post-READY hold — not stamping sentLines'); return Promise.resolve(); }
             if (sent) {
                 this._gwRateLimitSkips = 0;
                 if (this._iOSSyncPending) { const _force = this._iOSSyncPending.t == null; this._iOSSyncPending = null; this._iOSSync(text, emoji, _force); }
@@ -133,7 +134,7 @@ class StatusChangerBase {
                 // minInterval guard in changeStatus() throttles re-entry instead of tight-looping
                 if (mergedLines) for (const ml of mergedLines) this.sentLines.delete(ml);
                 this._lastMergedLines = null;
-                this._lastSentText = "";
+                // CONN-19: keep _lastSentText so duplicate send is suppressed after retry
                 this._lastSentAt = Date.now();
                 Debug_1.Debug.write('[StatusChanger] GW skipped -- rolled back sentLines, throttling retry');
             }
@@ -152,7 +153,7 @@ class StatusChangerBase {
                     let retryAfter = 30;
                     try { const b = JSON.parse(raw); if (typeof b.retry_after === "number" && b.retry_after > 0) retryAfter = b.retry_after; }
                     catch (e) { Debug_1.Debug.write(`[StatusChanger] Failed to parse rate limit body, defaulting to ${retryAfter}s: ${e}`); }
-                    if (Settings_1.Settings.rateLimit.enableBackoff) {
+                    if (Settings_1.Settings.rateLimit?.enableBackoff) {
                         this._rateLimitedUntil = Date.now() + retryAfter * 1000;
                         Debug_1.Debug.write(`[StatusChanger] Backing off ${retryAfter}s — rolling back sent state for retry`);
                     } else {
@@ -164,7 +165,7 @@ class StatusChangerBase {
                     this._lastSentAt = 0;
                 }).catch(e => {
                     Debug_1.Debug.write(`[StatusChanger] Rate limited but failed to read response body: ${e}`);
-                    if (Settings_1.Settings.rateLimit.enableBackoff) this._rateLimitedUntil = Date.now() + 30000;
+                    if (Settings_1.Settings.rateLimit?.enableBackoff) this._rateLimitedUntil = Date.now() + 30000;
                 });
             } else if (res.status === 200) {
                 Debug_1.Debug.write(`[StatusChanger] OK (${elapsed}ms)`);
@@ -227,7 +228,8 @@ class StatusChangerBase {
             if (i === 0) return l;
             return endsWithTerminal(lyricLines[i - 1]) ? l : lcFirst(l);
         });
-        return { mergedText: joinedLines.join(" "), lyricLines, mergedLines };
+        const _sep = Settings_1.Settings.rateLimit?.mergeSeparator ?? " ";
+        return { mergedText: joinedLines.join(_sep), lyricLines, mergedLines };
     }
 
     applyTemplate(template, mergedText, line, ps, lineIndex, totalLines) {
@@ -266,6 +268,7 @@ class StatusChangerBase {
     _iOSSync(text, emoji, force = false) {
         if (!this._captureReady || !text || this._restoreTimer) return;
         if (!Settings_1.Settings.gateway || !Settings_1.Settings.gateway.enabled) return;
+        const _syncSongId = this.playbackState.songId;
         const now = Date.now();
         // Per-song cooldown: 10s from last *successful* sync; bypass with force=true on song change
         if (!force && now - this._iOSSyncSentAt < 10000) return;
@@ -281,7 +284,7 @@ class StatusChangerBase {
                     try { const b = JSON.parse(raw); if (typeof b.retry_after === 'number' && b.retry_after > 0) retryAfter = b.retry_after; } catch (_) {}
                     Debug_1.Debug.write(`[StatusChanger] iOS REST sync 429 — retrying in ${retryAfter}s`);
                     setTimeout(() => {
-                        if (this._captureReady && !this._restoreTimer && this._lastSentText === text)
+                        if (this._captureReady && !this._restoreTimer && this._lastSentText === text && this.playbackState.songId === _syncSongId && Settings_1.Settings.gateway?.enabled) // CONN-12
                             this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji || null, expires_at: new Date(Date.now() + 60000).toISOString() } })
                                 .then(r => { if (r.status === 200) { this._iOSSyncSentAt = Date.now(); Debug_1.Debug.write('[StatusChanger] iOS REST sync retry OK'); } })
                                 .catch(e => Debug_1.Debug.write(`[StatusChanger] iOS REST sync retry error: ${e}`));

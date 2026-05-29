@@ -9,7 +9,7 @@ const Settings_1 = require("./Settings");
 const CACHE_VERSION = 1;
 
 // NO 'g' flag — strips first group only, matching PlaybackStateUpdater behaviour
-const normalize = s => s.replace(/ \(.+\)/, "").toLowerCase().trim();
+const normalize = s => s.replace(/ \(.+?\)/g, "").toLowerCase().trim(); // CONN-21
 
 const cacheKey = (n, a) =>
     createHash("sha1").update(`${normalize(n)}\0${normalize(a)}`).digest("hex");

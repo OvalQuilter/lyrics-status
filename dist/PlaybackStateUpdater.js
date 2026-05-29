@@ -42,17 +42,27 @@ class PlaybackStateUpdater {
             ps.songId     = trackId;
             ps.songDuration = parseInt(track.duration || track.duration_ms || "0", 10);
             ps.albumArtUrl  = track.album?.images?.[0]?.url || track.image_url || "";
-            ps.songStartEpoch = Date.now() - progressMs;
+            const _epochDealer = Date.now() - progressMs; // CONN-22: capture before fetchLyrics await
+            ps.songStartEpoch = _epochDealer;
             Debug_1.Debug.write(`[PlaybackStateUpdater][Dealer] New track: "${ps.songName}" by ${ps.songAuthor}`);
-            ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, trackId);
-            ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
+            try {
+                ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, trackId);
+                ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
+            } catch (e) {
+                Debug_1.Debug.write("[PlaybackStateUpdater][Dealer] fetchLyrics error: " + e);
+                ps.lyrics = null; ps.hasLyrics = false; ps.lyricsSource = "";
+            }
         } else if (!ps.lyrics) {
             this.lyricsFetcher.lastAttemptedFor = "";
-            ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, trackId);
-            ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
+            try {
+                ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, trackId);
+                ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
+            } catch (e) { Debug_1.Debug.write("[PlaybackStateUpdater][Dealer] fetchLyrics retry error: " + e); ps.lyrics = null; ps.hasLyrics = false; }
         } else if (this.lyricsFetcher.lastAttemptedFor !== `${ps.songName}\0${ps.songAuthor}`) {
-            ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, trackId);
-            ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
+            try {
+                ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, trackId);
+                ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
+            } catch (e) { Debug_1.Debug.write("[PlaybackStateUpdater][Dealer] fetchLyrics lastAttempted error: " + e); ps.lyrics = null; ps.hasLyrics = false; }
         }
     }
 
@@ -62,6 +72,8 @@ class PlaybackStateUpdater {
      * (runs every 30s in dealer mode to keep progress in sync).
      */
     async update() {
+        if (this._updating) return; this._updating = true;
+        try {
         Debug_1.Debug.write(`[PlaybackStateUpdater] Polling Spotify API...`);
         const res = await fetch("https://api.spotify.com/v1/me/player", {
             headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SpotifyService_1.SpotifyService.getBearerToken() }
@@ -92,21 +104,17 @@ class PlaybackStateUpdater {
             ps.songAuthor = json.item.artists?.[0]?.name ?? "Unknown";
             ps.oldSongId = ps.songId; ps.songId = json.item.id; ps.songDuration = json.item.duration_ms;
             ps.albumArtUrl = json.item.album?.images?.[0]?.url || "";
-            ps.songStartEpoch = Date.now() - (json.progress_ms || 0);
+            ps.songStartEpoch = Date.now() - (json.progress_ms || 0); // already pre-await in REST path
             Debug_1.Debug.write(`[PlaybackStateUpdater] New song: "${ps.songName}" by ${ps.songAuthor}`);
-            ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id);
-            ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
-            Debug_1.Debug.write(`[PlaybackStateUpdater] Lyrics: ${ps.hasLyrics} | source: ${ps.lyricsSource}`);
+            try { ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id); ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || ""; Debug_1.Debug.write(`[PlaybackStateUpdater] Lyrics: ${ps.hasLyrics} | source: ${ps.lyricsSource}`); } catch (e) { Debug_1.Debug.write("[PlaybackStateUpdater] fetchLyrics new-song error: " + e); ps.lyrics = null; ps.hasLyrics = false; ps.lyricsSource = ""; }
         } else if (!ps.lyrics) {
             Debug_1.Debug.write(`[PlaybackStateUpdater] lyrics null for current song — re-fetching`);
             this.lyricsFetcher.lastAttemptedFor = "";
-            ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id);
-            ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
-            Debug_1.Debug.write(`[PlaybackStateUpdater] Re-fetch result: ${ps.hasLyrics} | source: ${ps.lyricsSource}`);
+            try { ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id); ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || ""; Debug_1.Debug.write(`[PlaybackStateUpdater] Re-fetch result: ${ps.hasLyrics} | source: ${ps.lyricsSource}`); } catch (e) { Debug_1.Debug.write("[PlaybackStateUpdater] fetchLyrics re-fetch error: " + e); ps.lyrics = null; ps.hasLyrics = false; }
         } else if (this.lyricsFetcher.lastAttemptedFor !== `${ps.songName}\0${ps.songAuthor}`) {
-            ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id);
-            ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
+            try { ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id); ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || ""; } catch (e) { Debug_1.Debug.write("[PlaybackStateUpdater] fetchLyrics lastAttempted error: " + e); ps.lyrics = null; ps.hasLyrics = false; }
         }
+        } finally { this._updating = false; }
     }
 }
 exports.PlaybackStateUpdater = PlaybackStateUpdater;
