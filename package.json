@@ -1,36 +1,37 @@
 {
-    "name": "lyrics-status",
-    "version": "3.5.0.2",
-    "dependencies": {
-        "@sentry/node": "^10.53.1",
-        "@stef-0012/synclyrics": "^2.5.10",
-        "better-sqlite3": "^12.10.0",
-        "discord-rpc": "^4.0.1",
-        "express": "^4.21.2",
-        "he": "^1.2.0",
-        "node-notifier": "^10.0.1",
-        "node-stream-zip": "^1.15.0",
-        "opencc-js": "^1.0.5",
-        "systray2": "^2.1.4",
-        "totp-generator": "^1.0.0",
-        "uuid": "^11.1.0",
-        "ws": "^8.18.0"
-    },
-    "devDependencies": {
-        "@types/better-sqlite3": "^7.6.13",
-        "@types/express": "^4.17.21",
-        "@types/he": "^1.2.3",
-        "@types/ws": "^8.5.10",
-        "esbuild": "^0.25.0",
-        "tsx": "^4.21.0"
-    },
-    "scripts": {
-        "start": "node dist/index","start:silent": "node launcher",
-        "rpc": "node rpc/index",
-        "build:min": "esbuild dist/index.js --bundle --platform=node --tree-shaking=true --minify --outfile=dist/index.min.js --external:better-sqlite3 --external:@sentry/node --external:discord-rpc --external:opencc-js",
-        "start:min": "node dist/index.min"
-    },
-    "engines": {
-        "node": ">=17"
-    }
+    "name":  "lyrics-status",
+    "version":  "3.5.0.7",
+    "dependencies":  {
+                         "@sentry/node":  "^10.53.1",
+                         "@stef-0012/synclyrics":  "^2.5.10",
+                         "better-sqlite3":  "^12.10.0",
+                         "discord-rpc":  "^4.0.1",
+                         "express":  "^4.21.2",
+                         "he":  "^1.2.0",
+                         "node-notifier":  "^10.0.1",
+                         "node-stream-zip":  "^1.15.0",
+                         "opencc-js":  "^1.0.5",
+                         "systray2":  "^2.1.4",
+                         "totp-generator":  "^1.0.0",
+                         "uuid":  "^11.1.0",
+                         "ws":  "^8.18.0"
+                     },
+    "devDependencies":  {
+                            "@types/better-sqlite3":  "^7.6.13",
+                            "@types/express":  "^4.17.21",
+                            "@types/he":  "^1.2.3",
+                            "@types/ws":  "^8.5.10",
+                            "esbuild":  "^0.25.0",
+                            "tsx":  "^4.21.0"
+                        },
+    "scripts":  {
+                    "start":  "node dist/index",
+                    "start:silent":  "node launcher",
+                    "rpc":  "node rpc/index",
+                    "build:min":  "esbuild dist/index.js --bundle --platform=node --tree-shaking=true --minify --outfile=dist/index.min.js --external:better-sqlite3 --external:@sentry/node --external:discord-rpc --external:opencc-js",
+                    "start:min":  "node dist/index.min"
+                },
+    "engines":  {
+                    "node":  "\u003e=17"
+                }
 }
