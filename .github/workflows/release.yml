@@ -22,7 +22,9 @@ jobs:
           $STAGING = "staging-$VERSION"
 
           New-Item -ItemType Directory -Path $STAGING -Force | Out-Null
-          Copy-Item -Recurse dist, src, static, res, package.json, package-lock.json, tsconfig.json, README.md, CHANGELOG.txt, VERSION -Destination $STAGING
+          foreach ($item in @("dist","src","static","res","package.json","tsconfig.json","README.md","CHANGELOG.txt","VERSION")) {
+            if (Test-Path $item) { Copy-Item -Recurse $item -Destination $STAGING }
+          }
 
           Remove-Item "$STAGING\dist\_check.js","$STAGING\dist\instrument.js" -ErrorAction SilentlyContinue
           Remove-Item "$STAGING\dist\_fix*.js" -ErrorAction SilentlyContinue
