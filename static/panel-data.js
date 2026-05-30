@@ -1,15 +1,16 @@
 // panel-data.js — constants only
 
 const DEFAULTS = {
-    credentials: { token:"", cookies:"", musixmatchToken:"", clientID:"", clientSecret:"", useExternalAuthServer:false, code:"", refreshToken:"", uuid:"", customRedirectUri:"", spotifyWebToken:"" },
+    credentials: { token:"", cookies:"", musixmatchToken:"", clientID:"", clientSecret:"", useExternalAuthServer:false, code:"", refreshToken:"", uuid:"", customRedirectUri:"", spotifyWebToken:"", useDealer:true },
     view: { timestamp:true, label:true, advanced:{ enabled:false, customEmoji:"\uD83C\uDFB6", customStatus:"[{timestamp}] Song lyrics - {lyrics}", unicodeStyle:"none", styleAlternateEnabled:false, styleAlternateIntervalMs:3000 } },
     timings:   { sendTimeOffset:500, enableAutooffset:true, autooffset:3 },
     update:    { enableAutoupdate:true },
-    rateLimit: { enableBackoff:true, enableMinInterval:true, minIntervalMs:5000, enableMergeLines:true, mergeWindowMs:8000 },
+    rateLimit: { enableBackoff:true, enableMinInterval:true, minIntervalMs:5000, enableMergeLines:true, mergeWindowMs:8000, mergeSeparator:" " },
     sources:   { enableSpotify:true, enableMusixmatch:true, enableLrcLib:true, enableNetEase:true, enableQQMusic:true, enableGenius:true, sourceOrder:["Spotify","Musixmatch","LrcLib","NetEase","QQMusic","Genius"] },
+    cache: { path:"", lyricsTtlDays:30, emptyTtlDays:7, errorTtlHours:1, maxRows:2000 },
     chineseConversion: "off",
     restore: { enabled:true, savedStatus:null, delayMs:15000 },
-    gateway: { enabled:false, presenceStatus:"online", minGwIntervalMs:5000 },
+    gateway: { enabled:false, presenceStatus:"online", minGwIntervalMs:5000, clearAfterLastLineMs:3000 },
     statusFlash: { enabled:false, states:["online","idle","dnd"], intervalMs:500, restoreStatus:null },
     richPresence: { enabled:false, appName:"Spotify", showAlbumArt:true, albumArtUrl:"", showProgressBar:true, buttonLabel:"", buttonUrl:"", detailsTemplate:"{lyrics}", stateTemplate:"{song_author}" },
 };
@@ -39,6 +40,7 @@ const BINDINGS = [
     ["#min-interval-ms",         "rateLimit.minIntervalMs",           "number"],
     ["#enable-merge-lines",      "rateLimit.enableMergeLines",        "checkbox"],
     ["#merge-window-ms",         "rateLimit.mergeWindowMs",           "number"],
+    ["#merge-separator",          "rateLimit.mergeSeparator",          "text"],
     ["#chinese-conversion",      "chineseConversion",                 "select"],
     ["#restore-enabled",         "restore.enabled",                   "checkbox"],
     ["#restore-delay-ms",        "restore.delayMs",                   "number"],
@@ -56,6 +58,19 @@ const BINDINGS = [
     ["#rp-show-progress-bar",    "richPresence.showProgressBar",      "checkbox"],
     ["#rp-button-label",         "richPresence.buttonLabel",          "text"],
     ["#rp-button-url",           "richPresence.buttonUrl",            "text"],
+    // Gateway
+    ["#gw-clear-last-line-ms",   "gateway.clearAfterLastLineMs",      "number"],
+    // Credentials
+    ["#use-dealer",              "credentials.useDealer",             "checkbox"],
+    ["#musixmatch-token",        "credentials.musixmatchToken",       "text"],
+    // Flash
+    ["#flash-restore-status",    "statusFlash.restoreStatus",         "select"],
+    // Cache
+    ["#cache-lyrics-ttl",        "cache.lyricsTtlDays",               "number"],
+    ["#cache-empty-ttl",         "cache.emptyTtlDays",                "number"],
+    ["#cache-error-ttl",         "cache.errorTtlHours",               "number"],
+    ["#cache-max-rows",          "cache.maxRows",                     "number"],
+    ["#cache-path",              "cache.path",                        "text"],
 ];
 
 const SOURCE_META = {
@@ -116,7 +131,7 @@ const SECTION_DEFS = [
     ["\uD83D\uDD11", "Authentication",   "Discord and Spotify credentials, stored locally.",                "auth",    true],
     ["\uD83C\uDFA4", "Status Display",   "What appears in your Discord status, timing, and rate limiting.", "display", true],
     ["\u26A1",       "Gateway",          "WebSocket updates, status flash, and rich presence.",             "gateway", false],
-    ["\u267B",       "Restore & Sources","Status restore, lyrics sources, and updates.",                    "restore", false],
+    ["\u267B",       "Restore & Sources","Status restore, lyrics sources, cache, and updates.",             "restore", false],
 ];
 
 // BUG 4 fix: child spans use pointer-events:none (see index.html CSS or inline on li render)
@@ -136,4 +151,5 @@ const PRESENCE_OPTIONS = [
     { value:"dnd",       label:"\u26D4 Do Not Disturb",     color:"var(--red)"    },
     { value:"mobile",    label:"\uD83D\uDCF1 Fake Mobile",  color:"var(--accent)" },
     { value:"invisible", label:"\u26AB Invisible",          color:"var(--muted)"  },
+    { value:"off",       label:"\u23F8 Don't Override",  color:"var(--text-soft)" },
 ];

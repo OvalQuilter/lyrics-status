@@ -24,6 +24,8 @@ const SECTION_BODIES = {
         h.row(h.label("Discord token"),   h.field(h.inline(h.input("user-token","Paste your Discord user token") + h.btn("check-token","\u2192 Verify")))) +
         h.row(h.label("Spotify cookies"), h.field(h.input("spotify-cookies","Paste your sp_dc cookie value") + h.hint("Only the <code>sp_dc</code> value \u2014 DevTools \u2192 Application \u2192 Cookies \u2192 open.spotify.com"))) +
         h.row(h.label("Spotify token"),   h.field(h.inline(h.input("spotify-web-token","Auto-fetched from cookies on startup") + `<span id="spotify-token-status"></span>`) + h.hint("Optional \u2014 only needed if auto-fetch fails."))) +
+        h.row(h.label("Musixmatch token"),h.field(h.input("musixmatch-token","Auto-fetched; paste override if needed") + h.hint("Optional. Auto-managed — only override if auto-fetch fails repeatedly."))) +
+        h.row("", h.field(h.check("use-dealer","Use Spotify Dealer WebSocket (push-based)") + h.hint("Recommended. Replaces 5s polling with real-time push events. Requires sp_dc cookie."))) +
         h.row(h.label("Client ID"),       h.field(h.input("client-id","Spotify app client ID"))) +
         h.row(h.label("Client secret"),   h.field(h.input("client-secret","Spotify app client secret"))) +
         h.row(h.label("Redirect URI"),    h.field(h.input("custom-redirect-uri","Must match URI in Spotify app settings"))) +
@@ -53,11 +55,12 @@ const SECTION_BODIES = {
         h.indent(h.hint("Pauses sending for Discord\u2019s suggested retry window on 429.")) +
         h.row("", h.field(h.check("enable-min-interval","Minimum interval between updates"))) +
         h.indent(h.row(h.inline(h.number("min-interval-ms",1000,60000,500) + h.muted("ms between sends")))) +
-        h.indent(h.hint("5000\u2009ms (5\u2009s) is a safe default.")) +
+        h.indent(h.hint("Minimum gap between REST status sends. Raise to 10000\u2009ms+ if you see 429 errors. Gateway mode ignores this. Default: 5000\u2009ms.")) +
         h.row("", h.field(h.check("enable-merge-lines","Merge nearby lyric lines"))) +
         h.indent(h.row(h.inline(h.number("merge-window-ms",1000,30000,500) + h.muted("ms merge window")))) +
-        h.indent(h.hint("Lines within this window are joined into one status update.")),
-
+        h.indent(h.hint("If the next lyric line arrives sooner than this window, both lines are joined and sent as one update \u2014 reducing the total number of sends per song. Useful with a high min interval. Default: 8000u2009ms.")) +
+        h.indent(h.row(h.label("Merge separator"), h.field(h.input("merge-separator","e.g.  |  or  \u2014","maxlength=20 style=\"max-width:120px\"")))) +
+        h.indent(h.hint("String placed between merged lines, e.g. | or —. Visible in your Discord status between the joined lyric lines.")),
     gateway: () =>
         h.row("", h.inline(h.check("gateway-enabled","Use gateway (op\u00a03) instead of REST") + h.ibtn("gateway-help","Gateway help"))) +
         h.row(h.label("Presence status"),
@@ -69,7 +72,9 @@ const SECTION_BODIES = {
             `</div>`
         ) +
         h.row(h.label("GW min interval"), h.inline(h.number("gw-min-interval-ms",0,60000,500) + h.muted("ms between op\u00a03 sends"))) +
-        h.indent(h.hint("Throttles gateway sends. 0\u2009=\u2009only Discord\u2019s hard cap (5/20\u2009s). Default: 5000\u2009ms.")) +
+        h.indent(h.hint("Extra throttle on top of Discord\u2019s hard 5-per-20s op\u00a03 cap. 0\u2009= only the hard cap applies. Raise this if status changes feel too frequent in gateway mode. Default: 5000\u2009ms.")) +
+        h.row(h.label("Clear after last line"), h.inline(h.number("gw-clear-last-line-ms",0,30000,500) + h.muted("ms (0 = off)"))) +
+        h.indent(h.hint("Clears your Discord status via GW a few seconds after the last lyric line is sent. 0 disables. Default: 3000\u2009ms.")) +
         h.divider() +
         h.row("", h.inline(h.check("flash-enabled","Enable status flash") + h.ibtn("flash-help","Flash help"))) +
         h.row(h.label("Cycle states"),
@@ -115,6 +120,13 @@ const SECTION_BODIES = {
             `<select id="chinese-conversion"><option value="off">Off</option><option value="toTraditional">Simplified \u2192 Traditional</option><option value="toSimplified">Traditional \u2192 Simplified</option></select>` +
             h.hint("Converts Chinese lyrics at fetch time. Clear cache to reprocess existing songs.")
         )) +
+        h.divider() +
+        h.divider() +
+        h.row(h.label("Lyrics cache TTL"),  h.inline(h.number("cache-lyrics-ttl",1,365,1)   + h.muted("days"))) +
+        h.row(h.label("Empty result TTL"),  h.inline(h.number("cache-empty-ttl",1,90,1)     + h.muted("days"))) +
+        h.row(h.label("Error cache TTL"),   h.inline(h.number("cache-error-ttl",1,72,1)     + h.muted("hours"))) +
+        h.row(h.label("Max cache rows"),    h.inline(h.number("cache-max-rows",100,50000,100)+ h.muted("rows"))) +
+        h.row(h.label("Cache path"),        h.field(h.input("cache-path","Default: cache/cache.db") + h.hint("Leave blank for default. Requires restart."))) +
         h.divider() +
         h.row("", h.field(h.check("enable-autoupdate","Automatic update checks"))),
 };

@@ -29,6 +29,7 @@ function mergeSettings(parsed) {
         ? parsed.statusFlash.states.slice()
         : DEFAULTS.statusFlash.states.slice();
     s.richPresence = { ...DEFAULTS.richPresence, ...(parsed.richPresence||{}) };
+    s.cache        = { ...DEFAULTS.cache,        ...(parsed.cache||{}) };
     return s;
 }
 
