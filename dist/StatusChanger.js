@@ -20,8 +20,13 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
     _flashSend(status, label) {
         const usingGateway = Settings_1.Settings.gateway && Settings_1.Settings.gateway.enabled && this._gateway && this._gateway.connected;
         if (usingGateway) { this._gateway.flashPresence(status, null, null); return; }
+        if (Date.now() < this._rateLimitedUntil) { Debug_1.Debug.write("[StatusFlash] Skipping — rate limited (RL-09)"); return; } // RL-09
         this._discordPatch({ status })
-            .then(res => { if (res.status !== 200) res.text().then(b => Debug_1.Debug.write("[StatusFlash] " + label + " HTTP " + res.status + ": " + b)).catch(() => {}); })
+            .then(res => {
+                if (res.status === 429) {
+                    res.text().then(raw => { let ra=5; try{const b=JSON.parse(raw);if(typeof b.retry_after==='number'&&b.retry_after>0)ra=Math.min(Math.max(b.retry_after,5),300);}catch(_){} this._rateLimitedUntil=Date.now()+ra*1000; Debug_1.Debug.write("[StatusFlash] 429 — stopping flash, backing off "+ra+"s (RL-09)"); this._stopFlash(false); }).catch(()=>{});
+                } else if (res.status !== 200) { res.text().then(b => Debug_1.Debug.write("[StatusFlash] " + label + " HTTP " + res.status + ": " + b)).catch(() => {}); }
+            })
             .catch(e => Debug_1.Debug.write("[StatusFlash] " + label + " error: " + e));
     }
 
@@ -99,6 +104,10 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
             this._stopFlash(false);
             const songText = playbackState.songName || "";
             if (songText && songText !== this._lastSentText) {
+                const _now2 = Date.now();
+                const _eff2 = Settings_1.Settings.gateway?.enabled && this._gateway?.connected ? (Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000) : (Settings_1.Settings.rateLimit.enableMinInterval ? (Settings_1.Settings.rateLimit.minIntervalMs || 5000) : 0);
+                if (_now2 < this._rateLimitedUntil) return; // RL-10
+                if (_eff2 > 0 && _now2 - this._lastSentAt < _eff2) return; // RL-10
                 this._lastSentText = songText;
                 const adv = Settings_1.Settings.view.advanced;
                 const emoji = (adv && adv.enabled && adv.customEmoji) ? adv.customEmoji : null;
@@ -121,11 +130,12 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
         const { style: _uStyle } = resolveUnicodeStyle(adv, now);
         const _style = s => _uStyle !== "none" ? applyUnicodeStyle(s, _uStyle) : s;
 
-        const usingGateway = Settings_1.Settings.gateway.enabled && this._gateway && this._gateway.connected;
+        const usingGateway = Settings_1.Settings.gateway?.enabled && this._gateway && this._gateway.connected; // CONN-07
         const { enableBackoff, enableMinInterval, minIntervalMs, enableMergeLines, mergeWindowMs } = Settings_1.Settings.rateLimit;
         if (!usingGateway && enableBackoff && now < this._rateLimitedUntil) return;
         const minInterval = enableMinInterval ? (minIntervalMs || 5000) : 0;
-        if (minInterval > 0 && now - this._lastSentAt < minInterval) return;
+        const effectiveInterval = usingGateway ? (Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000) : minInterval;
+        if (effectiveInterval > 0 && now - this._lastSentAt < effectiveInterval) return;
         const songProgress = playbackState.songProgress;
         const lines = lyrics.lines;
         const offset = Settings_1.Settings.timings.enableAutooffset
@@ -173,10 +183,11 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                 } else {
                     const prefix = `${Settings_1.Settings.view.timestamp ? `[${this.formatSeconds(+(line.time / 1000).toFixed(0))}] ` : ""}${Settings_1.Settings.view.label ? "Song lyrics - " : ""}`;
                     const limit = 128 - cpLen(prefix);
+                    const _sep = Settings_1.Settings.rateLimit?.mergeSeparator ?? " ";
                     const reduced = lyricLines.slice();
-                    while (reduced.length > 1 && cpLen(reduced.join(" ")) > limit) reduced.pop();
+                    while (reduced.length > 1 && cpLen(reduced.join(_sep)) > limit) reduced.pop();
                     const displayReduced = reduced.map((l, idx) => idx === 0 ? l : (reduced[idx - 1].match(/[.!?]\s*$/) ? l : l.charAt(0).toLowerCase() + l.slice(1)));
-                    const lyricsText = cpLen(displayReduced.join(" ")) <= limit ? displayReduced.join(" ") : this.smartTruncate(displayReduced[0], limit, null);
+                    const lyricsText = cpLen(displayReduced.join(_sep)) <= limit ? displayReduced.join(_sep) : this.smartTruncate(displayReduced[0], limit, null);
                     statusText = prefix + _style(lyricsText);
                     emoji = "\uD83C\uDFB6";
                 }
@@ -191,23 +202,41 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                 this._lastMergedLines = mergedLines;
                 for (const ml of mergedLines) { this.sentLines.add(ml); this._staleLines.delete(ml); }
                 if (this.sentLines.size > 200) {
-                    const arr = [...this.sentLines].slice(-200);
+                    const arr = [...this.sentLines].slice(-200); // CONN-36: mergedLines guaranteed in last 200
                     this.sentLines = new Set(arr);
                     this._staleLines = new Set([...this._staleLines].filter(l => this.sentLines.has(l)));
-                    for (const ml of mergedLines) { if (!this.sentLines.has(ml)) this.sentLines.add(ml); }
                 }
                 if (Settings_1.Settings.gateway && Settings_1.Settings.gateway.enabled) this._iOSSyncPending = { t: statusText, em: emoji };
                 if (usingGateway && this._gateway) {
                     this._gateway._lastRichPresenceActivity = this._buildRichPresence(line, playbackState);
                 }
                 this.changeStatusRequest(statusText, Settings_1.Settings.credentials.token, emoji, mergedLines, line);
+                // Clear GW status after last lyric line
+                const _isLastLine = !lines.slice(i + 1).some(l => l.text);
+                if (_isLastLine && usingGateway && this._gateway) {
+                    const _clearDelay = Settings_1.Settings.gateway?.clearAfterLastLineMs ?? 3000;
+                    if (_clearDelay > 0) {
+                        if (this._lastLineClearTimer) { clearTimeout(this._lastLineClearTimer); this._lastLineClearTimer = null; }
+                        this._lastLineClearTimer = setTimeout(() => {
+                            this._lastLineClearTimer = null;
+                            if (!this.playbackState.isPlaying || this.playbackState.ended) return;
+                            if (this._gateway && this._gateway.connected) {
+                                Debug_1.Debug.write('[StatusChanger] Last line — clearing GW status after ' + _clearDelay + 'ms');
+                                this._gateway.setCustomStatus('', null);
+                                this._lastSentText = '';
+                            }
+                        }, _clearDelay);
+                    }
+                }
                 break;
             }
         }
     }
 
     songChanged(isEnd = false) {
-        this.sentLines = new Set(); this._staleLines = new Set(); this._lastMergedLines = null; this._lastAnchorLine = null; this._lastSentAt = 0;
+        this.sentLines = new Set(); this._staleLines = new Set(); this._lastMergedLines = null; this._lastAnchorLine = null;
+        if (this._lastLineClearTimer) { clearTimeout(this._lastLineClearTimer); this._lastLineClearTimer = null; }
+        if (Date.now() >= this._rateLimitedUntil) this._lastSentAt = 0; // RL-11: preserve lastSentAt during active rate-limit window
         this._lastStyleBucket = -1;
         this.playbackState.currentLine = null;
         if (this._restoreTimer) { clearTimeout(this._restoreTimer); this._restoreTimer = null; }
