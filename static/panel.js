@@ -475,3 +475,100 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 1000);
     });
 })();
+
+// -- Discord side panel --------------------------------------------------
+(function(){
+  function tok(){return settings&&settings.credentials&&settings.credentials.token;}
+  function api(path,cb){
+    var t=tok();if(!t){cb(null);return;}
+    fetch("https://discordapp.com/api/v9"+path,{headers:{Authorization:t}})
+      .then(function(r){return r.ok?r.json():null;}).then(cb).catch(function(){cb(null);});
+  }
+  function el(id){return document.getElementById(id);}
+  function kv(k,v){return '<div class="dside-kv"><b>'+k+'</b><span>'+v+'</span></div>';}
+  function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;");}
+
+  function fetchAvatars(){
+    var btn=el("dside-refresh");if(btn){btn.disabled=true;btn.textContent="Loading...";}
+    api("/users/@me",function(me){
+      api("/users/@me/avatars",function(d){
+        if(btn){btn.disabled=false;btn.textContent="Fetch";}
+        var out=el("dside-av-list");if(!out)return;
+        if(!d||!d.avatars||!d.avatars.length){out.innerHTML='<p class="dside-empty">No recent avatars.</p>';return;}
+        var uid=me&&me.id||"";var html='<div class="dside-avatars">';
+        d.avatars.forEach(function(av){
+          var hash=av.storage_hash||av.id;
+          var url=uid?"https://cdn.discordapp.com/avatars/"+uid+"/"+hash+".webp?size=128":"";
+          var label=av.description?esc(av.description.substring(0,20)):"";
+          var img=url?'<img src="'+url+'" onerror="this.style.display='+'+'none'+'+'">':'<div style="width:48px;height:48px;border-radius:50%;background:var(--surface-hi);border:2px solid var(--border)"></div>';
+          html+='<div class="dside-av-wrap" title="'+esc(av.description||"")+'">'+img+'<span>'+label+'</span></div>';
+        });
+        out.innerHTML=html+'</div>';
+      });
+    });
+  }
+
+  function fetchProfile(){
+    var btn=el("dside-profile-refresh");if(btn){btn.disabled=true;btn.textContent="Loading...";}
+    api("/users/@me",function(me){
+      if(btn){btn.disabled=false;btn.textContent="Fetch";}
+      var out=el("dside-profile-body");if(!out)return;
+      if(!me){out.innerHTML='<p class="dside-empty">Failed.</p>';return;}
+      api("/users/"+me.id+"/profile?with_mutual_guilds=true&with_mutual_friends_count=true",function(p){
+        var html='<div class="dside-section">Account</div>';
+        html+=kv("ID",esc(me.id));
+        html+=kv("Username",esc(me.username));
+        html+=kv("Global name",esc(me.global_name||"-"));
+        html+=kv("Email",esc(me.email||"-"));
+        html+=kv("Phone",esc(me.phone||"-"));
+        html+=kv("Verified",me.verified?"Yes":"No");
+        html+=kv("MFA",me.mfa_enabled?"Enabled":"Off");
+        html+=kv("Nitro",me.premium_type?"Type "+me.premium_type:"None");
+        if(p){
+          html+='<div class="dside-section">Profile</div>';
+          if(p.user&&p.user.bio)html+=kv("Bio",esc(p.user.bio));
+          if(p.user_profile&&p.user_profile.pronouns)html+=kv("Pronouns",esc(p.user_profile.pronouns));
+          if(p.mutual_guilds)html+=kv("Mutual servers",p.mutual_guilds.length);
+          if(p.mutual_friends_count!=null)html+=kv("Mutual friends",p.mutual_friends_count);
+          if(p.connected_accounts&&p.connected_accounts.length){
+            html+='<div class="dside-section">Connected</div>';
+            p.connected_accounts.forEach(function(a){html+='<span class="dside-badge">'+esc(a.type)+" "+esc(a.name)+'</span>';});
+          }
+        }
+        out.innerHTML=html;
+      });
+    });
+  }
+
+  function fetchSettings(){
+    var btn=el("dside-settings-refresh");if(btn){btn.disabled=true;btn.textContent="Loading...";}
+    api("/users/@me/settings",function(d){
+      if(btn){btn.disabled=false;btn.textContent="Fetch";}
+      var out=el("dside-settings-body");if(!out)return;
+      if(!d){out.innerHTML='<p class="dside-empty">Failed.</p>';return;}
+      var keys=["status","custom_status","locale","theme","explicit_content_filter","default_guilds_restricted","developer_mode","gif_auto_play","animate_emoji","message_display_compact","friend_source_flags","restricted_guilds"];
+      var html='<div class="dside-section">Key settings</div>';
+      keys.forEach(function(k){if(d[k]!=null)html+=kv(k,esc(typeof d[k]==="object"?JSON.stringify(d[k]):d[k]));});
+      html+='<div class="dside-section">Raw JSON</div><pre class="dside-json">'+esc(JSON.stringify(d,null,2))+'</pre>';
+      out.innerHTML=html;
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded",function(){
+    el("disc-toggle")&&el("disc-toggle").addEventListener("click",function(){
+      var s=el("disc-side");if(!s)return;s.classList.toggle("open");
+      this.style.right=s.classList.contains("open")?"300px":"0";
+    });
+    document.querySelectorAll(".dside-tab").forEach(function(tab){
+      tab.addEventListener("click",function(){
+        document.querySelectorAll(".dside-tab").forEach(function(t){t.classList.remove("active");});
+        document.querySelectorAll(".dside-body>div").forEach(function(d){d.classList.remove("active");});
+        tab.classList.add("active");
+        var target=el("dside-"+tab.dataset.tab);if(target)target.classList.add("active");
+      });
+    });
+    el("dside-refresh")&&el("dside-refresh").addEventListener("click",fetchAvatars);
+    el("dside-profile-refresh")&&el("dside-profile-refresh").addEventListener("click",fetchProfile);
+    el("dside-settings-refresh")&&el("dside-settings-refresh").addEventListener("click",fetchSettings);
+  });
+})();
