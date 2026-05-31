@@ -42,13 +42,15 @@ class GatewayClient {
         this._ws = null; this._hbTimeout = null; this._hbInterval = null;
         this._seq = null; this._sessionId = null; this._resumeUrl = null;
         this.connected = false; this._reconnecting = false;
-        this._destroyed = false; this._ackReceived = false; this._presenceSentTimes = [];
+        this._destroyed = false; this._ackReceived = false;
         this._wsInstance = 0; this._hbGeneration = 0; this._lastActivity = null; this._flashStatus = null;
         this._lastRichPresenceActivity = null;
         this._reconnectDelay = 1000;
         this._lastIdentifyAt = 0;
         this.onReady = null;
+        this._pst = new Array(5).fill(0); this._pstHead = 0; this._pstCount = 0; // RL-14: circular buffer replaces _presenceSentTimes
     }
+    get _presenceSentTimes() { const now = Date.now(); const out = []; for (let _i = this._pstCount - 1; _i >= 0; _i--) { const _t = this._pst[(this._pstHead - 1 - _i + 5) % 5]; if (now - _t <= 20000) out.push(_t); } return out; } // RL-14 compat
     connect() {
         this._destroyed = false; this._reconnecting = false;
         const token = Settings_1.Settings.credentials.token;
@@ -145,6 +147,7 @@ class GatewayClient {
                 return;
             }
             const canResume = !NO_RESUME_CODES.has(code);
+            if (!canResume) { _clearSession(); this._sessionId = null; this._seq = null; this._resumeUrl = null; } // #13: discard stale session in memory on non-resumable close
             Debug_1.Debug.write(`[GatewayClient] Disconnected (${code}) \u2014 reconnecting in 5s (resume=${canResume})`);
             this._scheduleReconnect(5000, canResume);
         });
@@ -222,13 +225,12 @@ class GatewayClient {
         if (!this.connected) return false;
         const now = Date.now(); if (now - (this._connectedAt || 0) < 3000) { Debug_1.Debug.write(`[GatewayClient] post-READY hold`); return "hold"; }
         const minGwInterval = Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000;
-        while (this._presenceSentTimes.length && now - this._presenceSentTimes[0] > 20000) this._presenceSentTimes.shift();
-        if (minGwInterval > 0 && this._presenceSentTimes.length && now - this._presenceSentTimes[this._presenceSentTimes.length - 1] < minGwInterval) {
-            Debug_1.Debug.write(`[GatewayClient] op3 min interval (${minGwInterval}ms) not elapsed \u2014 skipping`);
-            return false;
-        }
-        if (this._presenceSentTimes.length >= 5) { Debug_1.Debug.write(`[GatewayClient] op3 rate limit (5/20s) \u2014 skipping`); return false; }
-        this._presenceSentTimes.push(now);
+        // RL-14: prune via circular buffer — count entries within 20s window
+        let _pstActive = 0, _pstLast = 0;
+        for (let _i = 0; _i < this._pstCount; _i++) { const _t = this._pst[(this._pstHead - 1 - _i + 5) % 5]; if (now - _t <= 20000) { _pstActive++; if (_i === 0) _pstLast = _t; } }
+        if (minGwInterval > 0 && _pstLast > 0 && now - _pstLast < minGwInterval) { Debug_1.Debug.write(`[GatewayClient] op3 min interval (${minGwInterval}ms) not elapsed \u2014 skipping`); return false; }
+        if (_pstActive >= 5) { Debug_1.Debug.write(`[GatewayClient] op3 rate limit (5/20s) \u2014 skipping`); return false; }
+        this._pst[this._pstHead] = now; this._pstHead = (this._pstHead + 1) % 5; this._pstCount = Math.min(this._pstCount + 1, 5);
         const pref = Settings_1.Settings.gateway?.presenceStatus || "online";
         const status = this._flashStatus || (pref === 'mobile' ? 'online' : pref === 'off' ? 'online' : pref);
         const type4 = { type: 4, name: "Custom Status", state: text || "", emoji: emoji ? { name: emoji } : null };

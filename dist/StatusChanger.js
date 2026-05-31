@@ -154,12 +154,12 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                 }
                 if (this.sentLines.has(line) && (!_styleBucketChanged || this._lastAnchorLine !== line)) break;
 
-                let mergedText, lyricLines, mergedLines;
+                let mergedText, lyricLines, joinedLines, mergedLines;
                 if (mergeWindow === 0) {
                     const mt = sanitizeLyric(line.text || "");
-                    mergedText = mt; lyricLines = [mt]; mergedLines = [line];
+                    mergedText = mt; lyricLines = [mt]; joinedLines = [mt]; mergedLines = [line];
                 } else {
-                    ({ mergedText, lyricLines, mergedLines } = this.buildMergedLines(lines, i, mergeWindow, _styleBucketChanged || usingGateway));
+                    ({ mergedText, lyricLines, joinedLines, mergedLines } = this.buildMergedLines(lines, i, mergeWindow, _styleBucketChanged || usingGateway));
                 }
 
                 let statusText, emoji;
@@ -184,10 +184,10 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                     const prefix = `${Settings_1.Settings.view.timestamp ? `[${this.formatSeconds(+(line.time / 1000).toFixed(0))}] ` : ""}${Settings_1.Settings.view.label ? "Song lyrics - " : ""}`;
                     const limit = 128 - cpLen(prefix);
                     const _sep = Settings_1.Settings.rateLimit?.mergeSeparator ?? " ";
-                    const reduced = lyricLines.slice();
+                    // #3: use joinedLines (already lcFirst-normalized) instead of lyricLines
+                    const reduced = joinedLines.slice();
                     while (reduced.length > 1 && cpLen(reduced.join(_sep)) > limit) reduced.pop();
-                    const displayReduced = reduced.map((l, idx) => idx === 0 ? l : (reduced[idx - 1].match(/[.!?]\s*$/) ? l : l.charAt(0).toLowerCase() + l.slice(1)));
-                    const lyricsText = cpLen(displayReduced.join(_sep)) <= limit ? displayReduced.join(_sep) : this.smartTruncate(displayReduced[0], limit, null);
+                    const lyricsText = cpLen(reduced.join(_sep)) <= limit ? reduced.join(_sep) : this.smartTruncate(reduced[0], limit, null);
                     statusText = prefix + _style(lyricsText);
                     emoji = "\uD83C\uDFB6";
                 }
@@ -251,6 +251,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
             }
         } else {
             Debug_1.Debug.write('[StatusChanger] New song - restore timer cancelled');
+            this._lastSentText = ""; // #15: clear so first line of new song is never deduped against old song's last sent text
             this._iOSSyncPending = { t: null, em: null };
         }
     }

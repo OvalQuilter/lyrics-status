@@ -105,6 +105,7 @@ class StatusChangerBase {
         this._flashActive = false;
         this._flashRestoreSentAt = 0;
         this._gwRateLimitSkips = 0;
+        this._pendingRetryText = null; // RL-12
     }
 
     _discordPatch(body, token) {
@@ -134,7 +135,8 @@ class StatusChangerBase {
                 // minInterval guard in changeStatus() throttles re-entry instead of tight-looping
                 if (mergedLines) for (const ml of mergedLines) this.sentLines.delete(ml);
                 this._lastMergedLines = null;
-                // CONN-19: keep _lastSentText so duplicate send is suppressed after retry
+                this._pendingRetryText = text; // RL-12: flag for retry without clearing dedup
+                this._lastSentText = ""; // RL-12: allow retry to re-send
                 this._lastSentAt = Date.now();
                 Debug_1.Debug.write('[StatusChanger] GW skipped -- rolled back sentLines, throttling retry');
             }
@@ -143,33 +145,30 @@ class StatusChangerBase {
 
         const now = Date.now();
         Debug_1.Debug.write(`[StatusChanger] Sending Discord status (REST): "${text}" | emoji: ${emoji}`);
-        const _expiresMs = sentLine && sentLine._nextLineTime != null ? Math.min(Math.max(sentLine._nextLineTime - this.playbackState.songProgress + 2000, 30000), 300000) : 60000;
+        const _expiresMs = 60000; // CONN-34: _nextLineTime never set; removed dead ternary
         const request = this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji, expires_at: new Date(now + _expiresMs).toISOString() } }, token);
         request.then(res => {
             const elapsed = Date.now() - now;
             if (res.status === 429) {
                 res.text().then(raw => {
                     Debug_1.Debug.write(`[StatusChanger] Rate limited (HTTP 429) | body: ${raw}`);
-                    let retryAfter = 30;
-                    try { const b = JSON.parse(raw); if (typeof b.retry_after === "number" && b.retry_after > 0) retryAfter = b.retry_after; }
+                    let retryAfter = 5;
+                    try { const b = JSON.parse(raw); if (typeof b.retry_after === "number" && b.retry_after > 0) retryAfter = Math.min(Math.max(b.retry_after, 5), 300); }
                     catch (e) { Debug_1.Debug.write(`[StatusChanger] Failed to parse rate limit body, defaulting to ${retryAfter}s: ${e}`); }
-                    if (Settings_1.Settings.rateLimit?.enableBackoff) {
-                        this._rateLimitedUntil = Date.now() + retryAfter * 1000;
-                        Debug_1.Debug.write(`[StatusChanger] Backing off ${retryAfter}s — rolling back sent state for retry`);
-                    } else {
-                        Debug_1.Debug.write(`[StatusChanger] Rate limit (backoff disabled): ${retryAfter}s suggested`);
-                    }
+                    this._rateLimitedUntil = Date.now() + retryAfter * 1000; // RL-01: always backoff
+                    Debug_1.Debug.write(`[StatusChanger] Backing off ${retryAfter}s (backoff=${Settings_1.Settings.rateLimit?.enableBackoff}) — rolling back sent state for retry`);
                     if (mergedLines) for (const ml of mergedLines) this.sentLines.delete(ml);
                     if (sentLine && this.playbackState.currentLine === sentLine) this.playbackState.currentLine = null;
                     this._lastSentText = "";
-                    this._lastSentAt = 0;
+                    this._lastSentAt = Date.now(); // CONN-35: throttle re-entry after 429
                 }).catch(e => {
                     Debug_1.Debug.write(`[StatusChanger] Rate limited but failed to read response body: ${e}`);
-                    if (Settings_1.Settings.rateLimit?.enableBackoff) this._rateLimitedUntil = Date.now() + 30000;
+                    this._rateLimitedUntil = Date.now() + 5000; // RL-01/RL-08: always backoff, 5s min
                 });
             } else if (res.status === 200) {
                 Debug_1.Debug.write(`[StatusChanger] OK (${elapsed}ms)`);
-                this.autooffset.addValue(elapsed);
+                if (elapsed > 2000) Debug_1.Debug.write(`[StatusChanger] Autooffset: capping spike ${elapsed}ms to 2000ms (RL-15)`);
+                this.autooffset.addValue(Math.min(elapsed, 2000)); // RL-15
             } else {
                 res.text().then(b => Debug_1.Debug.write(`[StatusChanger] Error HTTP ${res.status}: ${b}`)).catch(() => {});
             }
@@ -178,23 +177,38 @@ class StatusChangerBase {
     }
 
     restoreStatus() {
+        if (!this._captureReady) { Debug_1.Debug.write(`[StatusChanger] Restore skipped — capture not ready`); return; } // #11
         const s = this._savedStatus;
         if (!s) return;
         Debug_1.Debug.write(`[StatusChanger] Restoring saved status: "${s.text}"`);
-        _patchLog(
-            this._discordPatch({ custom_status: { text: s.text || "", emoji_name: s.emoji_name || null, emoji_id: s.emoji_id || null, expires_at: s.expires_at || null } }),
-            "Restore"
-        );
+        const _restoreSongId = this.playbackState.songId;
+        const _doRestore = (attempt) => {
+            if (this.playbackState.songId !== _restoreSongId) return; // RL-04: cancel if song changed
+            this._discordPatch({ custom_status: { text: s.text || "", emoji_name: s.emoji_name || null, emoji_id: s.emoji_id || null, expires_at: s.expires_at || null } })
+                .then(res => {
+                    if (res.status === 200) { Debug_1.Debug.write(`[StatusChanger] Restore OK`); }
+                    else if (res.status === 429 && attempt < 2) {
+                        res.text().then(raw => {
+                            let ra = 5; try { const b = JSON.parse(raw); if (typeof b.retry_after === "number" && b.retry_after > 0) ra = Math.min(b.retry_after, 60); } catch (_) {}
+                            this._rateLimitedUntil = Date.now() + ra * 1000; // RL-04
+                            Debug_1.Debug.write(`[StatusChanger] Restore 429 — retry in ${ra}s`);
+                            setTimeout(() => _doRestore(attempt + 1), ra * 1000);
+                        }).catch(() => {});
+                    } else { res.text().then(b => Debug_1.Debug.write(`[StatusChanger] Restore HTTP ${res.status}: ${b}`)).catch(() => {}); }
+                }).catch(e => Debug_1.Debug.write(`[StatusChanger] Restore error: ${e}`));
+        };
+        _doRestore(0);
     }
 
     smartTruncate(text, limit = 128, lyricLines = null) {
         if (!text) return "";
         if (cpFitsIn(text, limit)) return text;
         if (lyricLines && lyricLines.length > 1) {
+            const _sep = Settings_1.Settings.rateLimit?.mergeSeparator ?? " "; // #4
             const lines = lyricLines.slice();
             while (lines.length > 1) {
                 lines.pop();
-                const candidate = lines.join(" ");
+                const candidate = lines.join(_sep);
                 if (cpFitsIn(candidate, limit)) return candidate;
             }
             text = lines[0] || "";
@@ -229,7 +243,7 @@ class StatusChangerBase {
             return endsWithTerminal(lyricLines[i - 1]) ? l : lcFirst(l);
         });
         const _sep = Settings_1.Settings.rateLimit?.mergeSeparator ?? " ";
-        return { mergedText: joinedLines.join(_sep), lyricLines, mergedLines };
+        return { mergedText: joinedLines.join(_sep), lyricLines, joinedLines, mergedLines }; // #3: expose joinedLines
     }
 
     applyTemplate(template, mergedText, line, ps, lineIndex, totalLines) {
@@ -284,10 +298,14 @@ class StatusChangerBase {
                     try { const b = JSON.parse(raw); if (typeof b.retry_after === 'number' && b.retry_after > 0) retryAfter = b.retry_after; } catch (_) {}
                     Debug_1.Debug.write(`[StatusChanger] iOS REST sync 429 — retrying in ${retryAfter}s`);
                     setTimeout(() => {
-                        if (this._captureReady && !this._restoreTimer && this._lastSentText === text && this.playbackState.songId === _syncSongId && Settings_1.Settings.gateway?.enabled) // CONN-12
-                            this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji || null, expires_at: new Date(Date.now() + 60000).toISOString() } })
-                                .then(r => { if (r.status === 200) { this._iOSSyncSentAt = Date.now(); Debug_1.Debug.write('[StatusChanger] iOS REST sync retry OK'); } })
-                                .catch(e => Debug_1.Debug.write(`[StatusChanger] iOS REST sync retry error: ${e}`));
+                        if (!this._captureReady || this._restoreTimer || this._lastSentText !== text || this.playbackState.songId !== _syncSongId || !Settings_1.Settings.gateway?.enabled) return; // CONN-12
+                        if (Date.now() < this._rateLimitedUntil) { Debug_1.Debug.write('[StatusChanger] iOS REST sync retry skipped — still rate limited (RL-03)'); return; } // RL-03
+                        this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji || null, expires_at: new Date(Date.now() + 60000).toISOString() } })
+                            .then(r => {
+                                if (r.status === 200) { this._iOSSyncSentAt = Date.now(); Debug_1.Debug.write('[StatusChanger] iOS REST sync retry OK'); }
+                                else if (r.status === 429) { r.text().then(raw => { let ra=5; try{const b=JSON.parse(raw);if(typeof b.retry_after==='number'&&b.retry_after>0)ra=Math.min(b.retry_after,60);}catch(_){} this._rateLimitedUntil=Date.now()+ra*1000; Debug_1.Debug.write('[StatusChanger] iOS REST sync retry 429 — RL-02'); }).catch(()=>{}); } // RL-02
+                                else { r.text().then(b => Debug_1.Debug.write(`[StatusChanger] iOS REST sync retry HTTP ${r.status}: ${b}`)).catch(()=>{}); }
+                            }).catch(e => Debug_1.Debug.write(`[StatusChanger] iOS REST sync retry error: ${e}`));
                     }, retryAfter * 1000);
                 }).catch(() => {});
             } else {

@@ -45,6 +45,7 @@ class PlaybackStateUpdater {
             const _epochDealer = Date.now() - progressMs; // CONN-22: capture before fetchLyrics await
             ps.songStartEpoch = _epochDealer;
             Debug_1.Debug.write(`[PlaybackStateUpdater][Dealer] New track: "${ps.songName}" by ${ps.songAuthor}`);
+            ps.lyrics = null; ps.hasLyrics = false; ps.currentLine = null; // #14: clear before await so old lyrics don't bleed
             try {
                 ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, trackId);
                 ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
@@ -53,17 +54,14 @@ class PlaybackStateUpdater {
                 ps.lyrics = null; ps.hasLyrics = false; ps.lyricsSource = "";
             }
         } else if (!ps.lyrics) {
+            // #17: only retry fetch when lyrics are absent — not on every seek/pause push
             this.lyricsFetcher.lastAttemptedFor = "";
             try {
                 ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, trackId);
                 ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
             } catch (e) { Debug_1.Debug.write("[PlaybackStateUpdater][Dealer] fetchLyrics retry error: " + e); ps.lyrics = null; ps.hasLyrics = false; }
-        } else if (this.lyricsFetcher.lastAttemptedFor !== `${ps.songName}\0${ps.songAuthor}`) {
-            try {
-                ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, trackId);
-                ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || "";
-            } catch (e) { Debug_1.Debug.write("[PlaybackStateUpdater][Dealer] fetchLyrics lastAttempted error: " + e); ps.lyrics = null; ps.hasLyrics = false; }
         }
+        // #17: removed lastAttemptedFor else-if branch — same-song seek/pause events no longer trigger redundant fetches
     }
 
     /**
@@ -92,11 +90,12 @@ class PlaybackStateUpdater {
             return;
         }
         if (res.status !== 200) return;
+        const _t0REST = Date.now(); // CONN-33: capture before json() parse latency
         let json;
         try { json = await res.json(); } catch (e) { Debug_1.Debug.write(`[PlaybackStateUpdater] Failed to parse response: ${e}`); return; }
         const ps = this.playbackState;
         if (!json.item) { ps.isPlaying = json.is_playing ?? false; return; }
-        ps.songProgress = (json.progress_ms || 0) + (Date.now() - t0);
+        ps.songProgress = (json.progress_ms || 0) + (Date.now() - _t0REST);
         ps.isPlaying = json.is_playing;
         Debug_1.Debug.write(`[PlaybackStateUpdater] isPlaying:${json.is_playing} | song: "${json.item.name}" | progress: ${json.progress_ms}ms`);
         if (ps.songId !== json.item.id) {
@@ -104,16 +103,16 @@ class PlaybackStateUpdater {
             ps.songAuthor = json.item.artists?.[0]?.name ?? "Unknown";
             ps.oldSongId = ps.songId; ps.songId = json.item.id; ps.songDuration = json.item.duration_ms;
             ps.albumArtUrl = json.item.album?.images?.[0]?.url || "";
-            ps.songStartEpoch = Date.now() - (json.progress_ms || 0); // already pre-await in REST path
+            ps.songStartEpoch = _t0REST - (json.progress_ms || 0); // CONN-33
             Debug_1.Debug.write(`[PlaybackStateUpdater] New song: "${ps.songName}" by ${ps.songAuthor}`);
+            ps.lyrics = null; ps.hasLyrics = false; ps.currentLine = null; // #14: clear before await so old lyrics don't bleed
             try { ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id); ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || ""; Debug_1.Debug.write(`[PlaybackStateUpdater] Lyrics: ${ps.hasLyrics} | source: ${ps.lyricsSource}`); } catch (e) { Debug_1.Debug.write("[PlaybackStateUpdater] fetchLyrics new-song error: " + e); ps.lyrics = null; ps.hasLyrics = false; ps.lyricsSource = ""; }
         } else if (!ps.lyrics) {
             Debug_1.Debug.write(`[PlaybackStateUpdater] lyrics null for current song — re-fetching`);
             this.lyricsFetcher.lastAttemptedFor = "";
             try { ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id); ps.currentLine = null; ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || ""; Debug_1.Debug.write(`[PlaybackStateUpdater] Re-fetch result: ${ps.hasLyrics} | source: ${ps.lyricsSource}`); } catch (e) { Debug_1.Debug.write("[PlaybackStateUpdater] fetchLyrics re-fetch error: " + e); ps.lyrics = null; ps.hasLyrics = false; }
-        } else if (this.lyricsFetcher.lastAttemptedFor !== `${ps.songName}\0${ps.songAuthor}`) {
-            try { ps.lyrics = await this.lyricsFetcher.fetchLyrics(ps.songName, ps.songAuthor, json.item.id); ps.hasLyrics = !!ps.lyrics; ps.lyricsSource = this.lyricsFetcher.lastFetchedFrom || ""; } catch (e) { Debug_1.Debug.write("[PlaybackStateUpdater] fetchLyrics lastAttempted error: " + e); ps.lyrics = null; ps.hasLyrics = false; }
         }
+        // #17: removed lastAttemptedFor else-if branch from REST path too — same-song polls no longer re-fetch
         } finally { this._updating = false; }
     }
 }
