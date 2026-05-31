@@ -26,7 +26,7 @@ class Settings {
 Settings._KEYS = ["credentials","view","timings","update","rateLimit","sources","cache","chineseConversion","restore","gateway","statusFlash","richPresence"];
 exports.Settings = Settings;
 Settings.credentials = { token:"", cookies:"", musixmatchToken:"", spotifyWebToken:"", spotifyWebTokenExpiry:0, clientID:"", clientSecret:"", useExternalAuthServer:"", code:"", refreshToken:"", uuid:"", customRedirectUri:"", useDealer:true };
-Settings._viewAdvancedDefaults = { enabled:false, customEmoji:"\uD83C\uDFB6", customStatus:"[{timestamp}] [{lyrics}]", unicodeStyle:"none", styleAlternateEnabled:false, styleAlternateIntervalMs:3000, styleAlternateStyleA:"bold", styleAlternateStyleB:"italic" };
+Settings._viewAdvancedDefaults = { enabled:false, customEmoji:"\uD83C\uDFB6", customStatus:"[{timestamp}] [{lyrics}]", unicodeStyle:"none", styleAlternateEnabled:false, styleAlternateIntervalMs:3000, styleAlternateStyleA:"bold", styleAlternateStyleB:"italic", styleWordMap:"" };
 Settings.view = { timestamp:true, label:true, advanced:{ ...Settings._viewAdvancedDefaults } };
 Settings.timings = { sendTimeOffset:500, enableAutooffset:true, autooffset:3 };
 Settings.update = { enableAutoupdate:true };

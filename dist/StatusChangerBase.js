@@ -328,9 +328,20 @@ class StatusChangerBase {
         return m + (sec < 10 ? ':0' : ':') + sec;
     }
 }
+
+function applyWordStyles(text,styleMap){
+    if(!styleMap||!styleMap.length)return text;
+    const tokens=text.split(/(\s+)/);
+    let wi=0;
+    return tokens.map(tok=>{
+        if(/^\s+$/.test(tok))return tok;
+        return applyUnicodeStyle(tok,styleMap[wi++%styleMap.length]);
+    }).join('');
+}
 exports.StatusChangerBase = StatusChangerBase;
 exports.VALID_FLASH_STATES = VALID_FLASH_STATES;
 exports.applyUnicodeStyle = applyUnicodeStyle;
 exports.resolveUnicodeStyle = resolveUnicodeStyle;
 exports.cpLen = cpLen;
 exports.sanitizeLyric = sanitizeLyric;
+exports.applyWordStyles = applyWordStyles;

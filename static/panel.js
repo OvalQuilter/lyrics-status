@@ -218,12 +218,34 @@ function applyToDom() {
         if (ok) ok.classList.toggle("show", !!(settings.credentials?.refreshToken||settings.credentials?.code));
         updateSpotifyTokenStatus(); updateRestoreDisplay(); updatePreview(); updatePresenceToggle();
         updateFlashStateToggle(); updateFlashRestoreSelect();
-        renderSourceList(); updateStyleAlternateIntervalVisibility();
+        renderSourceList(); updateStyleAlternateIntervalVisibility(); initWordStyleChecks();
         updateRpGwWarn(); updateRpAlbumArtRow();
     } catch(e) { console.error("applyToDom:", e); }
     loaded = true;
 }
 
+
+function initWordStyleChecks() {
+    const wrap = document.getElementById("style-word-map-checks");
+    if (!wrap) return;
+    const current = (settings.view && settings.view.advanced && settings.view.advanced.styleWordMap) || "";
+    const active = current ? current.split(",").map(x=>x.trim()).filter(Boolean) : [];
+    const styles = [["bold","𝐁𝐨𝐥𝐝"],["italic","𝐼𝑡𝑎𝑙𝑖𝑐"],["bold_italic","𝒃𝒐𝒍𝒅 𝒊𝒕𝒂𝒍𝒊𝒄"],["sans","𝖲𝖺𝗇𝗌"],["sans_bold","𝗦𝗮𝗻𝘀 𝗕𝗼𝗹𝗱"],["sans_italic","𝘚𝘢𝘯𝘴 𝘐𝘵𝘢𝘭𝘪𝘤"],["sans_bold_italic","𝙎𝙖𝙣𝙨 𝘽𝙄"],["double_struck","𝔻𝕠𝕦𝕓𝕝𝕖"],["fraktur","𝔉𝔯𝔞𝔨𝔱𝔲𝔯"],["fraktur_bold","𝖋𝖗𝖆𝖐𝖙𝖚𝖗 𝕭𝖔𝖑𝖉"]];
+    if (!wrap._bound) {
+        wrap.innerHTML = styles.map(([v,l]) =>
+            `<label style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;cursor:pointer"><input type="checkbox" value="${v}"> ${l}</label>`
+        ).join("");
+        wrap.addEventListener("change", () => {
+            const v = Array.from(wrap.querySelectorAll("input:checked")).map(x=>x.value).join(",");
+            if (!settings.view) settings.view = {};
+            if (!settings.view.advanced) settings.view.advanced = {};
+            settings.view.advanced.styleWordMap = v;
+            _dirty = true; save();
+        });
+        wrap._bound = true;
+    }
+    for (const cb of wrap.querySelectorAll("input")) cb.checked = active.includes(cb.value);
+}
 function bindAll() {
     for (const [sel, path, type] of BINDINGS) {
         const el = document.querySelector(sel);
@@ -500,7 +522,7 @@ document.addEventListener("DOMContentLoaded", () => {
           var hash=av.storage_hash||av.id;
           var url=uid?"https://cdn.discordapp.com/avatars/"+uid+"/"+hash+".webp?size=128":"";
           var label=av.description?esc(av.description.substring(0,20)):"";
-          var img=url?'<img src="'+url+'" onerror="this.style.display='+'+'none'+'+'">':'<div style="width:48px;height:48px;border-radius:50%;background:var(--surface-hi);border:2px solid var(--border)"></div>';
+          var img=url?"<img src=\""+url+"\" onerror=\"this.style.display='none'\">":"<div style=\"width:48px;height:48px;border-radius:50%;background:var(--surface-hi);border:2px solid var(--border)\"></div>";
           html+='<div class="dside-av-wrap" title="'+esc(av.description||"")+'">'+img+'<span>'+label+'</span></div>';
         });
         out.innerHTML=html+'</div>';

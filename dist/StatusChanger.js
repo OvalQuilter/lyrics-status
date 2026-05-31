@@ -5,7 +5,7 @@ const Settings_1 = require("./Settings");
 const Debug_1 = require("./Debug");
 const StatusChangerBase_1 = require("./StatusChangerBase");
 
-const { VALID_FLASH_STATES, applyUnicodeStyle, resolveUnicodeStyle, cpLen, sanitizeLyric } = StatusChangerBase_1;
+const { VALID_FLASH_STATES, applyUnicodeStyle, resolveUnicodeStyle, cpLen, sanitizeLyric, applyWordStyles } = StatusChangerBase_1;
 
 // Convert Spotify CDN URL to spotify: image key format accepted by Discord op3 activities
 // https://i.scdn.co/image/<hash> → spotify:<hash>
@@ -128,7 +128,8 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
         }
 
         const { style: _uStyle } = resolveUnicodeStyle(adv, now);
-        const _style = s => _uStyle !== "none" ? applyUnicodeStyle(s, _uStyle) : s;
+        const _swm = adv.styleWordMap ? adv.styleWordMap.split(",").map(x=>x.trim()).filter(Boolean) : null;
+        const _style = s => _swm && _swm.length ? applyWordStyles(s, _swm) : (_uStyle !== "none" ? applyUnicodeStyle(s, _uStyle) : s);
 
         const usingGateway = Settings_1.Settings.gateway?.enabled && this._gateway && this._gateway.connected; // CONN-07
         const { enableBackoff, enableMinInterval, minIntervalMs, enableMergeLines, mergeWindowMs } = Settings_1.Settings.rateLimit;
