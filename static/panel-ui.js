@@ -1,4 +1,4 @@
-// panel-ui.js â€" HTML builders and DOM rendering
+// panel-ui.js — HTML builders and DOM rendering
 // Depends on: panel-data.js (DEFAULTS, SOURCE_META, SECTION_DEFS, SECTION_BODIES keys,
 //             PRESENCE_OPTIONS, FLASH_STATE_OPTIONS, RESTORE_STATUS_OPTIONS)
 // Depends on: panel.js globals: settings, save()
@@ -18,6 +18,8 @@ const h = {
     indent:  inner => `<div class="indent">${inner}</div>`,
     divider: () => `<div class="divider"></div>`,
 };
+
+const _STYLE_OPTIONS = `<option value="none">None</option><option value="bold">\uD835\uDC01\uD835\uDC28\uD835\uDC25\uD835\uDC1D Bold</option><option value="italic">\uD835\uDC3C\uD835\uDC61\uD835\uDC4E\uD835\uDC59\uD835\uDC56\uD835\uDC50 Italic</option><option value="bold_italic">\uD835\uDC54\uD835\uDC90\uD835\uDC8F\uD835\uDC88 Bold Italic</option><option value="sans">\uD835\uDE34\uD835\uDE30\uD835\uDE2F\uD835\uDE34 Sans</option><option value="sans_bold">\uD835\uDDE6\uD835\uDDBC\uD835\uDDB3\uD835\uDDE6 Sans Bold</option><option value="sans_italic">\uD835\uDE58\uD835\uDE54\uD835\uDE53\uD835\uDE5A Sans Italic</option><option value="sans_bold_italic">\uD835\uDE5C\uD835\uDE58\uD835\uDE57\uD835\uDE5C Sans Bold Italic</option><option value="double_struck">\uD835\uDD64\uD835\uDD60\uD835\uDD5F\uD835\uDD64 Double-Struck</option><option value="fraktur">\uD835\uDD30\uD835\uDD2C\uD835\uDD2B\uD835\uDD30 Fraktur</option><option value="fraktur_bold">\uD835\uDE98\uD835\uDE94\uD835\uDE93\uD835\uDE98 Fraktur Bold</option>`;
 
 const SECTION_BODIES = {
     auth: () =>
@@ -40,9 +42,11 @@ const SECTION_BODIES = {
         `<div class="sub-box" id="advanced-swt">` +
             h.row(h.label("Custom emoji"), h.inline(`<input type="text" id="custom-emoji" style="width:64px" maxlength="4" placeholder="\uD83C\uDFB6">` + h.ibtn("custom-emoji-help","Emoji help"))) +
             h.row(h.label("Status template"), h.field(`<textarea id="custom-status" class="full"></textarea>` + h.inline(h.hint("128 char limit. Variables: {lyrics}, {timestamp}, {song_name}, {song_author}, {source}, {progress}, {duration}, {line_number}") + h.ibtn("custom-status-help","Template help")))) +
-            h.row(h.label("Unicode style"), h.field(`<select id="unicode-style"><option value="none">None</option><option value="bold">\uD835\uDC01\uD835\uDC28\uD835\uDC25\uD835\uDC1D Bold</option><option value="italic">\uD835\uDC3C\uD835\uDC61\uD835\uDC4E\uD835\uDC59\uD835\uDC56\uD835\uDC50 Italic</option><option value="bold_italic">\uD835\uDC54\uD835\uDC90\uD835\uDC8F\uD835\uDC88 Bold Italic</option><option value="sans">\uD835\uDE34\uD835\uDE30\uD835\uDE2F\uD835\uDE34 Sans</option><option value="sans_bold">\uD835\uDDE6\uD835\uDDBC\uD835\uDDB3\uD835\uDDE6 Sans Bold</option><option value="sans_italic">\uD835\uDE58\uD835\uDE54\uD835\uDE53\uD835\uDE5A Sans Italic</option><option value="sans_bold_italic">\uD835\uDE5C\uD835\uDE58\uD835\uDE57\uD835\uDE5C Sans Bold Italic</option><option value="double_struck">\uD835\uDD64\uD835\uDD60\uD835\uDD5F\uD835\uDD64 Double-Struck</option><option value="fraktur">\uD835\uDD30\uD835\uDD2C\uD835\uDD2B\uD835\uDD30 Fraktur</option><option value="fraktur_bold">\uD835\uDE98\uD835\uDE94\uD835\uDE93\uD835\uDE98 Fraktur Bold</option></select>` + h.hint("Converts a\u2013z A\u2013Z to Unicode math chars. Works in Discord status. Non-latin letters pass through."))) +
-            h.row("", h.field(h.check("style-alternate-enabled","Alternate bold \u2194 italic on a timer") + h.hint("Overrides Unicode style above."))) +
+            h.row(h.label("Unicode style"), h.field(`<select id="unicode-style">${_STYLE_OPTIONS}</select>` + h.hint("Converts a\u2013z A\u2013Z to Unicode math chars. Works in Discord status. Non-latin letters pass through."))) +
+            h.row("", h.field(h.check("style-alternate-enabled","Alternate styles on a timer") + h.hint("Choose two styles to cycle. Overrides Unicode style above."))) +
             `<div id="style-alternate-interval-row">` +
+                h.row(h.label("Style A"), h.field(`<select id="style-alternate-a">${_STYLE_OPTIONS}</select>`)) +
+                h.row(h.label("Style B"), h.field(`<select id="style-alternate-b">${_STYLE_OPTIONS}</select>`)) +
                 h.row(h.label("Alternate interval"), h.inline(h.number("style-alternate-interval",500,60000,500) + h.muted("ms per style"))) +
             `</div>` +
         `</div>` +
