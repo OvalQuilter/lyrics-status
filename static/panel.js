@@ -197,6 +197,14 @@ function updateRpGwWarn() {
     el.style.display = (settings.richPresence?.enabled && !settings.gateway?.enabled) ? "" : "none";
 }
 
+function updateIntervalRows() {
+    const gw = settings.gateway?.enabled;
+    const gr = document.getElementById("gw-interval-row");
+    const rr = document.getElementById("rest-interval-row");
+    if (gr) gr.style.display = gw ? "" : "none";
+    if (rr) rr.style.display = gw ? "none" : "";
+}
+
 function updateSpWarn() {
     const w = document.getElementById("sp-rp-warn");
     const f = document.getElementById("sp-fields");
@@ -227,7 +235,21 @@ function applyToDom() {
         updateFlashStateToggle(); updateFlashRestoreSelect();
         renderSourceList(); updateStyleAlternateIntervalVisibility(); initWordStyleChecks();
         updateRpGwWarn();
-    updateSpWarn(); updateRpAlbumArtRow();
+    updateSpWarn();
+    updateIntervalRows(); updateRpAlbumArtRow();
+
+    // Restore delay: stored as ms internally, displayed as seconds
+    const rdEl = document.getElementById("restore-delay-ms");
+    if (rdEl) {
+        rdEl.min = 0; rdEl.max = 60; rdEl.step = 1;
+        rdEl.value = Math.round((settings.restore?.delayMs || 15000) / 1000);
+        rdEl.addEventListener("change", () => {
+            if (!settings.restore) settings.restore = {};
+            settings.restore.delayMs = (parseFloat(rdEl.value) || 0) * 1000;
+            _dirty = true; save();
+        });
+    }
+
     } catch(e) { console.error("applyToDom:", e); }
     loaded = true;
 }
@@ -265,6 +287,7 @@ function bindAll() {
                 if (sel === "#style-alternate-enabled") updateStyleAlternateIntervalVisibility();
                 if (sel==="#enable-timestamp"||sel==="#enable-label") updatePreview();
                 if (sel==="#rp-enabled"||sel==="#gateway-enabled") updateRpGwWarn();
+                if (sel==="#gateway-enabled") updateIntervalRows();
                 if (sel==="#sp-enabled"||sel==="#rp-enabled") updateSpWarn();
                 if (sel==="#rp-show-album-art") updateRpAlbumArtRow();
                 _dirty = true; save();

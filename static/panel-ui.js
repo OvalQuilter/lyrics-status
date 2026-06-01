@@ -59,9 +59,9 @@ const SECTION_BODIES = {
         h.divider() +
         h.row("", h.field(h.check("enable-backoff","Auto backoff on rate limit"))) +
         h.indent(h.hint("Pauses sending for Discord\u2019s suggested retry window on 429.")) +
-        h.row("", h.field(h.check("enable-min-interval","Limit update frequency (REST only)"))) +
+        `<div id="rest-interval-row">` + h.row("", h.field(h.check("enable-min-interval","Limit update frequency"))) +
         h.indent(h.row(h.inline(h.number("min-interval-ms",1000,60000,500) + h.muted("ms — 5000 = every 5s, raise to 10000 if rate limited")))) +
-        h.indent(h.hint("Minimum gap between REST status sends. Raise to 10000\u2009ms+ if you see 429 errors. Gateway mode ignores this. Default: 5000\u2009ms.")) +
+        h.indent(h.hint("How often your status can update via REST. Raise if you keep getting rate limited.")) + `</div>` +
         h.row("", h.field(h.check("enable-merge-lines","Merge nearby lyric lines"))) +
         h.indent(h.row(h.inline(h.number("merge-window-ms",1000,30000,500) + h.muted("ms — 8000 = join lines within 8s of each other")))) +
         h.indent(h.hint("Lines close together get joined into one status update. Helps reduce update frequency.")) +
@@ -77,8 +77,8 @@ const SECTION_BODIES = {
             h.hint("Mobile presence requires a restart to take effect. Sets your Discord status on each op\u00a03 send. Invisible hides you from others while still updating your custom status. Gateway must be enabled.") +
             `</div>`
         ) +
-        h.row(h.label("Gateway update speed"), h.inline(h.number("gw-min-interval-ms",0,60000,500) + h.muted("ms between op\u00a03 sends"))) +
-        h.indent(h.hint("How frequently your status updates in Gateway mode. 0 = Discord's limit only (5 per 20s). Raise if it feels too rapid.")) +
+        `<div id="gw-interval-row">` + h.row(h.label("Update speed"), h.inline(h.number("gw-min-interval-ms",0,60000,500) + h.muted("ms between op\u00a03 sends"))) +
+        h.indent(h.hint("How frequently your status updates in Gateway mode. 0 = Discord's limit only (5 per 20s). Raise if it feels too rapid.")) + `</div>` +
         h.row(h.label("Clear after last line"), h.inline(h.number("gw-clear-last-line-ms",0,30000,500) + h.muted("ms (0 = off)"))) +
         h.indent(h.hint("Clears your Discord status via GW a few seconds after the last lyric line is sent. 0 disables. Default: 3000\u2009ms.")) +
         h.divider() +
@@ -128,8 +128,8 @@ const SECTION_BODIES = {
     restore: () =>
         h.row("", h.field(h.check("restore-enabled","Enable status restore"))) +
         h.row(h.label("Saved status"), `<div class="row-field" style="flex-direction:row;gap:8px;align-items:center"><span id="restore-status-display">Not set</span>${h.btn("btn-refresh-status","\u21BB Refresh")}${h.btn("btn-store-status","\u2713 Store")}</div>`) +
-        h.row(h.label("Restore delay"), h.inline(h.number("restore-delay-ms",0,60000,1000) + h.muted("ms after song ends"))) +
-        h.indent(h.hint("15\u2009000\u2009ms (15\u2009s) recommended to avoid rate limits on skips.")) +
+        h.row(h.label("Restore delay"), h.inline(h.number("restore-delay-ms",0,60000,1000) + h.muted("seconds after song ends"))) +
+        h.indent(h.hint("15 seconds recommended to avoid rate limits on skips.")) +
         h.divider() +
         `<ul id="source-list"></ul>` +
         h.row(h.label("Chinese script"), h.field(
@@ -138,10 +138,12 @@ const SECTION_BODIES = {
         )) +
         h.divider() +
         h.divider() +
+        `<details><summary style="cursor:pointer;font-size:12px;color:var(--muted);margin:4px 0 8px">Advanced cache settings</summary>` +
         h.row(h.label("Lyrics cache TTL"),  h.inline(h.number("cache-lyrics-ttl",1,365,1)   + h.muted("days"))) +
         h.row(h.label("Empty result TTL"),  h.inline(h.number("cache-empty-ttl",1,90,1)     + h.muted("days"))) +
         h.row(h.label("Error cache TTL"),   h.inline(h.number("cache-error-ttl",1,72,1)     + h.muted("hours"))) +
         h.row(h.label("Max cache rows"),    h.inline(h.number("cache-max-rows",100,50000,100)+ h.muted("rows"))) +
+        `</details>` +
         h.row(h.label("Cache path"),        h.field(h.input("cache-path","Default: cache/cache.db") + h.hint("Leave blank for default. Requires restart."))) +
         h.divider() +
         h.row("", h.field(h.check("enable-autoupdate","Automatic update checks"))),
