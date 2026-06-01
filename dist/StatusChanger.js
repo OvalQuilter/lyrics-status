@@ -7,8 +7,6 @@ const StatusChangerBase_1 = require("./StatusChangerBase");
 
 const { VALID_FLASH_STATES, applyUnicodeStyle, resolveUnicodeStyle, cpLen, sanitizeLyric, applyWordStyles } = StatusChangerBase_1;
 
-// Convert Spotify CDN URL to spotify: image key format accepted by Discord op3 activities
-// https://i.scdn.co/image/<hash> → spotify:<hash>
 function _toSpotifyImageKey(url) {
     if (!url) return null;
     const m = url.match(/\/image\/([a-f0-9]+)$/i);
@@ -20,7 +18,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
     _flashSend(status, label) {
         const usingGateway = Settings_1.Settings.gateway && Settings_1.Settings.gateway.enabled && this._gateway && this._gateway.connected;
         if (usingGateway) { this._gateway.flashPresence(status, null, null); return; }
-        if (Date.now() < this._rateLimitedUntil) { Debug_1.Debug.write("[StatusFlash] Skipping — rate limited (RL-09)"); return; } // RL-09
+        if (Date.now() < this._rateLimitedUntil) { Debug_1.Debug.write("[StatusFlash] Skipping — rate limited (RL-09)"); return; }
         this._discordPatch({ status })
             .then(res => {
                 if (res.status === 429) {
@@ -82,13 +80,23 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
             activity.timestamps = { start: ps.songStartEpoch, end: ps.songStartEpoch + (ps.songDuration || 0) };
         }
         if (rp.showAlbumArt) {
-            // Use override URL if set, otherwise auto-convert Spotify CDN URL to spotify: key
             const imageUrl = rp.albumArtUrl || ps.albumArtUrl;
             const imageKey = _toSpotifyImageKey(imageUrl) || imageUrl || null;
             if (imageKey) activity.assets = { large_image: imageKey, small_text: ps.lyricsSource || undefined };
         }
         if (rp.buttonLabel && rp.buttonUrl) {
             activity.buttons = [{ label: rp.buttonLabel, url: rp.buttonUrl }];
+        }
+        // Spotify party ("Listening Together") spoofing
+        const sp = Settings_1.Settings.spotifyParty;
+        if (false) { // DISABLED
+            const partyId = sp.partyId || ("ls-" + (ps.songId || "party"));
+            const size    = Math.max(1, sp.partySize || 1);
+            const max     = Math.max(size, sp.partyMax || 10);
+            activity.party   = { id: partyId, size: [size, max] };
+            activity.sync_id = sp.syncId || ps.songId || undefined;
+            activity.flags   = typeof sp.flags === "number" ? sp.flags : 48; // 48 = SYNC(32)|JOIN(16)
+            Debug_1.Debug.write(`[SpotifyParty] party=${partyId} size=${size}/${max} sync_id=${activity.sync_id} flags=${activity.flags}`);
         }
         return activity;
     }
@@ -106,8 +114,8 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
             if (songText && songText !== this._lastSentText) {
                 const _now2 = Date.now();
                 const _eff2 = Settings_1.Settings.gateway?.enabled && this._gateway?.connected ? (Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000) : (Settings_1.Settings.rateLimit.enableMinInterval ? (Settings_1.Settings.rateLimit.minIntervalMs || 5000) : 0);
-                if (_now2 < this._rateLimitedUntil) return; // RL-10
-                if (_eff2 > 0 && _now2 - this._lastSentAt < _eff2) return; // RL-10
+                if (_now2 < this._rateLimitedUntil) return;
+                if (_eff2 > 0 && _now2 - this._lastSentAt < _eff2) return;
                 this._lastSentText = songText;
                 const adv = Settings_1.Settings.view.advanced;
                 const emoji = (adv && adv.enabled && adv.customEmoji) ? adv.customEmoji : null;
@@ -131,7 +139,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
         const _swm = adv.styleWordMap ? adv.styleWordMap.split(",").map(x=>x.trim()).filter(Boolean) : null;
         const _style = s => _swm && _swm.length ? applyWordStyles(s, _swm) : (_uStyle !== "none" ? applyUnicodeStyle(s, _uStyle) : s);
 
-        const usingGateway = Settings_1.Settings.gateway?.enabled && this._gateway && this._gateway.connected; // CONN-07
+        const usingGateway = Settings_1.Settings.gateway?.enabled && this._gateway && this._gateway.connected;
         const { enableBackoff, enableMinInterval, minIntervalMs, enableMergeLines, mergeWindowMs } = Settings_1.Settings.rateLimit;
         if (!usingGateway && enableBackoff && now < this._rateLimitedUntil) return;
         const minInterval = enableMinInterval ? (minIntervalMs || 5000) : 0;
@@ -185,7 +193,6 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                     const prefix = `${Settings_1.Settings.view.timestamp ? `[${this.formatSeconds(+(line.time / 1000).toFixed(0))}] ` : ""}${Settings_1.Settings.view.label ? "Song lyrics - " : ""}`;
                     const limit = 128 - cpLen(prefix);
                     const _sep = Settings_1.Settings.rateLimit?.mergeSeparator ?? " ";
-                    // #3: use joinedLines (already lcFirst-normalized) instead of lyricLines
                     const reduced = joinedLines.slice();
                     while (reduced.length > 1 && cpLen(reduced.join(_sep)) > limit) reduced.pop();
                     const lyricsText = cpLen(reduced.join(_sep)) <= limit ? reduced.join(_sep) : this.smartTruncate(reduced[0], limit, null);
@@ -203,7 +210,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                 this._lastMergedLines = mergedLines;
                 for (const ml of mergedLines) { this.sentLines.add(ml); this._staleLines.delete(ml); }
                 if (this.sentLines.size > 200) {
-                    const arr = [...this.sentLines].slice(-200); // CONN-36: mergedLines guaranteed in last 200
+                    const arr = [...this.sentLines].slice(-200);
                     this.sentLines = new Set(arr);
                     this._staleLines = new Set([...this._staleLines].filter(l => this.sentLines.has(l)));
                 }
@@ -212,7 +219,6 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                     this._gateway._lastRichPresenceActivity = this._buildRichPresence(line, playbackState);
                 }
                 this.changeStatusRequest(statusText, Settings_1.Settings.credentials.token, emoji, mergedLines, line);
-                // Clear GW status after last lyric line
                 const _isLastLine = !lines.slice(i + 1).some(l => l.text);
                 if (_isLastLine && usingGateway && this._gateway) {
                     const _clearDelay = Settings_1.Settings.gateway?.clearAfterLastLineMs ?? 3000;
@@ -237,7 +243,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
     songChanged(isEnd = false) {
         this.sentLines = new Set(); this._staleLines = new Set(); this._lastMergedLines = null; this._lastAnchorLine = null;
         if (this._lastLineClearTimer) { clearTimeout(this._lastLineClearTimer); this._lastLineClearTimer = null; }
-        if (Date.now() >= this._rateLimitedUntil) this._lastSentAt = 0; // RL-11: preserve lastSentAt during active rate-limit window
+        if (Date.now() >= this._rateLimitedUntil) this._lastSentAt = 0;
         this._lastStyleBucket = -1;
         this.playbackState.currentLine = null;
         if (this._restoreTimer) { clearTimeout(this._restoreTimer); this._restoreTimer = null; }
@@ -252,7 +258,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
             }
         } else {
             Debug_1.Debug.write('[StatusChanger] New song - restore timer cancelled');
-            this._lastSentText = ""; // #15: clear so first line of new song is never deduped against old song's last sent text
+            this._lastSentText = "";
             this._iOSSyncPending = { t: null, em: null };
         }
     }
