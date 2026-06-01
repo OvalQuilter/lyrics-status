@@ -59,12 +59,12 @@ const SECTION_BODIES = {
         h.divider() +
         h.row("", h.field(h.check("enable-backoff","Auto backoff on rate limit"))) +
         h.indent(h.hint("Pauses sending for Discord\u2019s suggested retry window on 429.")) +
-        h.row("", h.field(h.check("enable-min-interval","Minimum interval between updates"))) +
-        h.indent(h.row(h.inline(h.number("min-interval-ms",1000,60000,500) + h.muted("ms between sends")))) +
+        h.row("", h.field(h.check("enable-min-interval","Limit update frequency (REST only)"))) +
+        h.indent(h.row(h.inline(h.number("min-interval-ms",1000,60000,500) + h.muted("ms — 5000 = every 5s, raise to 10000 if rate limited")))) +
         h.indent(h.hint("Minimum gap between REST status sends. Raise to 10000\u2009ms+ if you see 429 errors. Gateway mode ignores this. Default: 5000\u2009ms.")) +
         h.row("", h.field(h.check("enable-merge-lines","Merge nearby lyric lines"))) +
-        h.indent(h.row(h.inline(h.number("merge-window-ms",1000,30000,500) + h.muted("ms merge window")))) +
-        h.indent(h.hint("If the next lyric line arrives sooner than this window, both lines are joined and sent as one update \u2014 reducing the total number of sends per song. Useful with a high min interval. Default: 8000u2009ms.")) +
+        h.indent(h.row(h.inline(h.number("merge-window-ms",1000,30000,500) + h.muted("ms — 8000 = join lines within 8s of each other")))) +
+        h.indent(h.hint("Lines close together get joined into one status update. Helps reduce update frequency.")) +
         h.indent(h.row(h.label("Merge separator"), h.field(h.input("merge-separator","e.g.  |  or  \u2014","maxlength=20 style=\"max-width:120px\"")))) +
         h.indent(h.hint("String placed between merged lines, e.g. | or —. Visible in your Discord status between the joined lyric lines.")),
     gateway: () =>
@@ -77,8 +77,8 @@ const SECTION_BODIES = {
             h.hint("Mobile presence requires a restart to take effect. Sets your Discord status on each op\u00a03 send. Invisible hides you from others while still updating your custom status. Gateway must be enabled.") +
             `</div>`
         ) +
-        h.row(h.label("GW min interval"), h.inline(h.number("gw-min-interval-ms",0,60000,500) + h.muted("ms between op\u00a03 sends"))) +
-        h.indent(h.hint("Extra throttle on top of Discord\u2019s hard 5-per-20s op\u00a03 cap. 0\u2009= only the hard cap applies. Raise this if status changes feel too frequent in gateway mode. Default: 5000\u2009ms.")) +
+        h.row(h.label("Gateway update speed"), h.inline(h.number("gw-min-interval-ms",0,60000,500) + h.muted("ms between op\u00a03 sends"))) +
+        h.indent(h.hint("How frequently your status updates in Gateway mode. 0 = Discord's limit only (5 per 20s). Raise if it feels too rapid.")) +
         h.row(h.label("Clear after last line"), h.inline(h.number("gw-clear-last-line-ms",0,30000,500) + h.muted("ms (0 = off)"))) +
         h.indent(h.hint("Clears your Discord status via GW a few seconds after the last lyric line is sent. 0 disables. Default: 3000\u2009ms.")) +
         h.divider() +
