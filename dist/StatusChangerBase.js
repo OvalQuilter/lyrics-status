@@ -133,7 +133,7 @@ class StatusChangerBase {
             } else {
                 this._gwRateLimitSkips = (this._gwRateLimitSkips || 0) + 1;
                 if (this._gwRateLimitSkips >= 5) { this._gwRateLimitSkips = 0; this._iOSSyncPending = null; Debug_1.Debug.write('[StatusChanger] GW rate-limit skip limit -- cleared iOSSyncPending'); }
-                if (mergedLines) for (const ml of mergedLines) this.sentLines.delete(ml);
+                if (mergedLines) if (mergedLines) for (const ml of mergedLines) { if (!this._rollbackLines) this._rollbackLines = new Set(); this._rollbackLines.add(ml); };
                 this._lastMergedLines = null;
                 this._pendingRetryText = text;
                 this._lastSentText = "";
@@ -157,7 +157,7 @@ class StatusChangerBase {
                     catch (e) { Debug_1.Debug.write(`[StatusChanger] Failed to parse rate limit body, defaulting to ${retryAfter}s: ${e}`); }
                     this._rateLimitedUntil = Date.now() + retryAfter * 1000;
                     Debug_1.Debug.write(`[StatusChanger] Backing off ${retryAfter}s (backoff=${Settings_1.Settings.rateLimit?.enableBackoff}) — rolling back sent state for retry`);
-                    if (mergedLines) for (const ml of mergedLines) this.sentLines.delete(ml);
+                    if (mergedLines) if (mergedLines) for (const ml of mergedLines) { if (!this._rollbackLines) this._rollbackLines = new Set(); this._rollbackLines.add(ml); };
                     if (sentLine && this.playbackState.currentLine === sentLine) this.playbackState.currentLine = null;
                     this._lastSentText = "";
                     this._lastSentAt = Date.now();

@@ -209,7 +209,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                 this._lastSentText = statusText;
                 Debug_1.Debug.write(`[StatusChanger] Queuing status (${mergedLines.length} line(s) merged): "${statusText}"`);
                 this._lastMergedLines = mergedLines;
-                for (const ml of mergedLines) { this.sentLines.add(ml); this._staleLines.delete(ml); }
+                for (const ml of mergedLines) { this.sentLines.add(ml); this._staleLines.delete(ml); this._rollbackLines.delete(ml); }
                 if (this.sentLines.size > 200) {
                     const arr = [...this.sentLines].slice(-200);
                     const dropped = [...this.sentLines].slice(0, this.sentLines.size - 200);
