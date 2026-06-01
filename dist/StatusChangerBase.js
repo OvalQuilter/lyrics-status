@@ -232,7 +232,8 @@ class StatusChangerBase {
                 const gapFromAnchor = anchor.time - lines[j].time;
                 if (gapFromAnchor > mergeWindowMs) break;
                 if (!lines[j].text) continue;
-                if (!ignoreStale && this.sentLines.has(lines[j]) && !this._staleLines.has(lines[j])) break;
+                const _inRollback = this._rollbackLines && this._rollbackLines.has(lines[j]);
+                if (!ignoreStale && this.sentLines.has(lines[j]) && !this._staleLines.has(lines[j]) && !_inRollback) break;
                 lyricLines.unshift(sanitizeLyric(lines[j].text));
                 mergedLines.unshift(lines[j]);
             }

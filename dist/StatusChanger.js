@@ -168,7 +168,8 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                     const mt = sanitizeLyric(line.text || "");
                     mergedText = mt; lyricLines = [mt]; joinedLines = [mt]; mergedLines = [line];
                 } else {
-                    ({ mergedText, lyricLines, joinedLines, mergedLines } = this.buildMergedLines(lines, i, mergeWindow, _styleBucketChanged || usingGateway));
+                    if (this._lastAnchorLine !== line) { this._staleLines = new Set(); this._rollbackLines = new Set(); }
+                    ({ mergedText, lyricLines, joinedLines, mergedLines } = this.buildMergedLines(lines, i, mergeWindow, _styleBucketChanged));
                 }
 
                 let statusText, emoji;
@@ -211,7 +212,9 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                 for (const ml of mergedLines) { this.sentLines.add(ml); this._staleLines.delete(ml); }
                 if (this.sentLines.size > 200) {
                     const arr = [...this.sentLines].slice(-200);
+                    const dropped = [...this.sentLines].slice(0, this.sentLines.size - 200);
                     this.sentLines = new Set(arr);
+                    for (const d of dropped) this._staleLines.add(d);
                     this._staleLines = new Set([...this._staleLines].filter(l => this.sentLines.has(l)));
                 }
                 if (Settings_1.Settings.gateway && Settings_1.Settings.gateway.enabled) this._iOSSyncPending = { t: statusText, em: emoji };
@@ -241,7 +244,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
     }
 
     songChanged(isEnd = false) {
-        this.sentLines = new Set(); this._staleLines = new Set(); this._lastMergedLines = null; this._lastAnchorLine = null;
+        this.sentLines = new Set(); this._staleLines = new Set(); this._rollbackLines = new Set(); this._lastMergedLines = null; this._lastAnchorLine = null;
         if (this._lastLineClearTimer) { clearTimeout(this._lastLineClearTimer); this._lastLineClearTimer = null; }
         if (Date.now() >= this._rateLimitedUntil) this._lastSentAt = 0;
         this._lastStyleBucket = -1;
