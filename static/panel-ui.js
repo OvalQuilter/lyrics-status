@@ -113,7 +113,17 @@ const SECTION_BODIES = {
             h.indent(h.row(h.label("Album art URL"), h.field(h.input("rp-album-art-url","Override URL (leave blank for auto)")))) +
         `</div>` +
         h.row(h.label("Button label"),   h.field(h.input("rp-button-label","Leave blank to hide button"))) +
-        h.row(h.label("Button URL"),     h.field(h.input("rp-button-url","https://...") + h.hint("Must start with http/https."))),
+        h.row(h.label("Button URL"),     h.field(h.input("rp-button-url","https://...") + h.hint("Must start with http/https."))) +
+        h.divider() +
+        h.row("", h.inline(h.check("sp-enabled","Listening Together (party spoof)") + h.ibtn("sp-help","Spotify Party help"))) +
+        h.row("", h.field('<small class="hint" id="sp-rp-warn" style="color:var(--amber);display:none">\u26a0 Rich Presence must be enabled for party to work.</small>')) +
+        `<div id="sp-fields">` +
+            h.row(h.label("Party ID"),   h.field(h.input("sp-party-id","Leave blank to auto-generate per song"))) +
+            h.row(h.label("Party size"), h.inline(h.number("sp-party-size",1,999,1) + h.muted("current listeners (cosmetic)"))) +
+            h.row(h.label("Party max"),  h.inline(h.number("sp-party-max",1,999,1)  + h.muted("max slots (cosmetic)"))) +
+            h.row(h.label("Sync ID"),    h.field(h.input("sp-sync-id","Leave blank to use real track ID"))) +
+            h.row(h.label("Flags"),      h.inline(h.number("sp-flags",0,63,1) + h.muted("48=SYNC+JOIN  32=SYNC  16=JOIN  0=none"))) +
+        `</div>`,
 
     restore: () =>
         h.row("", h.field(h.check("restore-enabled","Enable status restore"))) +

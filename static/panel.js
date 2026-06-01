@@ -197,6 +197,13 @@ function updateRpGwWarn() {
     el.style.display = (settings.richPresence?.enabled && !settings.gateway?.enabled) ? "" : "none";
 }
 
+function updateSpWarn() {
+    const w = document.getElementById("sp-rp-warn");
+    const f = document.getElementById("sp-fields");
+    if (w) w.style.display = (settings.spotifyParty?.enabled && !settings.richPresence?.enabled) ? "" : "none";
+    if (f) f.style.display = settings.spotifyParty?.enabled ? "" : "none";
+}
+
 function updateRpAlbumArtRow() {
     const row = document.getElementById("rp-album-art-url-row");
     if (!row) return;
@@ -219,7 +226,8 @@ function applyToDom() {
         updateSpotifyTokenStatus(); updateRestoreDisplay(); updatePreview(); updatePresenceToggle();
         updateFlashStateToggle(); updateFlashRestoreSelect();
         renderSourceList(); updateStyleAlternateIntervalVisibility(); initWordStyleChecks();
-        updateRpGwWarn(); updateRpAlbumArtRow();
+        updateRpGwWarn();
+    updateSpWarn(); updateRpAlbumArtRow();
     } catch(e) { console.error("applyToDom:", e); }
     loaded = true;
 }
@@ -257,6 +265,7 @@ function bindAll() {
                 if (sel === "#style-alternate-enabled") updateStyleAlternateIntervalVisibility();
                 if (sel==="#enable-timestamp"||sel==="#enable-label") updatePreview();
                 if (sel==="#rp-enabled"||sel==="#gateway-enabled") updateRpGwWarn();
+                if (sel==="#sp-enabled"||sel==="#rp-enabled") updateSpWarn();
                 if (sel==="#rp-show-album-art") updateRpAlbumArtRow();
                 _dirty = true; save();
             });
