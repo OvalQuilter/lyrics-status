@@ -1,4 +1,4 @@
-// panel-ui.js — HTML builders and DOM rendering
+﻿﻿// panel-ui.js — HTML builders and DOM rendering
 // Depends on: panel-data.js (DEFAULTS, SOURCE_META, SECTION_DEFS, SECTION_BODIES keys,
 //             PRESENCE_OPTIONS, FLASH_STATE_OPTIONS, RESTORE_STATUS_OPTIONS)
 // Depends on: panel.js globals: settings, save()
@@ -66,7 +66,9 @@ const SECTION_BODIES = {
         h.indent(h.row(h.inline(h.number("merge-window-ms",1000,30000,500) + h.muted("ms — 8000 = join lines within 8s of each other")))) +
         h.indent(h.hint("Lines close together get joined into one status update. Helps reduce update frequency.")) +
         h.indent(h.row(h.label("Merge separator"), h.field(h.input("merge-separator","e.g.  |  or  \u2014","maxlength=20 style=\"max-width:120px\"")))) +
-        h.indent(h.hint("String placed between merged lines, e.g. | or —. Visible in your Discord status between the joined lyric lines.")),
+        h.indent(h.hint("String placed between merged lines, e.g. | or —. Visible in your Discord status between the joined lyric lines.")) +
+        h.indent(h.row(h.label("Max lines"), h.inline(h.number("merge-max-lines",0,10,1) + h.muted("lines per update (0 = unlimited)")))) +
+        h.indent(h.hint("Caps how many lines can merge into one update. Prevents over-merging on fast-tempo sections.")),
     gateway: () =>
         h.row("", h.inline(h.check("gateway-enabled","Use gateway (op\u00a03) instead of REST") + h.ibtn("gateway-help","Gateway help"))) +
         h.row(h.label("Presence status"),

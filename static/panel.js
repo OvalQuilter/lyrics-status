@@ -1,4 +1,4 @@
-// panel.js — runtime core
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// panel.js — runtime core
 // Depends on: panel-data.js, panel-ui.js (loaded before this file)
 
 const getPath = (obj, path) => path.split(".").reduce((o,k) => o != null ? o[k] : undefined, obj);
@@ -90,6 +90,9 @@ function updateNowPlaying(d) {
         else if (!d.nextSend || d.nextSend <= 0) { send.textContent = "Ready"; send.className = "ready"; }
         else { send.textContent = "Next: " + (d.nextSend/1000).toFixed(1) + "s"; send.className = ""; }
     }
+    const art = document.getElementById("np-art");
+    if (art) { if (d.albumArt) { art.src = d.albumArt; art.classList.add("show"); } else { art.classList.remove("show"); art.src = ""; } }
+    applyAlbumTint(d.albumArt || "");
 }
 function connectWS() {
     setWsStatus("connecting");
@@ -226,6 +229,7 @@ function applyToDom() {
             const val = getPath(settings, path);
             if (val == null) continue;
             if (type === "checkbox") el.checked = !!val;
+            else if (type === "number") { if (!isNaN(val)) el.value = val; }
             else el.value = val;
         }
         syncAdvancedSwt(!!settings.view?.advanced?.enabled);
@@ -626,3 +630,65 @@ document.addEventListener("DOMContentLoaded", () => {
     el("dside-settings-refresh")&&el("dside-settings-refresh").addEventListener("click",fetchSettings);
   });
 })();
+// -- Album art color tinting --
+let _lastAlbumArt = null;
+function applyAlbumTint(url) {
+    if (url === _lastAlbumArt) return;
+    _lastAlbumArt = url;
+    if (!url) { clearTint(); return; }
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+        try {
+            const c = document.createElement("canvas");
+            c.width = 8; c.height = 8;
+            const ctx = c.getContext("2d");
+            ctx.drawImage(img, 0, 0, 8, 8);
+            const d = ctx.getImageData(0, 0, 8, 8).data;
+            let r=0,g=0,b=0,n=0;
+            for (let i=0;i<d.length;i+=4){ r+=d[i];g+=d[i+1];b+=d[i+2];n++; }
+            r=Math.round(r/n); g=Math.round(g/n); b=Math.round(b/n);
+            // desaturate heavily so it's a vibe not a highlight
+            const gray = r*0.299+g*0.587+b*0.114;
+            const mix = 0.18;
+            r=Math.round(gray*(1-mix)+r*mix);
+            g=Math.round(gray*(1-mix)+g*mix);
+            b=Math.round(gray*(1-mix)+b*mix);
+            setTint(r,g,b);
+        } catch(e) { clearTint(); }
+    };
+    img.onerror = () => clearTint();
+    img.src = url;
+}
+function setTint(r,g,b) {
+    const root = document.documentElement;
+    const bright = r*0.299 + g*0.587 + b*0.114;
+    const dark = bright < 80;
+    const bgMul  = dark ? 0.30 : 0.82;
+    const surMul = dark ? 0.42 : 0.88;
+    const hiMul  = dark ? 0.52 : 0.93;
+    root.style.setProperty("--bg",         `rgb(${Math.round(r*bgMul)},${Math.round(g*bgMul)},${Math.round(b*bgMul)})`);
+    root.style.setProperty("--surface",    `rgb(${Math.round(r*surMul)},${Math.round(g*surMul)},${Math.round(b*surMul)})`);
+    root.style.setProperty("--surface-hi", `rgb(${Math.round(r*hiMul)},${Math.round(g*hiMul)},${Math.round(b*hiMul)})`);
+    if (!dark) {
+        root.style.setProperty("--text",      "#0a0b0c");
+        root.style.setProperty("--text-soft", "#111316");
+        root.style.setProperty("--muted",     "#333640");
+        root.style.setProperty("--border",    "rgba(0,0,0,0.15)");
+    } else {
+        root.style.removeProperty("--text");
+        root.style.removeProperty("--text-soft");
+        root.style.removeProperty("--muted");
+        root.style.removeProperty("--border");
+    }
+}
+function clearTint() {
+    const root = document.documentElement;
+    root.style.removeProperty("--bg");
+    root.style.removeProperty("--surface");
+    root.style.removeProperty("--surface-hi");
+    root.style.removeProperty("--text");
+    root.style.removeProperty("--text-soft");
+    root.style.removeProperty("--muted");
+    root.style.removeProperty("--border");
+}
