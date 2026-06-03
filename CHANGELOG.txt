@@ -1,3 +1,25 @@
+## Entry 94 -- 2026-05-30: Song-change latency fixes + dealer pre-warm
+Files: dist/PlaybackStateUpdater.js, dist/index.js
+- #14: ps.lyrics/hasLyrics/currentLine cleared synchronously before fetchLyrics await in both applyDealerState and update() new-song branches; prevents old track lyrics bleeding into the new song window during the fetch.
+- #16: REST mode now fires an immediate playbackStateUpdater.update() on song-end detection in the progress tick; eliminates up to 5s detection delay when dealer is disabled.
+- Pre-warm: dealer onReady fires fetchLyrics immediately if ps.songName/songAuthor/songId are already populated; on cache hit resolves in ~0.1ms, on miss starts the lyrics network fetch concurrently with update()'s Spotify REST call; _inFlight dedup ensures no duplicate requests.
+
+## Entry 93 -- 2026-05-29: Improve hint text for merge and interval settings
+Files: static/panel-ui.js
+- Rewrote four hint strings: min interval, merge window, merge separator, GW min interval. Each now explains what the setting actually does and how it interacts with other settings.
+
+## Entry 92 -- 2026-05-29: Fix startup crash -- _presenceSentTimes getter/assignment conflict
+Files: dist/GatewayClient.js
+- Removed stale 	his._presenceSentTimes = [] initializer from GatewayClient constructor. The RL-14 circular buffer refactor added a getter for _presenceSentTimes, but the old array initializer was left in the constructor, causing a Cannot set property ... which has only a getter crash on startup. The getter alone is sufficient.
+
+## Entry 91 -- 2026-05-28: Merge separator + lyric skip + GW 4002 fixes
+Files: dist/StatusChanger.js, dist/StatusChangerBase.js (non-advanced path), dist/GatewayClient.js, static/panel-ui.js
+- panel-ui.js: removed duplicate merge-window-ms field; fixed broken style attribute; reordered hints.
+- StatusChanger.js: non-advanced merge path now uses mergeSeparator setting instead of hardcoded space.
+- StatusChanger.js: gateway sends bypass REST minInterval; use minGwIntervalMs as effective interval instead.
+- GatewayClient.js: added 3s post-READY/RESUMED hold before first op3 to prevent early sends.
+- GatewayClient.js: presenceStatus "off" now maps to "online" in op3 payload; missing status field was causing 4002 disconnect loop.
+- GatewayClient.js: 4002 added to NO_RESUME_CODES to prevent resume attempts on session invalidation.
 ## Entry 90 -- 2026-05-28: Spotify connection speed + auto-auth
 Files: dist/index.js, dist/PlaybackStateUpdater.js, dist/SpotifyDealerClient.js
 - init() made async; SpotifyService.refresh() awaited at startup so first poll never hits 401.
@@ -34,38 +56,38 @@ Files: dist/GatewayClient.js, dist/StatusChangerBase.js, dist/Panel/Server.js, d
 # lyrics-status CHANGELOG (combined, all entries)
 Base v3.0.7 fork. All edits to dist/ compiled JS directly.
 
-## Entry 85 — 2026-05-27: Tray Windows-only guard
+## Entry 85 â€” 2026-05-27: Tray Windows-only guard
 Files: dist/Tray.js
 - startTray() returns null immediately on non-Windows so systray2 is never loaded on Linux.
 
-## Entry 53 — 2026-05-27: Clean terminal shutdown on exit
+## Entry 53 â€” 2026-05-27: Clean terminal shutdown on exit
 Files: dist/index.js
 - _cleanExit() clears display interval, resets terminal, closes DB; hooked to SIGINT/SIGTERM/Tray quit.
 
-## Entry 52 — 2026-05-27: Remove auto-open panel on startup
+## Entry 52 â€” 2026-05-27: Remove auto-open panel on startup
 Files: dist/Tray.js
-- Removed openPanel() from tray.ready() (NOTE: still present in code — not actually applied).
+- Removed openPanel() from tray.ready() (NOTE: still present in code â€” not actually applied).
 
-## Entry 51 — 2026-05-27: Dealer reuses cached spotifyWebToken
+## Entry 51 â€” 2026-05-27: Dealer reuses cached spotifyWebToken
 Files: dist/SpotifyDealerClient.js
 - _getAccessToken() prefers Settings.credentials.spotifyWebToken/Expiry before fetching fresh.
 
-## Entry 50 — 2026-05-27: Live terminal fields broadcast to web panel
+## Entry 50 â€” 2026-05-27: Live terminal fields broadcast to web panel
 Files: dist/Panel/Server.js, dist/index.js
 - startServer() returns { broadcast }; 1s display loop calls it with live status payload; panel ws.onmessage already handled it.
 
-## entries 1–46 (Mar–May 2026)
+## entries 1â€“46 (Marâ€“May 2026)
 1: logging extended; 60fps log spam removed.
 2: LyricsFetcher lastFetchedFor set on cache hits.
 3: 429 backoff, minInterval, line merging, song boundary protection.
-4: smartTruncate drop lines→word-boundary→hard cut.
+4: smartTruncate drop linesâ†’word-boundaryâ†’hard cut.
 5: null guards on songName/songAuthor/artists[0].
 6: rateLimit settings wired to panel.
 7: 60fps changeStatus-only loop; 1s ANSI overwrite display loop.
 8: panel BOM+mojibake fix.
 9: StatusChanger.ts+Settings.ts synced; rateLimit block added to TS.
-10: panel HTML→index.html; panel.js rewritten with BINDINGS map.
-11: terminal flicker fix — 1s setInterval ESC[H+ESC[K per line.
+10: panel HTMLâ†’index.html; panel.js rewritten with BINDINGS map.
+11: terminal flicker fix â€” 1s setInterval ESC[H+ESC[K per line.
 12: null safety pass 2; optional chaining on rateLimit.
 13: Unicode cpLen/cpSlice for Discord 128-codepoint limit.
 14: buildMergedLines rewritten to scan backward (was forward, never merged).
@@ -83,62 +105,107 @@ Files: dist/Panel/Server.js, dist/index.js
 26: Musixmatch double-await fix; NetEase ms normalization; TS sync.
 27: Chinese conversion via opencc-js; ERR_REQUIRE_ESM fixed.
 28: dead code removal; async/await replacing __awaiter; Autooffset zero-padding fix.
-29: Musixmatch → @stef-0012/synclyrics (auto-token); /check-mxm removed.
+29: Musixmatch â†’ @stef-0012/synclyrics (auto-token); /check-mxm removed.
 30: Spotify token field hint update.
 31: terminal sources line shows enabled sources in order.
 32: LyricsFetcher cache before source loop; lastAttemptedFor guard; _songEndedFired reset.
 33: terminal layout collapsed (~8 lines saved).
-34: panel bugs — setPath, _pendingSave order, event binding, drag-to-last fix.
-35: exception safety pass — .catch(), unhandledRejection, NaN guards, sentLines cap 200.
-36: status restore — _savedStatus capture, restoreStatus() after song end, panel section.
-37: pause/resume fix — songProgress only advances when isPlaying.
+34: panel bugs â€” setPath, _pendingSave order, event binding, drag-to-last fix.
+35: exception safety pass â€” .catch(), unhandledRejection, NaN guards, sentLines cap 200.
+36: status restore â€” _savedStatus capture, restoreStatus() after song end, panel section.
+37: pause/resume fix â€” songProgress only advances when isPlaying.
 38: 100ms loop; sentLines by object identity; _captureReady gate.
-39: panel fixes — sourceOrder overwrite, drag listener stacking, $.ajax→fetch.
-40: GatewayClient.js — op3 sender, HB, reconnect, REST fallback.
-41: panel HTML→JS generation; gateway toggle; 7 bugs fixed.
+39: panel fixes â€” sourceOrder overwrite, drag listener stacking, $.ajaxâ†’fetch.
+40: GatewayClient.js â€” op3 sender, HB, reconnect, REST fallback.
+41: panel HTMLâ†’JS generation; gateway toggle; 7 bugs fixed.
 42: GatewayClient op7 handler (500ms reconnect); FATAL_CODES.
 43: template vars {source},{progress},{duration},{line_number}; _title_case modifier.
-44: _captureReady gate fix — .finally() sets true; !token immediate open.
+44: _captureReady gate fix â€” .finally() sets true; !token immediate open.
 45: _presenceSentTimes (5/20s); cpFitsIn; TEMPLATE_RE precompiled; sourcesLine memoized.
-46: panel visual overhaul — Geist font, collapse/expand, badges, save indicator, toasts; jQuery removed.
+46: panel visual overhaul â€” Geist font, collapse/expand, badges, save indicator, toasts; jQuery removed.
 
-## entries 47–84 (May 2026)
+## entries 47â€“84 (May 2026)
 47: terminal GW [x/5] green/yellow/red display.
-48: fake mobile presence — identify with browser="Discord Android"; requires restart.
-49: buildMergedLines continue→break fix (unsent lines behind sent line incorrectly included).
-50: status flash — statusFlash settings block; flashPresence() bypasses rate tracker.
-51: status flash panel UI — multi-toggle, interval, restore dropdown.
+48: fake mobile presence â€” identify with browser="Discord Android"; requires restart.
+49: buildMergedLines continueâ†’break fix (unsent lines behind sent line incorrectly included).
+50: status flash â€” statusFlash settings block; flashPresence() bypasses rate tracker.
+51: status flash panel UI â€” multi-toggle, interval, restore dropdown.
 52: GatewayClient _flashStatus field; clearFlashStatus(); _stopFlash reverts presence.
 53: StatusChanger split into StatusChangerBase.js + StatusChanger.js.
-54: iOS sync — _iOSSyncPending per song; _onGatewayReady REST re-sync; 10s debounce.
-55: multi-bug fix — SpotifyService, SpotifySource 401, LyricsFetcher waterfall, GatewayClient _wsInstance/_reset/op7/op9/RESUMED/HB.
-56: multi-bug fix — Updater URL, statusChanger init order, _lastMergedLines, ended guard, t0 after response, Server deep merge, LrcLib regex, NetEase skip.
-57: songChanged() _lastSentAt→0; currentLine→null.
+54: iOS sync â€” _iOSSyncPending per song; _onGatewayReady REST re-sync; 10s debounce.
+55: multi-bug fix â€” SpotifyService, SpotifySource 401, LyricsFetcher waterfall, GatewayClient _wsInstance/_reset/op7/op9/RESUMED/HB.
+56: multi-bug fix â€” Updater URL, statusChanger init order, _lastMergedLines, ended guard, t0 after response, Server deep merge, LrcLib regex, NetEase skip.
+57: songChanged() _lastSentAtâ†’0; currentLineâ†’null.
 58: _songChanged flag prevents double-fire on id-change+resume same tick.
 59: gateway.minGwIntervalMs added; panel Gateway section.
-60: terminal overhaul — alignment, Send+GW one row, Restore+Saved one row, \x1b[J cleanup.
+60: terminal overhaul â€” alignment, Send+GW one row, Restore+Saved one row, \x1b[J cleanup.
 61: _staleLines tracking; buildMergedLines break on sentLines AND NOT _staleLines; lcFirst continuation.
 62: endsWithTerminal() helper; applied in buildMergedLines + displayReduced.
 63: songChanged(true) clears lyrics/hasLyrics/lastAttemptedFor for replay re-fetch.
-64: seek detection — songProgress<_lastProgress-3000 → songChanged(false).
+64: seek detection â€” songProgress<_lastProgress-3000 â†’ songChanged(false).
 65: unicode style setting (none/bold/italic); panel select.
-66: sanitizeLyric — strips PUA/control/zero-width/bidi/BOM; normalises ellipsis/quotes/dashes.
-67: various bugs — double sanitize, unicodeStyle scope, _lastProgress reset, since:0.
+66: sanitizeLyric â€” strips PUA/control/zero-width/bidi/BOM; normalises ellipsis/quotes/dashes.
+67: various bugs â€” double sanitize, unicodeStyle scope, _lastProgress reset, since:0.
 68: gateway pre-check removed from changeStatus(); ignoreStale=true for GW; sentLines rollback on skip.
-69: GatewayClient critical fixes — HB timing, ACK miss, backoff, _hbGeneration, _destroyed recheck, op1, jitter.
+69: GatewayClient critical fixes â€” HB timing, ACK miss, backoff, _hbGeneration, _destroyed recheck, op1, jitter.
 70: panel layout full-width.
 71: animated EQ header + Discord profile card in panel.
 72: NetEase instrumental/composer stripping in applyTemplate; fallback to {song_name}.
 73: Genius source added (scraped, fake timestamps, runs last).
-74: panel cosmetic features — now-playing bar, Discord card, toasts redesign; Server GET /status.
+74: panel cosmetic features â€” now-playing bar, Discord card, toasts redesign; Server GET /status.
 75: GatewayClient _wsInstance++ before terminate(); op7 500ms not 5s.
-76: panel bugs — setWsStatus key, btn-store origRef, spotifyWebToken default, invisible CSS.
+76: panel bugs â€” setWsStatus key, btn-store origRef, spotifyWebToken default, invisible CSS.
 77: resolveUnicodeStyle now param; ignoreStale param; _styleBucketChanged dedup; sendTimeOffset||0.
-78: panel split → panel-data.js + panel-ui.js + panel.js; 9 bugs fixed.
-78: SpotifyDealerClient.js — dealer WS, connectionId, subscribe, onPlayerState push, 30s REST sync fallback.
+78: panel split â†’ panel-data.js + panel-ui.js + panel.js; 9 bugs fixed.
+78: SpotifyDealerClient.js â€” dealer WS, connectionId, subscribe, onPlayerState push, 30s REST sync fallback.
 79: esbuild minification; npm run build:min / start:min.
-80: jQuery absence confirmed — no change.
+80: jQuery absence confirmed â€” no change.
 81: Sentry/instrument.js removed (was crashing fresh installs).
-82: Rich Presence type 2 — _buildRichPresence(), album art, progress bar, buttons; richPresence settings block.
-83: Updater .trim() on VERSION read+fetch; console.log→Debug.write.
+82: Rich Presence type 2 â€” _buildRichPresence(), album art, progress bar, buttons; richPresence settings block.
+83: Updater .trim() on VERSION read+fetch; console.logâ†’Debug.write.
 84: GW rate-limit _lastSentAt=now on skip; double_struck exception map for C,H,N,P,Q,R,Z.
+
+## Entry 95 -- 2026-06-02: GW mode update speed + line-skip fixes
+Files: dist/StatusChangerBase.js
+- GW skip rollback now sets _lastSentAt=0 instead of Date.now(); previously restarting the throttle timer on every failed send caused the effective interval to never elapse, blocking updates.
+- GW skip rollback now also clears _lastAnchorLine=null; previously the skipped line remained in sentLines with _lastAnchorLine pointing at it, causing the break condition (sentLines.has(line) && !styleBucketChanged) to permanently skip it on the next tick.
+
+## Entry 96 -- 2026-06-02: Fix upcoming lines dropped from merge
+Files: dist/StatusChanger.js
+- Forward-skip loop (lines passed over because a later line already elapsed) now also adds to _staleLines. Previously skipped lines landed only in sentLines with no stale marker, causing buildMergedLines' backward walk to break immediately on them — so lines within the merge window that were jumped over were never merged into the anchor send.
+
+## Entry 97 -- 2026-06-02: Interval logic improvements
+Files: dist/GatewayClient.js, dist/StatusChanger.js
+- GatewayClient: added _lastGwSentAt field, updated on every successful op3 send. minGwInterval check now uses _lastGwSentAt instead of _pstLast from the circular buffer — fixes silent interval skip after quiet periods where all buffer entries age out of the 20s window, which could cause a double-fire burst when lyrics resumed.
+- StatusChanger: removed _staleLines reset on anchor change. Previously wiping _staleLines when a new anchor was selected immediately invalidated the stale markers added by the forward-skip loop (Entry 96), making the merge backward-walk break on those lines anyway. _rollbackLines is still cleared on anchor change.
+
+## Entry 98 -- 2026-06-02: Inter-line gap guard in buildMergedLines
+Files: dist/StatusChangerBase.js
+- Added maxInterGap check in the backward merge walk: if the gap between lines[j] and lines[j+1] exceeds min(mergeWindowMs/2, 2000ms), stop merging. Prevents over-greedy merges across natural silence breaks (e.g. instrumental gaps) while keeping the absolute mergeWindowMs as the outer bound.
+
+## Entry 99 -- 2026-06-02: Fix 20s+ song change detection when dealer fails
+Files: dist/index.js, dist/SpotifyDealerClient.js
+- Root cause: when dealer mode is enabled but the dealer permanently fails (sp_dc 403), the app was stuck on a 30s REST sync interval instead of the normal 5s poll, causing song changes to take up to 30s to detect.
+- index.js: replaced fixed 30s dealer sync setInterval with a 5s tick that checks dealer connection state — polls every 5s when dealer is down, every 30s when connected.
+- SpotifyDealerClient.js: added onFailed callback fired when max reconnect attempts (10) are reached.
+- index.js: wire onFailed to log that REST fallback is active.
+
+## Entry 100 -- 2026-06-02: Dynamic merge window + mergeMaxLines setting
+Files: dist/StatusChanger.js, dist/StatusChangerBase.js, dist/Settings.js, static/panel-data.js, static/panel-ui.js
+- StatusChanger: merge window is now dynamic — min(now - _lastSentAt, mergeWindowMs) instead of the static setting. Accurately covers exactly the gap since the last send. Falls back to 0 (no merge) on first send of a song.
+- StatusChangerBase.buildMergedLines: added maxLines param; breaks the backward walk once mergedLines.length >= maxLines (when maxLines > 0).
+- Settings: added mergeMaxLines:3 default to rateLimit block.
+- Panel: added "Max lines" number input (1–10) to the merge section in Status Display, wired to rateLimit.mergeMaxLines. 0 = unlimited.
+
+## Entry 101 -- 2026-06-02: Panel UI improvements + album art tinting
+Files: static/panel.js, static/panel-ui.js, static/index.html, dist/index.js
+- Fix: stray unary + operator in panel-ui.js display section caused literal "NaN" to be injected into the rendered HTML for the Max lines field.
+- dist/index.js: added albumArt field to WS status broadcast payload (playbackState.albumArtUrl).
+- static/panel.js: album art thumbnail shown in now-playing card; hidden when nothing is playing.
+- static/panel.js: applyAlbumTint() samples album art via 8x8 canvas, averages RGB, heavily desaturates (18% mix), overrides --bg/--surface/--surface-hi CSS vars for a subtle color vibe on track change. Clears on no playback.
+- static/panel.js: setTint() detects background brightness; flips --text/--text-soft/--muted/--border to dark values on light backgrounds (bright >= 100) for readability. clearTint() restores all vars.
+- static/index.html: 2s CSS transition on background for smooth tint crossfade on track change.
+- static/index.html: fixed WS status label class mismatch (ws-label -> status-label); "Connecting" was permanently stuck.
+- static/index.html: version bumped to v3.5.
+- static/index.html: font changed from Geist to Space Grotesk + Space Mono for a sharper, more technical feel.
+- static/index.html: section-title font-size increased from 13px to 15px.
