@@ -241,8 +241,11 @@ class StatusChangerBase {
         }
 
         const now = Date.now();
-        Debug_1.Debug.write(`[StatusChanger] Sending Discord status (REST): "${text}" | emoji: ${emoji}`);
-        const request = this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji, expires_at: null } }, token);
+        const _jitter = Math.floor(Math.random() * 250);
+        const request = new Promise(resolve => setTimeout(() => {
+            Debug_1.Debug.write(`[StatusChanger] Sending Discord status (REST): "${text}" | emoji: ${emoji} | jitter: ${_jitter}ms`);
+            resolve(this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji, expires_at: null } }, token));
+        }, _jitter));
         request.then(res => {
             const elapsed = Date.now() - now;
             if (res.status === 429) {

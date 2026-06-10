@@ -214,7 +214,7 @@ class GatewayClient {
             type4 = this._lastActivity;
         }
         const activities = [type4, this._lastRichPresenceActivity].filter(Boolean);
-        this._send({ op: 3, d: { since: status === "idle" ? Date.now() : 0, afk: status === "idle", status, activities } });
+        this._send({ op: 3, d: { since: status === "idle" ? Date.now() : null, afk: status === "idle", status, activities } });
         Debug_1.Debug.write("[GatewayClient] flashPresence " + status + " | " + (type4 ? type4.state : "none"));
         return true;
     }
@@ -236,7 +236,7 @@ class GatewayClient {
         const type4 = { type: 4, name: "Custom Status", state: text || "", emoji: emoji ? { name: emoji } : null };
         this._lastActivity = type4;
         const activities = [type4, this._lastRichPresenceActivity].filter(Boolean);
-        this._send({ op: 3, d: { since: status === 'idle' ? now : 0, afk: status === 'idle', status, activities } });
+        this._send({ op: 3, d: { since: status === 'idle' ? now : null, afk: status === 'idle', status, activities } });
         return true;
     }
 }

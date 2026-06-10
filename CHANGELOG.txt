@@ -1,3 +1,8 @@
+## Entry 103 -- 2026-06-10: Humanise Discord outbound sends
+Files: dist/StatusChangerBase.js, dist/GatewayClient.js
+- REST sends now have 0-250ms random jitter before firing; breaks metronomic send pattern
+- op3 setCustomStatus and flashPresence: since:0 -> null when not idle (0 is a bot tell; null is what real clients send)
+
 ## Entry 102 -- 2026-06-10: Fix underline/strikethrough applying combining char to spaces
 Files: dist/StatusChangerBase.js
 - _unicodeUnderline and _unicodeStrikethrough now skip whitespace characters; combining chars on spaces produced visual artifacts
