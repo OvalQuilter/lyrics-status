@@ -30,6 +30,8 @@ function mergeSettings(parsed) {
         : DEFAULTS.statusFlash.states.slice();
     s.richPresence = { ...DEFAULTS.richPresence, ...(parsed.richPresence||{}) };
     s.cache        = { ...DEFAULTS.cache,        ...(parsed.cache||{}) };
+    s.spotifyParty = { ...DEFAULTS.spotifyParty, ...(parsed.spotifyParty||{}) };
+    s.profileColor = { ...DEFAULTS.profileColor, ...(parsed.profileColor||{}) };
     return s;
 }
 
@@ -264,7 +266,7 @@ function initWordStyleChecks() {
     if (!wrap) return;
     const current = (settings.view && settings.view.advanced && settings.view.advanced.styleWordMap) || "";
     const active = current ? current.split(",").map(x=>x.trim()).filter(Boolean) : [];
-    const styles = [["bold","𝐁𝐨𝐥𝐝"],["italic","𝐼𝑡𝑎𝑙𝑖𝑐"],["bold_italic","𝒃𝒐𝒍𝒅 𝒊𝒕𝒂𝒍𝒊𝒄"],["sans","𝖲𝖺𝗇𝗌"],["sans_bold","𝗦𝗮𝗻𝘀 𝗕𝗼𝗹𝗱"],["sans_italic","𝘚𝘢𝘯𝘴 𝘐𝘵𝘢𝘭𝘪𝘤"],["sans_bold_italic","𝙎𝙖𝙣𝙨 𝘽𝙄"],["double_struck","𝔻𝕠𝕦𝕓𝕝𝕖"],["fraktur","𝔉𝔯𝔞𝔨𝔱𝔲𝔯"],["fraktur_bold","𝖋𝖗𝖆𝖐𝖙𝖚𝖗 𝕭𝖔𝖑𝖉"]];
+    const styles = [["underline","U̲n̲d̲e̲r̲l̲i̲n̲e̲"],["strikethrough","S̶t̶r̶i̶k̶e̶"],["bold","𝐁𝐨𝐥𝐝"],["italic","𝐼𝑡𝑎𝑙𝑖𝑐"],["bold_italic","𝒃𝒐𝒍𝒅 𝒊𝒕𝒂𝒍𝒊𝒄"],["sans","𝖲𝖺𝗇𝗌"],["sans_bold","𝗦𝗮𝗻𝘀 𝗕𝗼𝗹𝗱"],["sans_italic","𝘚𝘢𝘯𝘴 𝘐𝘵𝘢𝘭𝘪𝘤"],["sans_bold_italic","𝙎𝙖𝙣𝙨 𝘽𝙄"],["double_struck","𝔻𝕠𝕦𝕓𝕝𝕖"],["fraktur","𝔉𝔯𝔞𝔨𝔱𝔲𝔯"],["fraktur_bold","𝖋𝖗𝖆𝖐𝖙𝖚𝖗 𝕭𝖔𝖑𝖉"]];
     if (!wrap._bound) {
         wrap.innerHTML = styles.map(([v,l]) =>
             `<label style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;cursor:pointer"><input type="checkbox" value="${v}"> ${l}</label>`
