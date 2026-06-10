@@ -9,6 +9,7 @@
 /dist/*_patch.txt
 /rpc/
 /CONTEXT.md
+/session.json
 
 # dev artifacts
 *.tmp
@@ -31,3 +32,4 @@ _dp_new.txt
 /dist/_fix2.js
 /dist/_fix3.js
 /dist/instrument.js
+STARTUP_PERF.txt
