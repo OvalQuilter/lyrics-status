@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const _nodeVer = process.versions.node.split(".").map(Number);
 if (_nodeVer[0] < 17) { console.error("\x1b[31m[lyrics-status] Node.js v" + process.versions.node + " is not supported. Please upgrade to v17 or later.\x1b[0m"); process.exit(1); }
@@ -101,7 +101,7 @@ async function init() {
     if (Settings_1.Settings.restore?.enabled) {
         const token = Settings_1.Settings.credentials.token;
         if (token) {
-            fetch("https://discordapp.com/api/v8/users/@me/settings", { headers: { "Authorization": token } })
+            fetch("https://discord.com/api/v10/users/@me/settings", { headers: { "Authorization": token } })
                 .then(r => r.json())
                 .then(j => {
                     if (j?.custom_status?.text) { statusChanger._savedStatus = j.custom_status; Debug_1.Debug.write(`[init] Captured current Discord status for restore: "${j.custom_status.text}"`); }

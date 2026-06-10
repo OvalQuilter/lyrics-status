@@ -1,3 +1,4 @@
+
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StatusChangerBase = void 0;
@@ -84,6 +85,66 @@ function _patchLog(promise, label) {
     }).catch(e => Debug_1.Debug.write(`[StatusChanger] ${label} error: ${e}`));
 }
 
+// Extract dominant RGB from an image URL (samples 8x8 pixels)
+function _dominantColor(url) {
+    return new Promise((resolve, reject) => {
+        try {
+            const { createCanvas, loadImage } = require("canvas");
+            loadImage(url).then(img => {
+                try {
+                    const c = createCanvas(8, 8);
+                    const ctx = c.getContext("2d");
+                    ctx.drawImage(img, 0, 0, 8, 8);
+                    const d = ctx.getImageData(0, 0, 8, 8).data;
+                    let r = 0, g = 0, b = 0, n = 0;
+                    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i+1]; b += d[i+2]; n++; }
+                    resolve({ r: Math.round(r/n), g: Math.round(g/n), b: Math.round(b/n) });
+                } catch(e) { reject(e); }
+            }).catch(reject);
+        } catch(e) { reject(e); }
+    });
+}
+
+// Shift hue of an RGB color by `deg` degrees
+function _shiftHue(r, g, b, deg) {
+    const rn = r/255, gn = g/255, bn = b/255;
+    const max = Math.max(rn,gn,bn), min = Math.min(rn,gn,bn), d = max - min;
+    let h = 0, s = max === 0 ? 0 : d/max, v = max;
+    if (d !== 0) {
+        if (max === rn) h = ((gn-bn)/d + (gn<bn?6:0)) / 6;
+        else if (max === gn) h = ((bn-rn)/d + 2) / 6;
+        else h = ((rn-gn)/d + 4) / 6;
+    }
+    h = (h + deg/360 + 1) % 1;
+    const i = Math.floor(h*6), f = h*6-i, p = v*(1-s), q = v*(1-f*s), t2 = v*(1-(1-f)*s);
+    let or, og, ob;
+    switch(i%6){
+        case 0: or=v;og=t2;ob=p; break; case 1: or=q;og=v;ob=p; break;
+        case 2: or=p;og=v;ob=t2; break; case 3: or=p;og=q;ob=v; break;
+        case 4: or=t2;og=p;ob=v; break; default: or=v;og=p;ob=q;
+    }
+    return { r: Math.round(or*255), g: Math.round(og*255), b: Math.round(ob*255) };
+}
+
+function _toInt(r, g, b) { return (r << 16) | (g << 8) | b; }
+
+// Boost saturation to min 0.55 and value to min 0.45 so colors are always visible
+function _vibrify(r, g, b) {
+    const rn=r/255,gn=g/255,bn=b/255;
+    const max=Math.max(rn,gn,bn),min=Math.min(rn,gn,bn),d=max-min;
+    let h=0,sat=max===0?0:d/max,v=max;
+    if(d!==0){
+        if(max===rn)h=((gn-bn)/d+(gn<bn?6:0))/6;
+        else if(max===gn)h=((bn-rn)/d+2)/6;
+        else h=((rn-gn)/d+4)/6;
+    }
+    sat=Math.max(sat,0.55); v=Math.max(v,0.45);
+    const i=Math.floor(h*6),f=h*6-i,p2=v*(1-sat),q=v*(1-f*sat),t=v*(1-(1-f)*sat);
+    let or,og,ob;
+    switch(i%6){case 0:or=v;og=t;ob=p2;break;case 1:or=q;og=v;ob=p2;break;case 2:or=p2;og=v;ob=t;break;case 3:or=p2;og=q;ob=v;break;case 4:or=t;og=p2;ob=v;break;default:or=v;og=p2;ob=q;}
+    return{r:Math.round(or*255),g:Math.round(og*255),b:Math.round(ob*255)};
+}
+
 class StatusChangerBase {
     constructor(playbackState, savedStatus, gatewayClient) {
         this.playbackState = playbackState;
@@ -108,14 +169,40 @@ class StatusChangerBase {
         this._flashRestoreSentAt = 0;
         this._gwRateLimitSkips = 0;
         this._pendingRetryText = null; // RL-12
+        this._lastColorSongId = null;
     }
 
     _discordPatch(body, token) {
-        return fetch("https://discordapp.com/api/v8/users/@me/settings", {
+        return fetch("https://discord.com/api/v10/users/@me/settings", {
             method: "PATCH",
             headers: { "Content-Type": "application/json", "Authorization": token || Settings_1.Settings.credentials.token },
             body: JSON.stringify(body)
         });
+    }
+
+
+    updateProfileColor() {
+        return; // disabled — triggers Discord password resets
+        const pc = Settings_1.Settings.profileColor;
+        if (!pc || !pc.enabled) return;
+        const ps = this.playbackState;
+        if (!ps.albumArtUrl || !ps.songId || ps.songId === this._lastColorSongId) return;
+        this._lastColorSongId = ps.songId;
+        const token = Settings_1.Settings.credentials.token;
+        if (!token) return;
+        const shift = typeof pc.accentShift === "number" ? pc.accentShift : 30;
+        _dominantColor(ps.albumArtUrl).then(({ r, g, b }) => {
+            const viv = _vibrify(r, g, b);
+            const base = _toInt(viv.r, viv.g, viv.b);
+            const acc = _shiftHue(viv.r, viv.g, viv.b, shift);
+            const accent = _toInt(acc.r, acc.g, acc.b);
+            Debug_1.Debug.write(`[ProfileColor] base=#${base.toString(16).padStart(6,'0')} accent=#${accent.toString(16).padStart(6,'0')}`);
+            this._discordProfilePatch({ theme_colors: [base, accent] }, token)
+                .then(res => {
+                    if (res.status === 200) Debug_1.Debug.write("[ProfileColor] OK");
+                    else res.text().then(b => Debug_1.Debug.write(`[ProfileColor] HTTP ${res.status}: ${b}`)).catch(() => {});
+                }).catch(e => Debug_1.Debug.write("[ProfileColor] error: " + e));
+        }).catch(e => Debug_1.Debug.write("[ProfileColor] color extract failed: " + e));
     }
 
     changeStatusRequest(text, token, emoji, mergedLines, sentLine) {
@@ -135,9 +222,10 @@ class StatusChangerBase {
                 if (this._gwRateLimitSkips >= 5) { this._gwRateLimitSkips = 0; this._iOSSyncPending = null; Debug_1.Debug.write('[StatusChanger] GW rate-limit skip limit -- cleared iOSSyncPending'); }
                 if (mergedLines) if (mergedLines) for (const ml of mergedLines) { if (!this._rollbackLines) this._rollbackLines = new Set(); this._rollbackLines.add(ml); };
                 this._lastMergedLines = null;
+                this._lastAnchorLine = null;
                 this._pendingRetryText = text;
                 this._lastSentText = "";
-                this._lastSentAt = Date.now();
+                this._lastSentAt = 0;
                 Debug_1.Debug.write('[StatusChanger] GW skipped -- rolled back sentLines, throttling retry');
             }
             return Promise.resolve();
@@ -145,8 +233,7 @@ class StatusChangerBase {
 
         const now = Date.now();
         Debug_1.Debug.write(`[StatusChanger] Sending Discord status (REST): "${text}" | emoji: ${emoji}`);
-        const _expiresMs = 60000;
-        const request = this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji, expires_at: new Date(now + _expiresMs).toISOString() } }, token);
+        const request = this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji, expires_at: null } }, token);
         request.then(res => {
             const elapsed = Date.now() - now;
             if (res.status === 429) {
@@ -223,21 +310,25 @@ class StatusChangerBase {
         return cpSlice(text, limit - 3) + "...";
     }
 
-    buildMergedLines(lines, anchorIndex, mergeWindowMs, ignoreStale = false) {
+    buildMergedLines(lines, anchorIndex, mergeWindowMs, ignoreStale = false, maxLines = 0) {
         const anchor = lines[anchorIndex];
         let lyricLines = [sanitizeLyric(anchor.text || "")];
         let mergedLines = [anchor];
         if (mergeWindowMs > 0) {
-            for (let j = anchorIndex - 1; j >= 0; j--) {
-                const gapFromAnchor = anchor.time - lines[j].time;
-                if (gapFromAnchor > mergeWindowMs) break;
-                if (!lines[j].text) continue;
-                const _inRollback = this._rollbackLines && this._rollbackLines.has(lines[j]);
-                if (!ignoreStale && this.sentLines.has(lines[j]) && !this._staleLines.has(lines[j]) && !_inRollback) break;
-                lyricLines.unshift(sanitizeLyric(lines[j].text));
-                mergedLines.unshift(lines[j]);
+                const maxInterGap = Math.min(mergeWindowMs / 2, 2000);
+                for (let j = anchorIndex - 1; j >= 0; j--) {
+                    const gapFromAnchor = anchor.time - lines[j].time;
+                    if (gapFromAnchor > mergeWindowMs) break;
+                    if (!lines[j].text) continue;
+                    const interGap = lines[j + 1].time - lines[j].time;
+                    if (interGap > maxInterGap) break;
+                    const _inRollback = this._rollbackLines && this._rollbackLines.has(lines[j]);
+                    if (!ignoreStale && this.sentLines.has(lines[j]) && !this._staleLines.has(lines[j]) && !_inRollback) break;
+                    lyricLines.unshift(sanitizeLyric(lines[j].text));
+                    mergedLines.unshift(lines[j]);
+                    if (maxLines > 0 && mergedLines.length >= maxLines) break;
+                }
             }
-        }
         const joinedLines = lyricLines.map((l, i) => {
             if (i === 0) return l;
             return endsWithTerminal(lyricLines[i - 1]) ? l : lcFirst(l);
@@ -283,7 +374,7 @@ class StatusChangerBase {
         const now = Date.now();
         if (!force && now - this._iOSSyncSentAt < 10000) return;
         Debug_1.Debug.write('[StatusChanger] iOS REST sync: ' + JSON.stringify(text));
-        const req = this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji || null, expires_at: new Date(now + 60000).toISOString() } });
+        const req = this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji || null, expires_at: null } });
         req.then(res => {
             if (res.status === 200) {
                 this._iOSSyncSentAt = Date.now();
@@ -296,7 +387,7 @@ class StatusChangerBase {
                     setTimeout(() => {
                         if (!this._captureReady || this._restoreTimer || this._lastSentText !== text || this.playbackState.songId !== _syncSongId || !Settings_1.Settings.gateway?.enabled) return;
                         if (Date.now() < this._rateLimitedUntil) { Debug_1.Debug.write('[StatusChanger] iOS REST sync retry skipped — still rate limited (RL-03)'); return; }
-                        this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji || null, expires_at: new Date(Date.now() + 60000).toISOString() } })
+                        this._discordPatch({ custom_status: { text, emoji_id: null, emoji_name: emoji || null, expires_at: null } })
                             .then(r => {
                                 if (r.status === 200) { this._iOSSyncSentAt = Date.now(); Debug_1.Debug.write('[StatusChanger] iOS REST sync retry OK'); }
                                 else if (r.status === 429) { r.text().then(raw => { let ra=5; try{const b=JSON.parse(raw);if(typeof b.retry_after==='number'&&b.retry_after>0)ra=Math.min(b.retry_after,60);}catch(_){} this._rateLimitedUntil=Date.now()+ra*1000; Debug_1.Debug.write('[StatusChanger] iOS REST sync retry 429 — RL-02'); }).catch(()=>{}); }

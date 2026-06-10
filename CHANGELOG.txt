@@ -1,3 +1,11 @@
+## Entry 96 -- 2026-06-10: Remove suspicious Discord net code; upgrade to v10 API
+Files: dist/StatusChangerBase.js, dist/index.js
+- Removed _fetchBuildNumber IIFE (scraped discord.com/login + asset JS bundles with spoofed UA at startup -- highest-risk item)
+- Removed _superProperties (built spoofed X-Super-Properties header for disabled profile color endpoint)
+- Removed _discordProfilePatch (only served disabled updateProfileColor)
+- Updated _discordPatch + index.js token-capture fetch from discordapp.com/v8 to discord.com/v10
+- Set custom_status expires_at to null on all REST sends (was cycling 60s expiry on every send)
+
 ## Entry 95 -- 2026-06-10: Fix TDZ crash on startup (_wasPlaying, _pollInterval)
 Files: dist/index.js
 - Hoisted `let _wasPlaying`, `let _progressInterval`, `let _pollInterval` declarations to before the `if (useDealer)` block; they were declared after the block that used/assigned them, causing temporal dead zone crash on startup.
