@@ -1,3 +1,7 @@
+## Entry 99 -- 2026-06-10: Add User-Agent and X-Discord-Locale to all Discord REST calls
+Files: dist/StatusChangerBase.js, dist/index.js
+- Added User-Agent (Chrome/136) and X-Discord-Locale (en-US) headers to _discordPatch and index.js token-capture GET; matches what real browser clients send on every request
+
 ## Entry 98 -- 2026-06-10: Harden Discord REST + gateway identify payloads
 Files: dist/index.js, dist/GatewayClient.js
 - index.js token-capture GET now includes X-Super-Properties header (same static value as PATCH calls)
