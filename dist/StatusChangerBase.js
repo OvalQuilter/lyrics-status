@@ -38,10 +38,10 @@ const _STYLES = {
 };
 
 function _unicodeUnderline(s) {
-    return [...s].map(ch => ch + "\u0332").join("");
+    return [...s].map(ch => /\s/.test(ch) ? ch : ch + "\u0332").join("");
 }
 function _unicodeStrikethrough(s) {
-    return [...s].map(ch => ch + "\u0336").join("");
+    return [...s].map(ch => /\s/.test(ch) ? ch : ch + "\u0336").join("");
 }
 
 function applyUnicodeStyle(s, style) {

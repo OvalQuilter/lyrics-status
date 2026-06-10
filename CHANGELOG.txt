@@ -1,3 +1,7 @@
+## Entry 102 -- 2026-06-10: Fix underline/strikethrough applying combining char to spaces
+Files: dist/StatusChangerBase.js
+- _unicodeUnderline and _unicodeStrikethrough now skip whitespace characters; combining chars on spaces produced visual artifacts
+
 ## Entry 101 -- 2026-06-10: Add underline and strikethrough Unicode font styles
 Files: dist/StatusChangerBase.js, static/panel-ui.js
 - Added _unicodeUnderline (U+0332 combining) and _unicodeStrikethrough (U+0336 combining) functions
