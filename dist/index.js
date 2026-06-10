@@ -109,6 +109,7 @@ async function init() {
                 })
                 .catch(e => Debug_1.Debug.write(`[init] Failed to fetch current Discord status: ${e}`))
                 .finally(() => { statusChanger._captureReady = true; Debug_1.Debug.write(`[init] Capture gate opened`); });
+            setTimeout(() => { if (!statusChanger._captureReady) { statusChanger._captureReady = true; Debug_1.Debug.write(`[init] Capture gate opened by 500ms grace window`); } }, 500);
         } else { statusChanger._captureReady = true; Debug_1.Debug.write(`[init] No token for capture — gate opened immediately`); }
     }
     _progressInterval = setInterval(() => {

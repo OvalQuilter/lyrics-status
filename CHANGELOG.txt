@@ -1,3 +1,7 @@
+## Entry 100 -- 2026-06-10: Replace hard _captureReady gate with 500ms grace window
+Files: dist/index.js
+- Added 500ms setTimeout fallback to open _captureReady if the restore GET hasn't resolved yet; first lyric status send no longer hard-blocked on the Discord settings fetch round-trip
+
 ## Entry 99 -- 2026-06-10: Add User-Agent and X-Discord-Locale to all Discord REST calls
 Files: dist/StatusChangerBase.js, dist/index.js
 - Added User-Agent (Chrome/136) and X-Discord-Locale (en-US) headers to _discordPatch and index.js token-capture GET; matches what real browser clients send on every request
