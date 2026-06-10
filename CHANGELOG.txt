@@ -1,3 +1,7 @@
+## Entry 97 -- 2026-06-10: Add static X-Super-Properties to _discordPatch
+Files: dist/StatusChangerBase.js
+- Added hardcoded X-Super-Properties header (Chrome 136 / build 390018) to all PATCH /users/@me/settings calls; Discord anti-abuse systems flag its absence. Static string — no scraping, no network calls.
+
 ## Entry 96 -- 2026-06-10: Remove suspicious Discord net code; upgrade to v10 API
 Files: dist/StatusChangerBase.js, dist/index.js
 - Removed _fetchBuildNumber IIFE (scraped discord.com/login + asset JS bundles with spoofed UA at startup -- highest-risk item)
