@@ -48,7 +48,7 @@ class GatewayClient {
         this._reconnectDelay = 1000;
         this._lastIdentifyAt = 0;
         this.onReady = null;
-        this._pst = new Array(5).fill(0); this._pstHead = 0; this._pstCount = 0; // RL-14: circular buffer replaces _presenceSentTimes
+        this._pst = new Array(5).fill(0); this._pstHead = 0; this._pstCount = 0; this._lastGwSentAt = 0; // RL-14: circular buffer replaces _presenceSentTimes
     }
     get _presenceSentTimes() { const now = Date.now(); const out = []; for (let _i = this._pstCount - 1; _i >= 0; _i--) { const _t = this._pst[(this._pstHead - 1 - _i + 5) % 5]; if (now - _t <= 20000) out.push(_t); } return out; } // RL-14 compat
     connect() {
@@ -168,8 +168,8 @@ class GatewayClient {
         const status = isMobile ? "online" : pref;
         const props = isMobile
             ? { os: "Android", browser: "Discord Android", device: "discord-android" }
-            : { os: "windows", browser: "Discord Client", device: "" };
-        this._send({ op: 2, d: { token, properties: props, presence: { status, afk: status === "idle", since: 0, activities: [] } } });
+            : { os: "Windows", browser: "Discord Client", device: "" };
+        this._send({ op: 2, d: { token, properties: props, compress: false, intents: 0, presence: { status, afk: status === "idle", since: status === "idle" ? Date.now() : null, activities: [] } } });
     }
     _startHB(interval) {
         this._clearHB();
@@ -226,13 +226,13 @@ class GatewayClient {
         const now = Date.now(); if (now - (this._connectedAt || 0) < 3000) { Debug_1.Debug.write(`[GatewayClient] post-READY hold`); return "hold"; }
         const minGwInterval = Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000;
         // RL-14: prune via circular buffer — count entries within 20s window
-        let _pstActive = 0, _pstLast = 0;
-        for (let _i = 0; _i < this._pstCount; _i++) { const _t = this._pst[(this._pstHead - 1 - _i + 5) % 5]; if (now - _t <= 20000) { _pstActive++; if (_i === 0) _pstLast = _t; } }
-        if (minGwInterval > 0 && _pstLast > 0 && now - _pstLast < minGwInterval) { Debug_1.Debug.write(`[GatewayClient] op3 min interval (${minGwInterval}ms) not elapsed \u2014 skipping`); return false; }
+        let _pstActive = 0;
+        for (let _i = 0; _i < this._pstCount; _i++) { const _t = this._pst[(this._pstHead - 1 - _i + 5) % 5]; if (now - _t <= 20000) _pstActive++; }
+        if (minGwInterval > 0 && this._lastGwSentAt > 0 && now - this._lastGwSentAt < minGwInterval) { Debug_1.Debug.write("[GatewayClient] op3 min interval (" + minGwInterval + "ms) not elapsed \u2014 skipping"); return false; }
         if (_pstActive >= 5) { Debug_1.Debug.write(`[GatewayClient] op3 rate limit (5/20s) \u2014 skipping`); return false; }
-        this._pst[this._pstHead] = now; this._pstHead = (this._pstHead + 1) % 5; this._pstCount = Math.min(this._pstCount + 1, 5);
+        this._pst[this._pstHead] = now; this._pstHead = (this._pstHead + 1) % 5; this._pstCount = Math.min(this._pstCount + 1, 5); this._lastGwSentAt = now;
         const pref = Settings_1.Settings.gateway?.presenceStatus || "online";
-        const status = this._flashStatus || (pref === 'mobile' ? 'online' : pref === 'off' ? 'online' : pref);
+        const status = this._flashStatus || (pref === 'mobile' ? 'online' : pref === 'off' ? 'online' : pref === 'invisible' ? 'invisible' : pref);
         const type4 = { type: 4, name: "Custom Status", state: text || "", emoji: emoji ? { name: emoji } : null };
         this._lastActivity = type4;
         const activities = [type4, this._lastRichPresenceActivity].filter(Boolean);

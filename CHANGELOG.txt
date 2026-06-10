@@ -1,3 +1,8 @@
+## Entry 98 -- 2026-06-10: Harden Discord REST + gateway identify payloads
+Files: dist/index.js, dist/GatewayClient.js
+- index.js token-capture GET now includes X-Super-Properties header (same static value as PATCH calls)
+- Gateway identify: fixed os casing (windows -> Windows), added compress:false and intents:0, fixed since:0 -> null when not idle
+
 ## Entry 97 -- 2026-06-10: Add static X-Super-Properties to _discordPatch
 Files: dist/StatusChangerBase.js
 - Added hardcoded X-Super-Properties header (Chrome 136 / build 390018) to all PATCH /users/@me/settings calls; Discord anti-abuse systems flag its absence. Static string — no scraping, no network calls.
