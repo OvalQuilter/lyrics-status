@@ -1,3 +1,8 @@
+## Entry 101 -- 2026-06-10: Add underline and strikethrough Unicode font styles
+Files: dist/StatusChangerBase.js, static/panel-ui.js
+- Added _unicodeUnderline (U+0332 combining) and _unicodeStrikethrough (U+0336 combining) functions
+- Wired both into applyUnicodeStyle; added to both _STYLE_OPTIONS and _STYLE_OPTIONS_NO_NONE dropdowns
+
 ## Entry 100 -- 2026-06-10: Replace hard _captureReady gate with 500ms grace window
 Files: dist/index.js
 - Added 500ms setTimeout fallback to open _captureReady if the restore GET hasn't resolved yet; first lyric status send no longer hard-blocked on the Discord settings fetch round-trip

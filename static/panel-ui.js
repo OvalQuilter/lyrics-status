@@ -1,4 +1,5 @@
-﻿﻿// panel-ui.js — HTML builders and DOM rendering
+
+// panel-ui.js — HTML builders and DOM rendering
 // Depends on: panel-data.js (DEFAULTS, SOURCE_META, SECTION_DEFS, SECTION_BODIES keys,
 //             PRESENCE_OPTIONS, FLASH_STATE_OPTIONS, RESTORE_STATUS_OPTIONS)
 // Depends on: panel.js globals: settings, save()
@@ -19,8 +20,8 @@ const h = {
     divider: () => `<div class="divider"></div>`,
 };
 
-const _STYLE_OPTIONS = `<option value="none">None</option><option value="bold">\uD835\uDC01\uD835\uDC28\uD835\uDC25\uD835\uDC1D Bold</option><option value="italic">\uD835\uDC3C\uD835\uDC61\uD835\uDC4E\uD835\uDC59\uD835\uDC56\uD835\uDC50 Italic</option><option value="bold_italic">\uD835\uDC54\uD835\uDC90\uD835\uDC8F\uD835\uDC88 Bold Italic</option><option value="sans">\uD835\uDE34\uD835\uDE30\uD835\uDE2F\uD835\uDE34 Sans</option><option value="sans_bold">\uD835\uDDE6\uD835\uDDBC\uD835\uDDB3\uD835\uDDE6 Sans Bold</option><option value="sans_italic">\uD835\uDE58\uD835\uDE54\uD835\uDE53\uD835\uDE5A Sans Italic</option><option value="sans_bold_italic">\uD835\uDE5C\uD835\uDE58\uD835\uDE57\uD835\uDE5C Sans Bold Italic</option><option value="double_struck">\uD835\uDD64\uD835\uDD60\uD835\uDD5F\uD835\uDD64 Double-Struck</option><option value="fraktur">\uD835\uDD30\uD835\uDD2C\uD835\uDD2B\uD835\uDD30 Fraktur</option><option value="fraktur_bold">\uD835\uDE98\uD835\uDE94\uD835\uDE93\uD835\uDE98 Fraktur Bold</option>`;
-const _STYLE_OPTIONS_NO_NONE = `<option value="bold">\uD835\uDC01\uD835\uDC28\uD835\uDC25\uD835\uDC1D Bold</option><option value="italic">\uD835\uDC3C\uD835\uDC61\uD835\uDC4E\uD835\uDC59\uD835\uDC56\uD835\uDC50 Italic</option><option value="bold_italic">\uD835\uDC54\uD835\uDC90\uD835\uDC8F\uD835\uDC88 Bold Italic</option><option value="sans">\uD835\uDE34\uD835\uDE30\uD835\uDE2F\uD835\uDE34 Sans</option><option value="sans_bold">\uD835\uDDE6\uD835\uDDBC\uD835\uDDB3\uD835\uDDE6 Sans Bold</option><option value="sans_italic">\uD835\uDE58\uD835\uDE54\uD835\uDE53\uD835\uDE5A Sans Italic</option><option value="sans_bold_italic">\uD835\uDE5C\uD835\uDE58\uD835\uDE57\uD835\uDE5C Sans Bold Italic</option><option value="double_struck">\uD835\uDD64\uD835\uDD60\uD835\uDD5F\uD835\uDD64 Double-Struck</option><option value="fraktur">\uD835\uDD30\uD835\uDD2C\uD835\uDD2B\uD835\uDD30 Fraktur</option><option value="fraktur_bold">\uD835\uDE98\uD835\uDE94\uD835\uDE93\uD835\uDE98 Fraktur Bold</option>`;
+const _STYLE_OPTIONS = `<option value="none">None</option><option value="underline">U\u0332n\u0332d\u0332e\u0332r\u0332l\u0332i\u0332n\u0332e\u0332 Underline</option><option value="strikethrough">S\u0336t\u0336r\u0336i\u0336k\u0336e\u0336 Strikethrough</option><option value="bold">\uD835\uDC01\uD835\uDC28\uD835\uDC25\uD835\uDC1D Bold</option><option value="italic">\uD835\uDC3C\uD835\uDC61\uD835\uDC4E\uD835\uDC59\uD835\uDC56\uD835\uDC50 Italic</option><option value="bold_italic">\uD835\uDC54\uD835\uDC90\uD835\uDC8F\uD835\uDC88 Bold Italic</option><option value="sans">\uD835\uDE34\uD835\uDE30\uD835\uDE2F\uD835\uDE34 Sans</option><option value="sans_bold">\uD835\uDDE6\uD835\uDDBC\uD835\uDDB3\uD835\uDDE6 Sans Bold</option><option value="sans_italic">\uD835\uDE58\uD835\uDE54\uD835\uDE53\uD835\uDE5A Sans Italic</option><option value="sans_bold_italic">\uD835\uDE5C\uD835\uDE58\uD835\uDE57\uD835\uDE5C Sans Bold Italic</option><option value="double_struck">\uD835\uDD64\uD835\uDD60\uD835\uDD5F\uD835\uDD64 Double-Struck</option><option value="fraktur">\uD835\uDD30\uD835\uDD2C\uD835\uDD2B\uD835\uDD30 Fraktur</option><option value="fraktur_bold">\uD835\uDE98\uD835\uDE94\uD835\uDE93\uD835\uDE98 Fraktur Bold</option>`;
+const _STYLE_OPTIONS_NO_NONE = `<option value="underline">U\u0332n\u0332d\u0332e\u0332r\u0332l\u0332i\u0332n\u0332e\u0332 Underline</option><option value="strikethrough">S\u0336t\u0336r\u0336i\u0336k\u0336e\u0336 Strikethrough</option><option value="bold">\uD835\uDC01\uD835\uDC28\uD835\uDC25\uD835\uDC1D Bold</option><option value="italic">\uD835\uDC3C\uD835\uDC61\uD835\uDC4E\uD835\uDC59\uD835\uDC56\uD835\uDC50 Italic</option><option value="bold_italic">\uD835\uDC54\uD835\uDC90\uD835\uDC8F\uD835\uDC88 Bold Italic</option><option value="sans">\uD835\uDE34\uD835\uDE30\uD835\uDE2F\uD835\uDE34 Sans</option><option value="sans_bold">\uD835\uDDE6\uD835\uDDBC\uD835\uDDB3\uD835\uDDE6 Sans Bold</option><option value="sans_italic">\uD835\uDE58\uD835\uDE54\uD835\uDE53\uD835\uDE5A Sans Italic</option><option value="sans_bold_italic">\uD835\uDE5C\uD835\uDE58\uD835\uDE57\uD835\uDE5C Sans Bold Italic</option><option value="double_struck">\uD835\uDD64\uD835\uDD60\uD835\uDD5F\uD835\uDD64 Double-Struck</option><option value="fraktur">\uD835\uDD30\uD835\uDD2C\uD835\uDD2B\uD835\uDD30 Fraktur</option><option value="fraktur_bold">\uD835\uDE98\uD835\uDE94\uD835\uDE93\uD835\uDE98 Fraktur Bold</option>`;
 
 const SECTION_BODIES = {
     auth: () =>
@@ -125,7 +126,11 @@ const SECTION_BODIES = {
             h.row(h.label("Party max"),  h.inline(h.number("sp-party-max",1,999,1)  + h.muted("max slots (cosmetic)"))) +
             h.row(h.label("Sync ID"),    h.field(h.input("sp-sync-id","Leave blank to use real track ID"))) +
             h.row(h.label("Flags"),      h.inline(h.number("sp-flags",0,63,1) + h.muted("48=SYNC+JOIN  32=SYNC  16=JOIN  0=none"))) +
-        `</div>`,
+        `</div>` +
+        h.divider() +
+        h.row("", h.field(h.check("pc-enabled","\uD83C\uDFA8 Auto profile color from album art") + h.hint("Sets your Discord profile <code>accent_color</code> and <code>theme_colors</code> on each song change. Requires Nitro."))) +
+        h.row(h.label("Accent hue shift"), h.inline(h.number("pc-accent-shift",-180,180,5) + h.muted("degrees (default 30)"))) +
+        h.indent(h.hint("How far the accent/secondary color shifts in hue from the base. 30 = subtle, 90 = vivid contrast.")),
 
     restore: () =>
         h.row("", h.field(h.check("restore-enabled","Enable status restore"))) +

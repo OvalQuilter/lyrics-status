@@ -37,7 +37,16 @@ const _STYLES = {
     fraktur_bold:     [0x1D586 - 0x61, 0x1D56C - 0x41, null],
 };
 
+function _unicodeUnderline(s) {
+    return [...s].map(ch => ch + "\u0332").join("");
+}
+function _unicodeStrikethrough(s) {
+    return [...s].map(ch => ch + "\u0336").join("");
+}
+
 function applyUnicodeStyle(s, style) {
+    if (style === "underline") return _unicodeUnderline(s);
+    if (style === "strikethrough") return _unicodeStrikethrough(s);
     const entry = _STYLES[style];
     if (!entry) return s;
     return _unicodeShift(s, entry[0], entry[1], entry[2]);
