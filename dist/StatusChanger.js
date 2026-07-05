@@ -1,3 +1,4 @@
+
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StatusChanger = void 0;
@@ -5,7 +6,7 @@ const Settings_1 = require("./Settings");
 const Debug_1 = require("./Debug");
 const StatusChangerBase_1 = require("./StatusChangerBase");
 
-const { VALID_FLASH_STATES, applyUnicodeStyle, resolveUnicodeStyle, cpLen, sanitizeLyric, applyWordStyles } = StatusChangerBase_1;
+const { VALID_FLASH_STATES, applyUnicodeStyle, resolveUnicodeStyle, cpLen, sanitizeLyric, applyWordStyles, applyCharStyles, moodHeart } = StatusChangerBase_1;
 
 function _toSpotifyImageKey(url) {
     if (!url) return null;
@@ -45,18 +46,44 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
         if (!sf || !sf.enabled || this._flashActive) return;
         const intervalMs = Math.max(typeof sf.intervalMs === "number" ? sf.intervalMs : 500, 300);
         this._flashActive = true; this._flashIndex = 0;
-        Debug_1.Debug.write("[StatusFlash] Starting @ " + intervalMs + "ms");
-        this._flashInterval = setInterval(() => this._flashTick(), intervalMs);
+        this._flashSessionStartedAt = Date.now();
+        // Cap continuous flashing to a human-plausible burst (45-90s), not the whole song
+        this._flashSessionMaxMs = 45000 + Math.random() * 45000;
+        Debug_1.Debug.write("[StatusFlash] Starting @ ~" + intervalMs + "ms (jittered, session cap " + Math.round(this._flashSessionMaxMs/1000) + "s)");
+        this._scheduleFlashTick(intervalMs);
+    }
+
+    _scheduleFlashTick(baseIntervalMs) {
+        if (!this._flashActive) return;
+        // Jitter each tick by ±35% so spacing is never perfectly even
+        const jitterFactor = 0.65 + Math.random() * 0.7;
+        let delay = Math.max(250, Math.round(baseIntervalMs * jitterFactor));
+        // Occasionally insert a longer human-like pause (distracted, looked away)
+        if (Math.random() < 0.12) delay += 800 + Math.random() * 2200;
+        this._flashTimer = setTimeout(() => {
+            this._flashTimer = null;
+            if (!this._flashActive) return;
+            const elapsed = Date.now() - (this._flashSessionStartedAt || 0);
+            if (elapsed >= (this._flashSessionMaxMs || 60000)) {
+                Debug_1.Debug.write("[StatusFlash] Session cap reached — pausing flash");
+                this._stopFlash(false);
+                return;
+            }
+            this._flashTick();
+            this._scheduleFlashTick(baseIntervalMs);
+        }, delay);
     }
 
     _stopFlash(restorePresence) {
         const wasActive = this._flashActive;
         this._flashActive = false;
         if (this._flashInterval) { clearInterval(this._flashInterval); this._flashInterval = null; }
+        if (this._flashTimer) { clearTimeout(this._flashTimer); this._flashTimer = null; }
         if (this._gateway) this._gateway.clearFlashStatus();
         if (!restorePresence || !wasActive) return;
         const sf = Settings_1.Settings.statusFlash;
-        const base = (sf && sf.restoreStatus) || (Settings_1.Settings.gateway && Settings_1.Settings.gateway.presenceStatus) || "online";
+        const _rawBase = (sf && sf.restoreStatus) || (Settings_1.Settings.gateway && Settings_1.Settings.gateway.presenceStatus) || "online";
+        const base = (_rawBase === "mobile" || _rawBase === "playstation" || _rawBase === "off") ? "online" : _rawBase;
         if (!VALID_FLASH_STATES.has(base)) return;
         const now = Date.now();
         if (now - this._flashRestoreSentAt < 2000) return;
@@ -71,23 +98,25 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
         const details = this.applyTemplate(rp.detailsTemplate || "{lyrics}", sanitizeLyric(line.text || ""), line, ps, null, null);
         const state   = this.applyTemplate(rp.stateTemplate   || "{song_author}", sanitizeLyric(line.text || ""), line, ps, null, null);
         const activity = {
+            id: this._rpActivityId || "0",
             type: 2,
             name: rp.appName || "Spotify",
             details: details || undefined,
             state:   state   || undefined,
+            created_at: ps.songStartEpoch || Date.now(),
         };
+        if (rp.applicationId) activity.application_id = rp.applicationId;
         if (rp.showProgressBar && ps.songStartEpoch > 0) {
             activity.timestamps = { start: ps.songStartEpoch, end: ps.songStartEpoch + (ps.songDuration || 0) };
         }
         if (rp.showAlbumArt) {
             const imageUrl = rp.albumArtUrl || ps.albumArtUrl;
             const imageKey = _toSpotifyImageKey(imageUrl) || imageUrl || null;
-            if (imageKey) activity.assets = { large_image: imageKey, small_text: ps.lyricsSource || undefined };
+            if (imageKey) { const _imgKey = imageKey.startsWith("spotify:") || imageKey.startsWith("mp:") ? imageKey : "mp:" + imageKey; activity.assets = { large_image: _imgKey, large_text: ps.songName || undefined, small_image: rp.smallImage || undefined, small_text: ps.lyricsSource || undefined }; }
         }
         if (rp.buttonLabel && rp.buttonUrl) {
             activity.buttons = [{ label: rp.buttonLabel, url: rp.buttonUrl }];
         }
-        // Spotify party ("Listening Together") spoofing
         const sp = Settings_1.Settings.spotifyParty;
         if (false) { // DISABLED
             const partyId = sp.partyId || ("ls-" + (ps.songId || "party"));
@@ -95,7 +124,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
             const max     = Math.max(size, sp.partyMax || 10);
             activity.party   = { id: partyId, size: [size, max] };
             activity.sync_id = sp.syncId || ps.songId || undefined;
-            activity.flags   = typeof sp.flags === "number" ? sp.flags : 48; // 48 = SYNC(32)|JOIN(16)
+            activity.flags   = typeof sp.flags === "number" ? sp.flags : 48;
             Debug_1.Debug.write(`[SpotifyParty] party=${partyId} size=${size}/${max} sync_id=${activity.sync_id} flags=${activity.flags}`);
         }
         return activity;
@@ -129,54 +158,68 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
         const now = Date.now();
         const adv = Settings_1.Settings.view.advanced;
 
-        let _styleBucketChanged = false;
-        if (adv.styleAlternateEnabled) {
-            const b = Math.floor(now / (adv.styleAlternateIntervalMs > 0 ? adv.styleAlternateIntervalMs : 3000));
-            if (b !== this._lastStyleBucket) { this._lastStyleBucket = b; _styleBucketChanged = true; }
-        }
-
-        const { style: _uStyle } = resolveUnicodeStyle(adv, now);
+        const { style: _uStyle, bucket: _styleBucket } = resolveUnicodeStyle(adv, now);
         const _swm = adv.styleWordMap ? adv.styleWordMap.split(",").map(x=>x.trim()).filter(Boolean) : null;
-        const _style = s => _swm && _swm.length ? applyWordStyles(s, _swm) : (_uStyle !== "none" ? applyUnicodeStyle(s, _uStyle) : s);
+        const _marqueeOn = !!(adv.styleWordMapMarquee && _swm && _swm.length);
+        const _marqueeBucket = _marqueeOn ? Math.floor(now / (adv.styleAlternateIntervalMs > 0 ? adv.styleAlternateIntervalMs : 3000)) : -1;
+        const _marqueeChanged = _marqueeOn && _marqueeBucket !== this._lastMarqueeBucket;
+        if (_marqueeChanged) this._lastMarqueeBucket = _marqueeBucket;
+        const _styleBucketChanged = (!(_swm && _swm.length) && _styleBucket !== -1 && _styleBucket !== this._lastStyleBucket) || _marqueeChanged;
+        if (!(_swm && _swm.length)) this._lastStyleBucket = _styleBucket;
+        const _scm = adv.styleCharMap ? adv.styleCharMap.split(",").map(x=>x.trim()).filter(Boolean) : null;
+        const _br = adv.lyricsBrackets ? adv.lyricsBrackets.split(",") : null;
+        const _wrap = s => _br ? (_br[0]||"")+s+(_br[1]||"") : s;
+        const _style = s => _wrap(_scm&&_scm.length ? applyCharStyles(s,_scm,(this._wordStyleCursor||0)+(_marqueeOn?_marqueeBucket:0)) : _swm&&_swm.length ? applyWordStyles(s,_swm,(this._wordStyleCursor||0)+(_marqueeOn?_marqueeBucket:0)) : (_uStyle!=="none"?applyUnicodeStyle(s,_uStyle):s));
 
         const usingGateway = Settings_1.Settings.gateway?.enabled && this._gateway && this._gateway.connected;
         const { enableBackoff, enableMinInterval, minIntervalMs, enableMergeLines, mergeWindowMs } = Settings_1.Settings.rateLimit;
         if (!usingGateway && enableBackoff && now < this._rateLimitedUntil) return;
         const minInterval = enableMinInterval ? (minIntervalMs || 5000) : 0;
-        const effectiveInterval = usingGateway ? (Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000) : minInterval;
-        if (effectiveInterval > 0 && now - this._lastSentAt < effectiveInterval) return;
+        const _mergeFloor = enableMergeLines ? (mergeWindowMs || 0) : 0;
+        const effectiveInterval = Math.max(usingGateway ? (Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000) : minInterval, _mergeFloor);
+        const _jitteredFloor = effectiveInterval + (this._sendJitterMs || 0); // additive-only â€” never reduces the real floor
+        if (_jitteredFloor > 0 && now - this._lastSentAt < _jitteredFloor) return;
         const songProgress = playbackState.songProgress;
         const lines = lyrics.lines;
         const offset = Settings_1.Settings.timings.enableAutooffset
-            ? this.autooffset.getAverageValue() + 100
+            ? this.autooffset.getMedianValue() + 100
             : (Settings_1.Settings.timings.sendTimeOffset || 0);
-        const mergeWindow = enableMergeLines ? (mergeWindowMs || 8000) : 0;
+        const _denseCount = lines.filter(l => l.text && l.time >= songProgress+offset && l.time < songProgress+offset+20000).length;
+        const _staticWindow = _denseCount > 5 ? Math.max(mergeWindowMs || 8000, 5000) : (mergeWindowMs || 8000);
+        // When _lastSentAt===0 (first line of song / after song change), use the full static window
+        // instead of 0 so the first anchor can still pull in neighbors.
+        const mergeWindow = enableMergeLines
+            ? Math.min(this._lastAnchorAdvanceAt > 0 ? now - this._lastAnchorAdvanceAt : _staticWindow, _staticWindow)
+            : 0;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const nextLine = lines[i + 1];
             if (line.time < (songProgress + offset)) {
                 if (!line.text) { if (!this.sentLines.has(line)) this.sentLines.add(line); continue; }
-                if (nextLine && nextLine.time < (songProgress + offset)) {
-                    if (!this.sentLines.has(line)) this.sentLines.add(line);
+                if (nextLine && nextLine.time < (songProgress + offset) && (songProgress + offset - line.time) > 3000) {
+                    if (!this.sentLines.has(line)) { this.sentLines.add(line); this._staleLines.add(line); if (!this._catchupStaleLines) this._catchupStaleLines = new Set(); this._catchupStaleLines.add(line); }
                     continue;
                 }
-                if (this.sentLines.has(line) && (!_styleBucketChanged || this._lastAnchorLine !== line)) break;
+                const _inRollback = this._rollbackLines && this._rollbackLines.has(line);
+                if (this.sentLines.has(line) && !this._staleLines.has(line) && !_inRollback && (!_styleBucketChanged || this._lastAnchorLine !== line)) break;
 
-                let mergedText, lyricLines, joinedLines, mergedLines;
+                if (this._lastAnchorLine !== line) { this._rollbackLines = new Set(); this._staleLines = new Set([...this._staleLines].filter(sl => sl.time > line.time)); this._lastAnchorAdvanceAt = now; } // B2: drop past stale entries only; keep future forward-merged lines
+
+                let mergedText, lyricLines, joinedLines, mergedLines, forwardLines;
                 if (mergeWindow === 0) {
                     const mt = sanitizeLyric(line.text || "");
-                    mergedText = mt; lyricLines = [mt]; joinedLines = [mt]; mergedLines = [line];
+                    mergedText = mt; lyricLines = [mt]; joinedLines = [mt]; mergedLines = [line]; forwardLines = null;
                 } else {
-                    if (this._lastAnchorLine !== line) { this._staleLines = new Set(); this._rollbackLines = new Set(); }
-                    ({ mergedText, lyricLines, joinedLines, mergedLines } = this.buildMergedLines(lines, i, mergeWindow, _styleBucketChanged));
+                    const _maxLines = Settings_1.Settings.rateLimit?.mergeMaxLines || 0;
+                    ({ forwardLines, mergedText, lyricLines, joinedLines, mergedLines } = this.buildMergedLines(lines, i, mergeWindow, _styleBucketChanged, _maxLines, _staticWindow));
                 }
 
-                let statusText, emoji;
+                let statusText, emoji, _actualLineCount = mergedLines.length;
 
                 if (adv.enabled) {
                     const template = adv.customStatus;
-                    const fullStatus = this.applyTemplate(template, _style(mergedText), line, playbackState, i, lines.length);
+                    const fullStatus = this.applyTemplate(template, mergedText, line, playbackState, i, lines.length, _style);
                     if (cpLen(fullStatus) <= 128) {
                         statusText = fullStatus;
                     } else {
@@ -184,21 +227,24 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                         let fitted = false;
                         while (reducedLines.length > 1) {
                             reducedLines.pop();
-                            const candidate = this.applyTemplate(template, _style(reducedLines.join(" ")), line, playbackState, i, lines.length);
-                            if (cpLen(candidate) <= 128) { statusText = candidate; fitted = true; break; }
+                            const candidate = this.applyTemplate(template, reducedLines.join(Settings_1.Settings.rateLimit?.mergeSeparator ?? " "), line, playbackState, i, lines.length, _style);
+                            if (cpLen(candidate) <= 128) { statusText = candidate; fitted = true; _actualLineCount = reducedLines.length; break; }
                         }
-                        if (!fitted) statusText = this.smartTruncate(this.applyTemplate(template, _style(lyricLines[0]), line, playbackState, i, lines.length), 128, null);
+                        if (!fitted) { statusText = this.smartTruncate(this.applyTemplate(template, lyricLines[0], line, playbackState, i, lines.length, _style), 128, null); _actualLineCount = 1; }
                     }
-                    emoji = adv.customEmoji;
+                    if(adv.moodHeartsEnabled){const _mh=moodHeart(mergedText);if(_mh){this._lastMoodHeart=_mh;this._lastMoodHeartAt=now;}emoji=(this._lastMoodHeart&&(now-this._lastMoodHeartAt<15000)?this._lastMoodHeart:null)||adv.customEmoji;}else{emoji=adv.customEmoji;}
                 } else {
                     const prefix = `${Settings_1.Settings.view.timestamp ? `[${this.formatSeconds(+(line.time / 1000).toFixed(0))}] ` : ""}${Settings_1.Settings.view.label ? "Song lyrics - " : ""}`;
-                    const limit = 128 - cpLen(prefix);
+                    const styledLimit = 128 - cpLen(prefix);
                     const _sep = Settings_1.Settings.rateLimit?.mergeSeparator ?? " ";
                     const reduced = joinedLines.slice();
-                    while (reduced.length > 1 && cpLen(reduced.join(_sep)) > limit) reduced.pop();
-                    const lyricsText = cpLen(reduced.join(_sep)) <= limit ? reduced.join(_sep) : this.smartTruncate(reduced[0], limit, null);
-                    statusText = prefix + _style(lyricsText);
-                    emoji = "\uD83C\uDFB6";
+                    while (reduced.length > 1 && cpLen(_style(reduced.join(_sep))) > styledLimit) reduced.pop();
+                    const _rawJoined = reduced.join(_sep);
+                    const _styledLyrics = _style(_rawJoined);
+                    const lyricsText = cpLen(_styledLyrics) <= styledLimit ? _styledLyrics : this.smartTruncate(_styledLyrics, styledLimit, null);
+                    _actualLineCount = reduced.length;
+                    statusText = prefix + lyricsText;
+                    if(adv.moodHeartsEnabled){const _mh=moodHeart(_rawJoined);if(_mh){this._lastMoodHeart=_mh;this._lastMoodHeartAt=now;}emoji=(this._lastMoodHeart&&(now-this._lastMoodHeartAt<15000)?this._lastMoodHeart:null)||"\uD83C\uDFB6";}else{emoji="\uD83C\uDFB6";}
                 }
 
                 if (statusText === this._lastSentText && !_styleBucketChanged) { break; }
@@ -206,10 +252,23 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                 playbackState.currentLine = line;
                 this._lastAnchorLine = line;
                 this._lastSentAt = now;
+                this._sendJitterMs = effectiveInterval > 0 ? Math.random() * 0.15 * effectiveInterval : 0;
                 this._lastSentText = statusText;
-                Debug_1.Debug.write(`[StatusChanger] Queuing status (${mergedLines.length} line(s) merged): "${statusText}"`);
+                if (_scm&&_scm.length) this._wordStyleCursor=((this._wordStyleCursor||0)+lyricLines.join("").replace(/\s/g,"").length)%_scm.length;
+                else if (_swm&&_swm.length) this._wordStyleCursor=((this._wordStyleCursor||0)+lyricLines.join(" ").split(/\s+/).filter(Boolean).length)%_swm.length;
+                if (_actualLineCount < mergedLines.length) Debug_1.Debug.write(`[StatusChanger] ${mergedLines.length} lines merged but truncated to ${_actualLineCount} to fit 128 chars`);
+                Debug_1.Debug.write(`[StatusChanger] Queuing status (${_actualLineCount} line(s) sent): "${statusText}"`);
                 this._lastMergedLines = mergedLines;
-                for (const ml of mergedLines) { this.sentLines.add(ml); this._staleLines.delete(ml); this._rollbackLines.delete(ml); }
+                for (const ml of mergedLines) {
+                    if (forwardLines && forwardLines.has(ml)) {
+                        // Forward-merged: mark stale so line can still fire as anchor when its time comes
+                        this.sentLines.add(ml); this._staleLines.add(ml);
+                    } else {
+                        this.sentLines.add(ml); this._staleLines.delete(ml);
+                    }
+                    if(this._rollbackLines)this._rollbackLines.delete(ml);
+                    if(this._catchupStaleLines)this._catchupStaleLines.delete(ml);
+                }
                 if (this.sentLines.size > 200) {
                     const arr = [...this.sentLines].slice(-200);
                     const dropped = [...this.sentLines].slice(0, this.sentLines.size - 200);
@@ -219,7 +278,9 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                 }
                 if (Settings_1.Settings.gateway && Settings_1.Settings.gateway.enabled) this._iOSSyncPending = { t: statusText, em: emoji };
                 if (usingGateway && this._gateway) {
-                    this._gateway._lastRichPresenceActivity = this._buildRichPresence(line, playbackState);
+                    const _rp = this._buildRichPresence(line, playbackState);
+                    const _rpKey = _rp ? JSON.stringify(_rp) : "";
+                    if (_rpKey !== this._lastRpKey) { this._lastRpKey = _rpKey; this._gateway._lastRichPresenceActivity = _rp; this._gateway._lastPayloadKey = ""; }
                 }
                 this.changeStatusRequest(statusText, Settings_1.Settings.credentials.token, emoji, mergedLines, line);
                 const _isLastLine = !lines.slice(i + 1).some(l => l.text);
@@ -244,7 +305,8 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
     }
 
     songChanged(isEnd = false) {
-        this.sentLines = new Set(); this._staleLines = new Set(); this._rollbackLines = new Set(); this._lastMergedLines = null; this._lastAnchorLine = null;
+        this.sentLines = new Set(); this._staleLines = new Set(); this._rollbackLines = new Set(); this._lastMergedLines = null; this._lastAnchorLine = null; this._lastAnchorAdvanceAt = 0; this._catchupStaleLines = new Set(); this._wordStyleCursor = 0; this._lastMarqueeBucket = -1;
+        this._rpActivityId = require("crypto").randomBytes(8).toString("hex"); this._lastRpKey = "";
         if (this._lastLineClearTimer) { clearTimeout(this._lastLineClearTimer); this._lastLineClearTimer = null; }
         if (Date.now() >= this._rateLimitedUntil) this._lastSentAt = 0;
         this._lastStyleBucket = -1;
@@ -252,17 +314,23 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
         if (this._restoreTimer) { clearTimeout(this._restoreTimer); this._restoreTimer = null; }
         this._stopFlash(isEnd);
         if (isEnd) {
+            this._lastColorSongId = null;
             if (this._gateway) this._gateway.clearLastActivity();
             if (Settings_1.Settings.restore.enabled && this._savedStatus) {
                 this._iOSSyncPending = null;
                 const delayMs = Settings_1.Settings.restore.delayMs || 15000;
                 this._restoreTimer = setTimeout(() => { this._restoreTimer = null; this.restoreStatus(); }, delayMs);
                 Debug_1.Debug.write('[StatusChanger] Song ended - will restore status in ' + delayMs + 'ms');
+            } else if (this._lastSentText) {
+                this.changeStatusRequest('', Settings_1.Settings.credentials.token, null, null, null);
+                this._lastSentText = '';
+                Debug_1.Debug.write('[StatusChanger] Song ended - cleared REST status (no restore)');
             }
         } else {
             Debug_1.Debug.write('[StatusChanger] New song - restore timer cancelled');
             this._lastSentText = "";
             this._iOSSyncPending = { t: null, em: null };
+            this.updateProfileColor();
         }
     }
 }

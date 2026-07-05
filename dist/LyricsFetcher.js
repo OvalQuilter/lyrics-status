@@ -31,6 +31,7 @@ class LyricsFetcher {
         this.lastFetchedFor = "";
         this.lastAttemptedFor = "";
         this._inFlight = new Map();
+        this._lyricsRefCache = new Map(); // key -> stable lyrics reference for object-identity stability
     }
 
     addSource(source) { this.sources.push(source); }
@@ -48,11 +49,16 @@ class LyricsFetcher {
             this.lastFetchedFor = `${name}\0${artist}`;
             this.lastAttemptedFor = `${name}\0${artist}`;
             if (!cached.lines) {
-                this.lastFetchedFrom = "Cache (none)";
+                this.lastFetchedFrom = "None"; // CONN-38: show "None" instead of stale source
                 return null;
             }
             this.lastFetchedFrom = `Cache (${cached.appName})`;
-            return applyConversion({ lines: cached.lines });
+            // Return stable object reference so sentLines Set identity checks remain valid
+            // across repeated fetchLyrics calls for the same song (e.g. retries mid-song)
+            if (this._lyricsRefCache.has(key)) return this._lyricsRefCache.get(key);
+            const _cacheResult = await applyConversion({ lines: cached.lines });
+            this._lyricsRefCache.set(key, _cacheResult);
+            return _cacheResult;
         }
 
         // Cache miss — reset lastAttemptedFor so PlaybackStateUpdater can retry if needed
@@ -65,26 +71,38 @@ class LyricsFetcher {
     }
 
     async _doFetch(name, artist, songId) {
+        if (!this._skip) this._skip = new Map();
         let result = null;
         let appName = "none";
         let hadNetworkError = false;
 
-        for (const source of this.sources) {
+        const now = Date.now();
+        const results = await Promise.all(this.sources.map(async source => {
+            const until = this._skip.get(source);
+            if (until && until > now) return null;
             try {
                 const r = await source.getLyrics(name, artist, songId);
-                if (r?.lines?.length) {
-                    result = r;
-                    appName = source.getAppName();
-                    break;
-                }
+                return { source, r };
             } catch (e) {
                 Debug_1.Debug.write(`[LyricsFetcher] ${source.getAppName()} failed: ${e}`);
                 hadNetworkError = true;
+                if (/429|rate.?limit/i.test(String(e))) this._skip.set(source, Date.now() + 60000);
+                return null;
             }
-        }
+        }));
 
-        const error = (!result && hadNetworkError) ? "network" : undefined;
+        let fallback = null;
+        for (const entry of results) {
+            if (!entry?.r?.lines?.length) continue;
+            if (!fallback) { fallback = entry; }
+            if (entry.r.lines.some(l => l.time > 0)) { result = entry.r; appName = entry.source.getAppName(); break; }
+        }
+        if (!result && fallback) { result = fallback.r; appName = fallback.source.getAppName(); }
+
+        const error = !result ? (hadNetworkError ? "network" : "no_results") : undefined; // CONN-39: no_results avoids permanent cache on clean miss
         this.cache.set(name, artist, result?.lines ?? null, appName, error);
+        // Evict old ref so next cache read picks up the fresh stable ref
+        this._lyricsRefCache.delete((0, CacheStore_1.cacheKey)(name, artist));
 
         const maxRows = Settings_1.Settings.cache.maxRows;
         if (maxRows > 0) this.cache.evict(maxRows);

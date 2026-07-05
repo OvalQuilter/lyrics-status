@@ -28,29 +28,58 @@ const SpotifyDealerClient_1 = require("./SpotifyDealerClient");
 const Debug_1 = require("./Debug");
 const Server_1 = require("./Panel/Server");
 const Settings_1 = require("./Settings");
+const ClientIdentity_1 = require("./ClientIdentity");
 const Updater_1 = require("./Updater");
 const SpotifyService_1 = require("./SpotifyService");
 const uuid_1 = require("uuid");
 const ExternalAuthServerAPI_1 = require("./ExternalAuthServerAPI");
 const path = require("path");
 let _store = null;
-Settings_1.Settings.load();
+try { Settings_1.Settings.load(); } catch (e) { console.error("\x1b[31m[lyrics-status] Failed to load settings: " + e.message + "\x1b[0m"); process.exit(1); }
+{ const fs=require("fs"),lp=require("path").join(__dirname,"../.lock"); try { if (fs.existsSync(lp)) { const op=parseInt(fs.readFileSync(lp,"utf8"))||0; let alive=false; try{process.kill(op,0);alive=true;}catch(_){} const stale=Date.now()-fs.statSync(lp).mtimeMs>21600000; if(alive&&(!stale||op===process.ppid)){ console.error("\x1b[31m[lyrics-status] Already running (PID "+op+"). Exiting.\x1b[0m"); process.exit(1);} if(stale) console.error("\x1b[33m[lyrics-status] Stale lock ignored (>6h old).\x1b[0m"); } fs.writeFileSync(lp,String(process.pid));
+  setInterval(()=>{try{fs.writeFileSync(lp,String(process.pid));}catch(_){}},60000); process.on("exit",()=>{try{if(parseInt(fs.readFileSync(lp,"utf8"))===process.pid)fs.unlinkSync(lp);}catch(_){}}); } catch(_){} }
 { const { existsSync, rmSync } = require("fs"); const _tmp = require("path").join(__dirname, "../temp"); try { if (existsSync(_tmp)) { rmSync(_tmp, { recursive: true, force: true }); Debug_1.Debug.write("[init] Cleaned up leftover temp/ dir"); } } catch (e) { Debug_1.Debug.write("[init] Failed to clean temp/: " + e.message); } }
 if (Settings_1.Settings.update.enableAutoupdate) {
     Updater_1.Updater.tryUpdate().catch(e => { Debug_1.Debug.write("LyricsStatus failed to update. Error: " + e.stack); }).finally(() => init());
 } else { init(); }
+let _tokenValidateRetries = 0;
+async function _validateDiscordToken() {
+    const token = Settings_1.Settings.credentials.token;
+    if (!token) { Debug_1.Debug.write("[init] No Discord token set"); return false; }
+    try {
+        const res = await fetch("https://discord.com/api/v10/users/@me", { headers: { "Authorization": token, "X-Super-Properties": ClientIdentity_1.ClientIdentity.superProperties(), "User-Agent": ClientIdentity_1.ClientIdentity.userAgent() } });
+        if (res.status === 401) { console.error("\x1b[31m[lyrics-status] Discord token is invalid or revoked. Update it in the panel and restart.\x1b[0m"); Debug_1.Debug.write("[init] Token validation failed: 401"); return false; }
+        _tokenValidateRetries = 0;
+        Debug_1.Debug.write("[init] Token validation HTTP " + res.status + (res.ok ? " OK" : " — proceeding anyway"));
+        return true;
+    } catch (e) {
+        _tokenValidateRetries++;
+        if (_tokenValidateRetries < 3) {
+            const backoffMs = Math.min(30000, 2000 * Math.pow(2, _tokenValidateRetries - 1));
+            Debug_1.Debug.write("[init] Token validation network error (attempt " + _tokenValidateRetries + "/3), retrying in " + backoffMs + "ms: " + e);
+            await new Promise(r => setTimeout(r, backoffMs));
+            return _validateDiscordToken();
+        }
+        Debug_1.Debug.write("[init] Token validation failed after 3 attempts (network?) — proceeding anyway: " + e);
+        _tokenValidateRetries = 0;
+        return true;
+    }
+}
+
 async function init() {
     if (!Settings_1.Settings.credentials.uuid) { Settings_1.Settings.credentials.uuid = (0, uuid_1.v4)(); Settings_1.Settings.save(); }
+    const _tokenValid = await _validateDiscordToken();
     ExternalAuthServerAPI_1.ExternalAuthServerAPI.register();
-    if (Settings_1.Settings.credentials.refreshToken && !Settings_1.Settings.credentials.useExternalAuthServer) {
+    const useDiscordPresence = !!Settings_1.Settings.credentials.useDiscordPresence;
+    if (!useDiscordPresence && Settings_1.Settings.credentials.refreshToken && !Settings_1.Settings.credentials.useExternalAuthServer) {
         await SpotifyService_1.SpotifyService.refresh().catch(e => Debug_1.Debug.write("[init] Initial token refresh failed: " + e));
-        Debug_1.Debug.write('[init] Spotify token refreshed at startup');
-        const _expiry = Settings_1.Settings.credentials.spotifyWebTokenExpiry || 0;
+
+        const _expiry = Settings_1.Settings.credentials.oauthTokenExpiry || 0;
         if (_expiry > 0) {
             const _refreshIn = Math.max(60000, _expiry - Date.now() - 300000);
-            setTimeout(function _proactiveRefresh() { SpotifyService_1.SpotifyService.refresh().catch(() => {}); const exp = Settings_1.Settings.credentials.spotifyWebTokenExpiry || 0; if (exp > 0) setTimeout(_proactiveRefresh, Math.max(60000, exp - Date.now() - 300000)); }, _refreshIn);
+            setTimeout(function _proactiveRefresh() { SpotifyService_1.SpotifyService.refresh().catch(() => {}); const exp = Settings_1.Settings.credentials.oauthTokenExpiry || 0; if (exp > 0) setTimeout(_proactiveRefresh, Math.max(60000, exp - Date.now() - 300000)); }, _refreshIn);
         }
-    } else if (Settings_1.Settings.credentials.useExternalAuthServer) {
+    } else if (!useDiscordPresence && Settings_1.Settings.credentials.useExternalAuthServer) {
         SpotifyService_1.SpotifyService.token = (await ExternalAuthServerAPI_1.ExternalAuthServerAPI.getToken().catch(() => null)) || '';
     }
     const dbPath = Settings_1.Settings.cache.path || path.resolve(__dirname, "../cache/cache.db");
@@ -68,14 +97,30 @@ async function init() {
     const playbackStateUpdater = new PlaybackStateUpdater_1.PlaybackStateUpdater(playbackState, lyricsFetcher);
     const gatewayClient = new GatewayClient_1.GatewayClient();
     const statusChanger = new StatusChanger_1.StatusChanger(playbackState, Settings_1.Settings.restore?.savedStatus || null, gatewayClient);
+    if (!_tokenValid) statusChanger._tokenInvalid = true;
     gatewayClient.onReady = () => statusChanger._onGatewayReady();
-    gatewayClient.connect();
-    let _now = Date.now(), _songEndedFired = false, _lastKnownSongId = "", _wasPlaying = null, _lastProgress = 0;
+    const _identityPref = p => p === "mobile" ? "mobile" : p === "playstation" ? "playstation" : "other";
+    let _lastIdentityPref = _identityPref(Settings_1.Settings.gateway?.presenceStatus);
+    setInterval(() => {
+        if (!statusChanger._tokenInvalid) return;
+        _validateDiscordToken().then(ok => { if (!ok) return; statusChanger._tokenInvalid = false; Debug_1.Debug.write("[init] Token re-validated OK — resuming sends"); if (Settings_1.Settings.gateway?.enabled && !gatewayClient.connected) gatewayClient.connect().catch(e => Debug_1.Debug.write(`[init] gateway reconnect after token recovery: ${e && e.stack || e}`)); });
+    }, 10000);
+    setInterval(() => {
+        if (!Settings_1.Settings.gateway?.enabled) return;
+        const p = _identityPref(Settings_1.Settings.gateway?.presenceStatus);
+        if (p !== _lastIdentityPref) { _lastIdentityPref = p; Debug_1.Debug.write("[init] presenceStatus identity changed — forcing fresh gateway IDENTIFY"); gatewayClient.forceReconnect(); }
+    }, 2000);
+    if (_tokenValid && Settings_1.Settings.gateway?.enabled) gatewayClient.connect();
+    let _now = Date.now(), _songEndedFired = false, _lastKnownSongId = "", _wasPlaying = null, _lastProgress = 0, _lastActivityAt = Date.now(), _idleDisconnected = false;
     let _progressInterval = null, _pollInterval = null;
-    const useDealer = Settings_1.Settings.credentials.useDealer !== false && !!Settings_1.Settings.credentials.cookies;
+    const useDealer = !useDiscordPresence && Settings_1.Settings.credentials.useDealer !== false && !!Settings_1.Settings.credentials.cookies;
     let dealerClient = null;
     let _dealerConnected = false;
-    if (useDealer) {
+    if (useDiscordPresence) {
+        Debug_1.Debug.write("[init] Discord presence mode — Spotify polling disabled");
+        gatewayClient.onSpotifyActivity = playbackStateUpdater.applyDiscordSpotifyActivity.bind(playbackStateUpdater);
+        _wasPlaying = false;
+    } else if (useDealer) {
         Debug_1.Debug.write("[init] Dealer mode enabled — starting Spotify dealer WebSocket");
         dealerClient = new SpotifyDealerClient_1.SpotifyDealerClient();
         dealerClient.onPlayerState = (playerState) => { playbackStateUpdater.applyDealerState(playerState).catch(e => Debug_1.Debug.write(`[Dealer] applyDealerState error: ${e.stack || e}`)); };
@@ -88,20 +133,21 @@ async function init() {
             }
             playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[Dealer] Initial REST sync error: ${e.stack || e}`));
         };
-        dealerClient._fallbackTimer = setTimeout(() => { dealerClient._fallbackTimer = null; if (!_dealerConnected) { Debug_1.Debug.write("[init] Dealer not ready after 2s — firing immediate REST poll"); playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater][dealer-fallback] ${e.stack || e}`)); } }, 2000);
-        dealerClient.connect();
+        dealerClient._fallbackTimer = setTimeout(() => { dealerClient._fallbackTimer = null; if (!_dealerConnected && !dealerClient.connected) { Debug_1.Debug.write("[init] Dealer not ready after 2s — firing immediate REST poll"); playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater][dealer-fallback] ${e.stack || e}`)); } }, 2000);
+        dealerClient.connect().catch(e => Debug_1.Debug.write(`[Dealer] connect() rejected: ${e && e.stack || e}`));
         playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater][dealer-init] ${e.stack || e}`)).finally(() => { if (_wasPlaying === null) _wasPlaying = playbackState.isPlaying; });
-        setInterval(() => { const syncInterval = _dealerConnected && dealerClient?.connected ? 30000 : 5000; const sinceLastPoll = Date.now() - (_lastDealerSyncAt || 0); if (sinceLastPoll < syncInterval) return; _lastDealerSyncAt = Date.now(); playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater][dealer-sync] Error: ${e.stack || e}`)); }, 5000);
         let _lastDealerSyncAt = 0;
+        setInterval(() => { const syncInterval = _dealerConnected && dealerClient?.connected ? 30000 : 5000; const sinceLastPoll = Date.now() - (_lastDealerSyncAt || 0); if (sinceLastPoll < syncInterval) return; _lastDealerSyncAt = Date.now(); playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater][dealer-sync] Error: ${e.stack || e}`)); }, 5000);
         Debug_1.Debug.write("[init] Dealer mode: adaptive REST sync (5s if dealer down, 30s if connected)");
     } else {
         Debug_1.Debug.write("[init] Dealer mode disabled — using 5s REST polling");
+        playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater][init] ${e.stack || e}`));
         _pollInterval = setInterval(() => playbackStateUpdater.update().catch(e => Debug_1.Debug.write(`[PlaybackStateUpdater] Unhandled error: ${e.stack || e}`)), 5000);
     }
     if (Settings_1.Settings.restore?.enabled) {
         const token = Settings_1.Settings.credentials.token;
         if (token) {
-            fetch("https://discord.com/api/v10/users/@me/settings", { headers: { "Authorization": token, "X-Super-Properties": "eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiQ2hyb21lIiwiZGV2aWNlIjoiIiwic3lzdGVtX2xvY2FsZSI6ImVuLVVTIiwiYnJvd3Nlcl91c2VyX2FnZW50IjoiTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzEzNi4wLjAuMCBTYWZhcmkvNTM3LjM2IiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTM2LjAuMC4wIiwib3NfdmVyc2lvbiI6IjEwIiwicmVmZXJyZXIiOiIiLCJyZWZlcnJpbmdfZG9tYWluIjoiIiwicmVmZXJyZXJfY3VycmVudCI6IiIsInJlZmVycmluZ19kb21haW5fY3VycmVudCI6IiIsInJlbGVhc2VfY2hhbm5lbCI6InN0YWJsZSIsImNsaWVudF9idWlsZF9udW1iZXIiOjM5MDAxOCwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=", "X-Discord-Locale": "en-US", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36" } })
+            fetch("https://discord.com/api/v10/users/@me/settings", { headers: { "Authorization": token, "X-Super-Properties": ClientIdentity_1.ClientIdentity.superProperties(), "X-Discord-Locale": "en-US", "User-Agent": ClientIdentity_1.ClientIdentity.userAgent() } })
                 .then(r => r.json())
                 .then(j => {
                     if (j?.custom_status?.text) { statusChanger._savedStatus = j.custom_status; Debug_1.Debug.write(`[init] Captured current Discord status for restore: "${j.custom_status.text}"`); }
@@ -120,14 +166,27 @@ async function init() {
             _lastProgress = playbackState.songProgress;
             statusChanger.songChanged(false); _songChanged = true; _rescheduleStatusCheck(0);
         }
-        if (!_songChanged && playbackState.isPlaying && playbackState.songProgress < _lastProgress - 5000) {
+        if (!_songChanged && playbackState.isPlaying && Math.abs(playbackState.songProgress - _lastProgress) > 5000) {
             Debug_1.Debug.write(`[init] Progress regression (${_lastProgress}->${playbackState.songProgress}) -- songChanged`);
             _songEndedFired = false; _lastProgress = playbackState.songProgress;
             statusChanger.songChanged(false); _songChanged = true; _rescheduleStatusCheck(0);
         }
         if (!_songChanged && playbackState.isPlaying && _wasPlaying === false) { statusChanger.songChanged(false); _rescheduleStatusCheck(0); }
         _wasPlaying = playbackState.isPlaying;
-        if (playbackState.isPlaying) { playbackState.songProgress += now - _now; }
+        if (Settings_1.Settings.gateway?.enabled) {
+            if (playbackState.isPlaying) {
+                _lastActivityAt = now;
+                if (_idleDisconnected) { _idleDisconnected = false; Debug_1.Debug.write("[init] Playback resumed -- reconnecting gateway after idle disconnect"); setTimeout(()=>gatewayClient.connect(),Math.random()*2000); }
+            } else if (!_idleDisconnected && gatewayClient.connected && Settings_1.Settings.idle?.enabled !== false) {
+                const _idleTimeoutMs = (Settings_1.Settings.idle?.timeoutSec || 300) * 1000;
+                if (now - _lastActivityAt >= _idleTimeoutMs) {
+                    _idleDisconnected = true;
+                    Debug_1.Debug.write(`[init] No playback for ${_idleTimeoutMs}ms -- disconnecting gateway (idle)`);
+                    gatewayClient.destroy();
+                }
+            }
+        }
+        if (playbackState.isPlaying) { playbackState.songProgress = useDiscordPresence && playbackState.songStartEpoch > 0 ? Math.max(0, now - playbackState.songStartEpoch) : playbackState.songProgress + (now - _now); }
         _lastProgress = playbackState.songProgress;
         _now = now;
         if (playbackState.ended) {
@@ -143,17 +202,22 @@ async function init() {
         const ps = playbackState;
         if (!ps.isPlaying || ps.ended) { _statusCheckTimer = setTimeout(_statusTick, 500); return; }
         const adv = Settings_1.Settings.view.advanced;
-        const needsFast = (adv?.styleAlternateEnabled) || (Settings_1.Settings.statusFlash?.enabled);
+        const needsFast = adv?.styleAlternateEnabled || adv?.styleWordMapMarquee || Settings_1.Settings.statusFlash?.enabled;
         if (needsFast) { _statusCheckTimer = setTimeout(_statusTick, 100); return; }
         if (!ps.hasLyrics || !ps.lyrics?.lines?.length) { _statusCheckTimer = setTimeout(_statusTick, 200); return; }
         const lines = ps.lyrics.lines;
         const offset = Settings_1.Settings.timings.enableAutooffset ? statusChanger.autooffset.getAverageValue() + 100 : (Settings_1.Settings.timings.sendTimeOffset || 0);
         const progress = ps.songProgress;
-        const minInterval = Settings_1.Settings.rateLimit.enableMinInterval ? (Settings_1.Settings.rateLimit.minIntervalMs || 5000) : 0;
+        const _usingGwSched = Settings_1.Settings.gateway?.enabled && gatewayClient?.connected;
+        const _mergeFloorSched = Settings_1.Settings.rateLimit.enableMergeLines ? (Settings_1.Settings.rateLimit.mergeWindowMs || 0) : 0;
+        const minInterval = Math.max(_usingGwSched ? (Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000) : (Settings_1.Settings.rateLimit.enableMinInterval ? (Settings_1.Settings.rateLimit.minIntervalMs || 5000) : 0), _mergeFloorSched);
         let nextLineMs = null;
         for (let i = 0; i < lines.length; i++) {
             const lineEta = lines[i].time - offset;
-            if (lineEta > progress) { nextLineMs = lineEta - progress; break; }
+            if (lineEta > progress) {
+                if (statusChanger.sentLines.has(lines[i]) && !statusChanger._staleLines.has(lines[i])) continue;
+                nextLineMs = lineEta - progress; break;
+            }
         }
         if (nextLineMs === null) { _statusCheckTimer = setTimeout(_statusTick, 500); return; }
         const sinceLastSent = Date.now() - statusChanger._lastSentAt;
@@ -176,9 +240,9 @@ async function init() {
     const _pad = (s, w) => { const l = _strip(s).length; return s + " ".repeat(Math.max(0, w - l)); };
     const row = (content) => `\x1b[90m\u2502\x1b[97m ${_pad(content, W - 1)}\x1b[90m\u2502\x1b[97m`;
     const row2 = (left, right, rw) => { const lw = W - 2 - rw; return `\x1b[90m\u2502\x1b[97m ${_pad(left, lw)} ${_pad(right, rw)}\x1b[90m\u2502\x1b[97m`; };
-    const sep    = `\x1b[90m\u251c${"\u2500".repeat(W + 1)}\u2524\x1b[97m`;
-    const sepTop = `\x1b[90m\u250c${"\u2500".repeat(W + 1)}\u2510\x1b[97m`;
-    const sepBot = `\x1b[90m\u2514${"\u2500".repeat(W + 1)}\u2518\x1b[97m`;
+    const sep    = `\x1b[90m\u251c${"\u2500".repeat(W)}\u2524\x1b[97m`;
+    const sepTop = `\x1b[90m\u250c${"\u2500".repeat(W)}\u2510\x1b[97m`;
+    const sepBot = `\x1b[90m\u2514${"\u2500".repeat(W)}\u2518\x1b[97m`;
     const _bar = (prog, dur, barW) => { if (!dur || !isFinite(dur) || dur <= 0) return C.gray + "\u2500".repeat(barW) + C.reset; const filled = Math.round(Math.min(1, prog / dur) * barW); return C.green + "\u2588".repeat(filled) + C.gray + "\u2591".repeat(barW - filled) + C.reset; };
     const _trunc = (s, maxLen) => s.length > maxLen ? s.slice(0, maxLen - 1) + "\u2026" : s;
     const _displayInterval = setInterval(() => {
@@ -210,22 +274,22 @@ async function init() {
         }
         const op3Used = gatewayClient._presenceSentTimes.filter(t => nowMs - t <= 20000).length;
         const gwBadge = Settings_1.Settings.gateway?.enabled
-            ? (gatewayClient.connected ? `${C.green}GW${C.reset}${C.gray} ${op3Used}/5${C.reset}` : (gatewayClient._reconnecting || gatewayClient._ws !== null ? `${C.yellow}GW~${C.reset}` : `${C.red}GW${C.reset}`))
+            ? (gatewayClient.connected ? `${C.green}GW${C.reset}${C.gray} ${op3Used}/5${C.reset}` : (_idleDisconnected ? `${C.gray}GW idle${C.reset}` : (gatewayClient._reconnecting || gatewayClient._ws !== null ? `${C.yellow}GW~${C.reset}` : `${C.red}GW${C.reset}`)))
             : `${C.gray}GW off${C.reset}`;
-        const spotifyBadge = useDealer ? (dealerClient?.connected ? `${C.green}WS${C.reset}` : `${C.yellow}WS~${C.reset}`) : `${C.gray}REST/5s${C.reset}`;
+        const spotifyBadge = useDiscordPresence ? `${C.cyan}DiscordPresence${C.reset}` : useDealer ? (dealerClient?.connected ? `${C.green}WS${C.reset}` : `${C.yellow}WS~${C.reset}`) : `${C.gray}REST/5s${C.reset}`;
         const sendBadge = rateLimitRemaining ? `${C.red}rate-limited ${rateLimitRemaining}s${C.reset}` : nextSendIn <= 0 ? `${C.green}ready${C.reset}` : `${C.yellow}cooldown ${(nextSendIn / 1000).toFixed(1)}s${C.reset}`;
         const lyricsBadge = playbackState.hasLyrics ? `${C.green}\u2713${C.reset} ${C.cyan}${lyricsFetcher.lastFetchedFrom || "?"}${C.reset}` : (playbackState.songId && !playbackState.hasLyrics && !lyrics ? `${C.yellow}\u29d6 fetching${C.reset}` : `${C.red}\u2717 none${C.reset}`);
         const playBadge = playbackState.isPlaying ? `${C.green}\u25b6 playing${C.reset}` : `${C.yellow}\u23f8 paused${C.reset}`;
         const savedRaw = statusChanger._savedStatus?.text || "";
         const restoreBadge = Settings_1.Settings.restore?.enabled ? (statusChanger._restoreTimer ? `${C.yellow}pending${C.reset}` : `${C.green}armed${C.reset}`) : `${C.gray}off${C.reset}`;
-        const rlSettings = [`${C.gray}interval:${C.reset}${enableMinInterval ? C.green + ((minIntervalMs||0)/1000).toFixed(1) + "s" + C.reset : C.gray + "off" + C.reset}`, `${C.gray}merge:${C.reset}${enableMergeLines ? C.green + ((mergeWindowMs||0)/1000).toFixed(1) + "s" + C.reset : C.gray + "off" + C.reset}`, `${C.gray}backoff:${C.reset}${enableBackoff ? C.green + "on" + C.reset : C.gray + "off" + C.reset}`].join("  ");
+        const rlSettings = [`${C.gray}interval:${C.reset}${enableMinInterval ? C.green + (Math.max(minIntervalMs||0, enableMergeLines?(mergeWindowMs||0):0)/1000).toFixed(1) + "s" + C.reset : C.gray + "off" + C.reset}`, `${C.gray}merge:${C.reset}${enableMergeLines ? C.green + ((mergeWindowMs||0)/1000).toFixed(1) + "s" + C.reset : C.gray + "off" + C.reset}`, `${C.gray}backoff:${C.reset}${enableBackoff ? C.green + "on" + C.reset : C.gray + "off" + C.reset}`].join("  ");
         const timeStr  = `${statusChanger.formatSeconds(+(progress / 1000).toFixed(0))} / ${statusChanger.formatSeconds(durationSec)}`;
-        const barWidth = W - _strip(timeStr).length - 3;
+        const barWidth = W - _strip(timeStr).length - 10;
         const barStr   = _bar(progress, durationMs, Math.max(4, barWidth));
         const titleLeft  = `${C.bold}${C.white}lyrics-status${C.reset}`;
         const titleRight = `${C.gray}spotify: ${C.reset}${spotifyBadge}  ${C.gray}discord: ${C.reset}${gwBadge}`;
         const sentText = statusChanger._lastSentText ? `${C.dim}"${_trunc(statusChanger._lastSentText, W - 4)}"${C.reset}` : `${C.gray}nothing sent yet${C.reset}`;
-        const songDisplay   = playbackState.songName   ? `${C.bold}${_trunc(playbackState.songName,   W - 14)}${C.reset}` : `${C.gray}not listening${C.reset}`;
+        const songDisplay   = playbackState.songName   ? `${C.bold}${_trunc(playbackState.songName,   W - 21)}${C.reset}` : `${C.gray}not listening${C.reset}`;
         const artistDisplay = playbackState.songAuthor ? `${_trunc(playbackState.songAuthor, W - 14)}` : `${C.gray}\u2014${C.reset}`;
         const dueDisplay    = dueLine  ? `${C.bold}${_trunc(dueLine,  W - 4)}${C.reset}` : `${C.gray}\u2014${C.reset}`;
         const nextDisplay   = nextLine ? `${C.dim}${_trunc(nextLine, W - 4 - (nextEta ? nextEta.length + 4 : 0))}${nextEta ? "  " + C.gray + "(" + nextEta + ")" : ""}${C.reset}` : `${C.gray}\u2014${C.reset}`;
@@ -262,16 +326,16 @@ async function init() {
                 gwRate: op3Used,
                 rateLimited: rateLimitRemaining,
                 nextSend: nextSendIn,
-                dealer: useDealer ? (dealerClient?.connected ? "connected" : "reconnecting") : "rest",
+                dealer: useDiscordPresence ? "discord" : useDealer ? (dealerClient?.connected ? "connected" : "reconnecting") : "rest",
                 restore: Settings_1.Settings.restore?.enabled ? (statusChanger._restoreTimer ? "pending" : "armed") : "off",
                 albumArt: playbackState.albumArtUrl || "",
             });
         }
     }, 1000);
-    const _cleanExit = () => { clearInterval(_displayInterval); clearInterval(_progressInterval); clearInterval(_pollInterval); process.stdout.write("\x1b[?25h\x1b[0m\n"); try { dealerClient?.destroy(); } catch(_){} try { gatewayClient?.destroy(); } catch(_){} try { _store?.close(); } catch(_){} process.exit(0); };
+    const _cleanExit = () => { clearInterval(_displayInterval); clearInterval(_progressInterval); clearInterval(_pollInterval); process.stdout.write("\x1b[?25h\x1b[0m\n"); try { clearTimeout(statusChanger._lastLineClearTimer); } catch(_){} try { dealerClient?.destroy(); } catch(_){} try { clearTimeout(dealerClient?._fallbackTimer); } catch(_){} try { gatewayClient?.destroy(); } catch(_){} try { _trayInst?.kill(false); } catch(_){} try { _store?.close(); } catch(_){} process.exit(0); };
     process.on("SIGINT", _cleanExit);
     process.on("SIGTERM", _cleanExit);
-    const Tray_1 = require('./Tray'); Tray_1.startTray(_cleanExit);
+    const Tray_1 = require('./Tray'); const _trayInst = Tray_1.startTray(_cleanExit);
 }
 process.on("uncaughtException", e => {
     Debug_1.Debug.write(e.stack + "\n" + e.cause);
