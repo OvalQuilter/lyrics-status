@@ -15,7 +15,7 @@ class Updater {
         if (await Updater.checkUpdate()) {
             Debug_1.Debug.write("[Updater] Found an update. Starting download...");
             await Updater.forceUpdate();
-            Debug_1.Debug.write("[Updater] Updated! Run npm install & restart.");
+            Debug_1.Debug.write("[Updater] Updated! Restart the app -- dependencies will install automatically if needed.");
             process.exit(0);
         }
     }

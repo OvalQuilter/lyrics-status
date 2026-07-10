@@ -13,7 +13,7 @@ export class Updater {
 
             await Updater.forceUpdate()
 
-            console.log("LyricsStatus updated successfully! Please run \"npm install\" & restart to apply changes.")
+            console.log("LyricsStatus updated successfully! Restart to apply changes -- dependencies will install automatically if needed.")
 
             process.exit(0)
         }

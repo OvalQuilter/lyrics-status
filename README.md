@@ -72,6 +72,8 @@ npm install
 npm start
 ```
 
+Windows users: after the first `npm install`, you can also just double-click **start.bat** to launch -- it auto-installs/updates dependencies for you automatically, including after future updates.
+
 > **Downloaded a zip?** GitHub's auto-generated archives may omit pre-built files. Always use `git clone`.
 
 Open **http://localhost:8999** to configure.
