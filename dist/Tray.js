@@ -4,6 +4,7 @@ const notifier = require("node-notifier");
 const { exec } = require("child_process");
 const path = require("path");
 const fs = require("fs");
+const Debug_1 = require("./Debug");
 
 const IS_WIN = process.platform === "win32";
 const ICON = path.resolve(__dirname, IS_WIN ? "../res/note.ico" : "../res/note.png");
@@ -20,7 +21,8 @@ function openPanel() {
 }
 
 function startTray(onQuit) {
-    if (!fs.existsSync(ICON)) { console.warn("[Tray] Icon not found:", ICON); return null; }
+    if (!IS_WIN || process.env.NO_TRAY) { Debug_1.Debug.write("[Tray] Skipped"); return null; }
+    if (!fs.existsSync(ICON)) { console.warn("[Tray] Icon not found:", ICON); Debug_1.Debug.write("[Tray] Icon not found: " + ICON); return null; }
     let tray;
     try {
         tray = new SysTray({
@@ -47,11 +49,10 @@ function startTray(onQuit) {
             }
         });
         tray.ready().then(() => {
-            console.log("[Tray] Started");
-            openPanel();
-        }).catch(e => console.warn("[Tray] Failed:", e.message));
+            Debug_1.Debug.write("[Tray] Started");
+        }).catch(e => Debug_1.Debug.write("[Tray] Failed: " + e.message));
     } catch (e) {
-        console.warn("[Tray] Error:", e.message);
+        Debug_1.Debug.write("[Tray] Error: " + e.message);
         return null;
     }
     return tray;

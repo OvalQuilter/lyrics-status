@@ -7,7 +7,7 @@ import { Debug } from "./Debug"
 function cpLen(s: string): number { return [...s].length; }
 function cpSlice(s: string, n: number): string { return [...s].slice(0, n).join(""); }
 
-export class StatusChangerBase {
+export class StatusChanger {
     public playbackState: PlaybackState
     public sentLines: LyricsLine[]
     public autooffset: Autooffset
@@ -134,6 +134,101 @@ export class StatusChangerBase {
             .replace("{song_author}", author)
             .replace("{song_author_upper}", author.toUpperCase())
             .replace("{song_author_lower}", author.toLowerCase())
+    }
+
+    public changeStatus(): void {
+        this.autooffset.setLimit(Settings.timings.autooffset)
+
+        const playbackState = this.playbackState
+        if (playbackState.ended || !playbackState.hasLyrics || !playbackState.isPlaying) return
+
+        const lyrics = playbackState.lyrics
+        if (!lyrics) return
+
+        const now = Date.now()
+        if (Settings.rateLimit.enableBackoff && now < this._rateLimitedUntil) return
+
+        const minInterval = Settings.rateLimit.enableMinInterval
+            ? (Settings.rateLimit.minIntervalMs || 5000) : 0
+        if (minInterval > 0 && now - this._lastSentAt < minInterval) return
+
+        const currentLine = playbackState.currentLine
+        const songProgress = playbackState.songProgress
+        const lines = lyrics.lines
+        const offset = Settings.timings.enableAutooffset
+            ? this.autooffset.getAverageValue() + 100
+            : Settings.timings.sendTimeOffset
+
+        const mergeWindowMs = Settings.rateLimit.enableMergeLines
+            ? (Settings.rateLimit.mergeWindowMs || 8000) : 0
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i]
+            const nextLine = lines[i + 1]
+
+            if (line.time < (songProgress + offset)) {
+                if (!line.text) continue
+                if (nextLine && nextLine.time < (songProgress + offset)) continue
+                if (this.sentLines.some((sentLine) => sentLine.time === line.time)) break
+                if (line === currentLine) break
+
+                const { mergedText, lyricLines, mergedLines } = this.buildMergedLines(lines, i, mergeWindowMs)
+                playbackState.currentLine = line
+                this._lastSentAt = now
+
+                let statusText!: string
+                let emoji!: string
+
+                if (Settings.view.advanced.enabled) {
+                    const template = Settings.view.advanced.customStatus
+                    const fullStatus = this.applyTemplate(template, mergedText, line, playbackState)
+                    if (cpLen(fullStatus) <= 128) {
+                        statusText = fullStatus
+                    } else {
+                        const reducedLines = lyricLines.slice()
+                        let fitted = false
+                        while (reducedLines.length > 1) {
+                            reducedLines.pop()
+                            const candidate = this.applyTemplate(template, reducedLines.join(" "), line, playbackState)
+                            if (cpLen(candidate) <= 128) { statusText = candidate; fitted = true; break }
+                        }
+                        if (!fitted) {
+                            statusText = this.smartTruncate(
+                                this.applyTemplate(template, lyricLines[0], line, playbackState), 128, null
+                            )
+                        }
+                    }
+                    emoji = Settings.view.advanced.customEmoji
+                } else {
+                    const prefix = `${Settings.view.timestamp ? `[${this.formatSeconds(+(line.time / 1000).toFixed(0))}] ` : ""}${Settings.view.label ? "Song lyrics - " : ""}`
+                    const cleanedLines = lyricLines.map(l => l.replace("♪", "🎶"))
+                    const limit = 128 - cpLen(prefix)
+                    const reduced = cleanedLines.slice()
+                    while (reduced.length > 1 && cpLen(reduced.join(" ")) > limit) reduced.pop()
+                    const lyricsText = cpLen(reduced.join(" ")) <= limit
+                        ? reduced.join(" ")
+                        : this.smartTruncate(reduced[0], limit, null)
+                    statusText = prefix + lyricsText
+                    emoji = "🎶"
+                }
+
+                if (statusText === this._lastSentText) {
+                    for (const ml of mergedLines) this.sentLines.push(ml)
+                    break
+                }
+                this._lastSentText = statusText
+                Debug.write(`[StatusChanger] Queuing status (${mergedLines.length} line(s) merged): "${statusText}"`)
+                this.changeStatusRequest(statusText, Settings.credentials.token, emoji)
+
+                for (const ml of mergedLines) this.sentLines.push(ml)
+                break
+            }
+        }
+    }
+
+    public songChanged(): void {
+        this.sentLines = []
+        this._lastSentAt = Date.now()
     }
 
     public formatSeconds(s: number): string {

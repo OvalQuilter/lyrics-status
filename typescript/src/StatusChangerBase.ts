@@ -1,4 +1,4 @@
-﻿import { PlaybackState } from "./PlaybackState"
+import { PlaybackState } from "./PlaybackState"
 import { Settings } from "./Settings"
 import { LyricsLine } from "./Sources/BaseSource"
 import { Autooffset } from "./Autooffset"

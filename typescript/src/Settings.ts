@@ -63,21 +63,16 @@ export class Settings {
     public static chineseConversion: "off" | "toTraditional" | "toSimplified" = "off"
 
     public static save(): void {
-        try {
-            writeFileSync("./settings.json", JSON.stringify({
-                credentials: this.credentials,
-                view: this.view,
-                timings: this.timings,
-                update: this.update,
-                rateLimit: this.rateLimit,
-                sources: this.sources,
-                cache: this.cache,
-                chineseConversion: this.chineseConversion
-            }))
-        } catch (e) {
-            console.error("[lyrics-status] Failed to save settings.json:", (e as Error).message)
-            Debug.write("Failed to save settings.json: " + (e as Error).stack)
-        }
+        writeFileSync("./settings.json", JSON.stringify({
+            credentials: this.credentials,
+            view: this.view,
+            timings: this.timings,
+            update: this.update,
+            rateLimit: this.rateLimit,
+            sources: this.sources,
+            cache: this.cache,
+            chineseConversion: this.chineseConversion
+        }))
     }
 
     public static load(): void {
@@ -86,7 +81,6 @@ export class Settings {
         try {
             settings = JSON.parse(readFileSync("./settings.json").toString())
         } catch(e) {
-            console.warn("[lyrics-status] Could not read settings.json — using defaults. (" + (e as Error).message + ")")
             Debug.write("An error occurred while trying to read settings from file. Using defaults. Error: " + (e as Error).stack)
         }
 

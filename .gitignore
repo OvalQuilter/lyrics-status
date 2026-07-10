@@ -33,3 +33,26 @@ _dp_new.txt
 /dist/_fix3.js
 /dist/instrument.js
 STARTUP_PERF.txt
+
+# runtime/local artifacts
+/.lock
+/build_number.json
+/settings.json.bak
+
+# scratch/patch scripts
+_patch_*.js
+_verify*.js
+_dump*.js
+_dump*.txt
+_clean*.js
+_fix_*.js
+_getbuild.js
+_run_patch.js
+*.bak
+AUDIT_*.txt
+PLAN*.txt
+FIX_GUIDE.txt
+MERGEREFACTOR.TXT
+discord-presence-plan.txt
+panel_dump.txt
+AudD_PLAN.txt

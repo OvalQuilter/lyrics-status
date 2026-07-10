@@ -2,8 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GatewayClient = void 0;
 const WebSocket = require("ws");
+const cr = require("crypto");
 const Debug_1 = require("./Debug");
 const Settings_1 = require("./Settings");
+const ClientIdentity_1 = require("./ClientIdentity");
 const fs = require("fs");
 const path = require("path");
 
@@ -13,13 +15,13 @@ const NO_RESUME_CODES = new Set([4002, 4007, 4009]);
 const SESSION_PATH = path.resolve(__dirname, "../session.json");
 
 const FATAL_MESSAGES = {
-    4004: "Invalid Discord token — check your token in settings.",
+    4004: "Invalid Discord token â€” check your token in settings.",
     4010: "Invalid shard.",
     4011: "Sharding required.",
     4012: "Invalid API version.",
     4013: "Invalid intent(s).",
     4014: "Disallowed intent(s).",
-    4021: "Gateway rate limited — too many reconnects.",
+    4021: "Gateway rate limited â€” too many reconnects.",
 };
 
 function _loadSession(token) {
@@ -46,8 +48,12 @@ class GatewayClient {
         this._wsInstance = 0; this._hbGeneration = 0; this._lastActivity = null; this._flashStatus = null;
         this._lastRichPresenceActivity = null;
         this._reconnectDelay = 1000;
+        this._reconnectAttempts = 0;
         this._lastIdentifyAt = 0;
+        this._clientLaunchId = cr.randomUUID(); this._clientSessionId = ""; this._identifyTimestamp = 0; this._op41Timer = null;
+        this._lastType4State = null; this._type4CreatedAt = 0; this._lastPayloadKey = "";
         this.onReady = null;
+        this.onSpotifyActivity = null;
         this._pst = new Array(5).fill(0); this._pstHead = 0; this._pstCount = 0; this._lastGwSentAt = 0; // RL-14: circular buffer replaces _presenceSentTimes
     }
     get _presenceSentTimes() { const now = Date.now(); const out = []; for (let _i = this._pstCount - 1; _i >= 0; _i--) { const _t = this._pst[(this._pstHead - 1 - _i + 5) % 5]; if (now - _t <= 20000) out.push(_t); } return out; } // RL-14 compat
@@ -59,11 +65,20 @@ class GatewayClient {
             this._sessionId = saved.sessionId;
             this._seq = saved.seq;
             this._resumeUrl = saved.resumeUrl;
-            Debug_1.Debug.write("[GatewayClient] Loaded session from disk — will attempt resume");
+            Debug_1.Debug.write("[GatewayClient] Loaded session from disk â€” will attempt resume");
         }
         this._open(!!saved);
     }
-    destroy() { this._destroyed = true; this._reconnecting = false; this._clearHB(); try { this._ws?.terminate(); } catch (_) {} this._ws = null; this.connected = false; }
+    destroy() { this._destroyed = true; this._reconnecting = false; this._clearHB(); if (this._op41Timer) { clearInterval(this._op41Timer); this._op41Timer = null; } try { this._ws?.terminate(); } catch (_) {} this._ws = null; this.connected = false; }
+
+    forceReconnect() {
+        // Used when presenceStatus toggles to/from "mobile" â€” forces a fresh
+        // IDENTIFY (not RESUME) so the new client-identity properties (Android
+        // vs Windows) actually take effect immediately instead of waiting for
+        // the next non-resumable disconnect.
+        if (!this.connected && !this._ws) { this._open(false); return; }
+        this._reset(500, false);
+    }
 
     _reset(ms, canResume) {
         this.connected = false;
@@ -75,7 +90,11 @@ class GatewayClient {
         if (!this._destroyed) {
             this._reconnecting = true;
             let delay;
-            if (ms != null) { delay = ms; } else { this._reconnectDelay = Math.min(this._reconnectDelay * 2, 60000); delay = this._reconnectDelay; }
+            if (ms != null) { delay = ms; } else {
+                this._reconnectDelay = Math.min(this._reconnectDelay * 2, 60000);
+                this._reconnectAttempts++;
+                delay = this._reconnectDelay * (0.8 + Math.random() * 0.4);
+            }
             setTimeout(() => { this._reconnecting = false; if (!this._destroyed) this._open(canResume); }, delay);
         }
     }
@@ -85,7 +104,7 @@ class GatewayClient {
         const url = (resume && this._resumeUrl) ? this._resumeUrl : GATEWAY_URL;
         Debug_1.Debug.write(`[GatewayClient] Connecting... (resume=${resume}, url=${url})`);
         let ws;
-        try { ws = new WebSocket(url); } catch (e) { Debug_1.Debug.write(`[GatewayClient] WS create failed: ${e.message}`); this._reconnecting = false; this._scheduleReconnect(5000, resume); return; } // CONN-04
+        try { ws = new WebSocket(url, { headers: { "User-Agent": ClientIdentity_1.ClientIdentity.userAgent(), "Origin": "https://discord.com" } }); } catch (e) { Debug_1.Debug.write(`[GatewayClient] WS create failed: ${e.message}`); this._reconnecting = false; this._scheduleReconnect(4000 + Math.floor(Math.random() * 2500), resume); return; } // CONN-04
         const instance = ++this._wsInstance;
         this._ws = ws;
         ws.on("message", data => {
@@ -100,7 +119,8 @@ class GatewayClient {
                         Debug_1.Debug.write("[GatewayClient] Sending RESUME");
                         this._send({ op: 6, d: { token, session_id: this._sessionId, seq: this._seq } });
                     } else {
-                        this._identify(token);
+                        const _iDelay = 200 + Math.floor(Math.random() * 400);
+                        const _iInst = this._wsInstance; setTimeout(() => { if (!this._destroyed && this._wsInstance === _iInst) this._identify(token); }, _iDelay);
                     }
                     break;
                 }
@@ -111,11 +131,14 @@ class GatewayClient {
                         this._sessionId = msg.d.session_id;
                         this._resumeUrl = msg.d.resume_gateway_url || GATEWAY_URL;
                         _saveSession(token, this._sessionId, this._seq, this._resumeUrl);
-                        this.connected = true; this._connectedAt = Date.now();
+                        this.connected = true; this._connectedAt = Date.now(); this._postReadyHold = 3000 + Math.floor(Math.random() * 2000);
                         this._reconnecting = false;
                         this._resetReconnectDelay();
                         Debug_1.Debug.write("[GatewayClient] Connected (READY)");
+                        this._checkSessionsForSpotify(msg.d.sessions);
                         if (typeof this.onReady === "function") { try { this.onReady(); } catch(e) { Debug_1.Debug.write(`[GatewayClient] onReady callback error: ${e}`); } }
+                    } else if (msg.t === "SESSIONS_REPLACE") {
+                        this._checkSessionsForSpotify(msg.d);
                     } else if (msg.t === "RESUMED") {
                         this.connected = true;
                         this._reconnecting = false;
@@ -149,7 +172,7 @@ class GatewayClient {
             const canResume = !NO_RESUME_CODES.has(code);
             if (!canResume) { _clearSession(); this._sessionId = null; this._seq = null; this._resumeUrl = null; } // #13: discard stale session in memory on non-resumable close
             Debug_1.Debug.write(`[GatewayClient] Disconnected (${code}) \u2014 reconnecting in 5s (resume=${canResume})`);
-            this._scheduleReconnect(5000, canResume);
+            this._scheduleReconnect(4000 + Math.floor(Math.random() * 2500), canResume);
         });
         ws.on("error", e => Debug_1.Debug.write(`[GatewayClient] WS error: ${e.message}`));
     }
@@ -158,18 +181,22 @@ class GatewayClient {
         const now = Date.now();
         if (now - this._lastIdentifyAt < 5000) {
             const wait = 5000 - (now - this._lastIdentifyAt);
-            Debug_1.Debug.write(`[GatewayClient] Identify rate limit — waiting ${wait}ms`);
+            Debug_1.Debug.write(`[GatewayClient] Identify rate limit â€” waiting ${wait}ms`);
             const _inst = this._wsInstance; setTimeout(() => { if (!this._destroyed && this._wsInstance === _inst) this._identify(token); }, wait);
             return;
         }
         this._lastIdentifyAt = now;
+        this._clientSessionId = cr.randomUUID(); this._identifyTimestamp = now;
         const pref = Settings_1.Settings.gateway?.presenceStatus || "online";
         const isMobile = pref === "mobile";
         const status = isMobile ? "online" : pref;
-        const props = isMobile
-            ? { os: "Android", browser: "Discord Android", device: "discord-android" }
-            : { os: "Windows", browser: "Discord Client", device: "" };
-        this._send({ op: 2, d: { token, properties: props, compress: false, intents: 0, presence: { status, afk: status === "idle", since: status === "idle" ? Date.now() : null, activities: [] } } });
+        const _gp = ClientIdentity_1.ClientIdentity.gatewayProperties();
+        const baseProps = isMobile
+            ? { ..._gp, os: "Android", browser: "Discord Android", device: "discord-android" }
+            : _gp;
+        const props = { ...baseProps, client_heartbeat_session_id: this._clientSessionId, client_launch_id: this._clientLaunchId };
+        this._send({ op: 2, d: { token, properties: props, compress: false, capabilities: 16381, client_state: { api_code_version: 0, guild_versions: {} }, presence: { status, afk: status === "idle", since: status === "idle" ? now : 0, activities: [] } } });
+        setTimeout(() => this._sendOp41(), 500);
     }
     _startHB(interval) {
         this._clearHB();
@@ -179,7 +206,9 @@ class GatewayClient {
             this._hbTimeout = null;
             if (this._hbGeneration !== gen) return;
             this._ackReceived = false;
-            this._send({ op: 1, d: this._seq });
+            this._send({ op: 40, d: { seq: this._seq, qos: { ver: 27, active: true, reasons: ["foregrounded"] } } });
+            if (this._op41Timer) clearInterval(this._op41Timer);
+            this._op41Timer = setInterval(() => this._sendOp41(), 30 * 60 * 1000);
             this._hbInterval = setInterval(() => {
                 if (!this._ackReceived) {
                     Debug_1.Debug.write("[GatewayClient] HB ACK missed \u2014 reconnecting");
@@ -190,53 +219,85 @@ class GatewayClient {
             }, interval);
         }, Math.floor(Math.random() * interval));
     }
-    _sendHB() { this._ackReceived = false; this._send({ op: 1, d: this._seq }); }
+    _sendHB() { this._ackReceived = false; this._send({ op: 40, d: { seq: this._seq, qos: { ver: 27, active: true, reasons: ["foregrounded"] } } }); }
+    _sendOp41() { if (!this._ws || !this.connected) return; this._send({ op: 41, d: { initialization_timestamp: this._identifyTimestamp, session_id: this._clientSessionId, client_launch_id: this._clientLaunchId } }); this._send({ op: 40, d: { seq: this._seq, qos: { ver: 27, active: true, reasons: ["foregrounded"] } } }); }
     _clearHB() { clearTimeout(this._hbTimeout); clearInterval(this._hbInterval); this._hbTimeout = this._hbInterval = null; }
     _scheduleReconnect(ms, canResume) {
         if (this._reconnecting || this._destroyed) return;
         this._reconnecting = true;
         let delay;
-        if (ms != null) { delay = ms; } else { this._reconnectDelay = Math.min(this._reconnectDelay * 2, 60000); delay = this._reconnectDelay; }
+        if (ms != null) { delay = ms; } else {
+            this._reconnectDelay = Math.min(this._reconnectDelay * 2, 60000);
+            this._reconnectAttempts++;
+            delay = this._reconnectDelay * (0.8 + Math.random() * 0.4);
+        }
         setTimeout(() => { this._reconnecting = false; if (!this._destroyed) this._open(canResume); }, delay);
     }
-    _resetReconnectDelay() { this._reconnectDelay = 1000; }
+    _resetReconnectDelay() { this._reconnectDelay = 1000; this._reconnectAttempts = 0; }
+    _checkSessionsForSpotify(sessions) {
+        if (!Array.isArray(sessions) || !this.onSpotifyActivity) return;
+        const sps = sessions.flatMap(s => s.activities || []).filter(a => a.type === 2 && a.name === "Spotify");
+        let sp = sps.sort((a,b) => (b.timestamps?.start||0) - (a.timestamps?.start||0))[0] || null;
+        if (sp?.timestamps?.end && Date.now() > sp.timestamps.end + 5000) sp = null; // stale: track should have ended, other device likely stopped silently
+        const key = sp ? `${sp.sync_id || sp.details || sp.name}:${sp.timestamps?.start || 0}` : null;
+        if (key === this._lastSpotifyKey) return; // no real change, skip redundant reset downstream
+        this._lastSpotifyKey = key;
+        try { this.onSpotifyActivity(sp); } catch(e) { Debug_1.Debug.write("[GatewayClient] onSpotifyActivity err: " + e); }
+    }
     _send(payload) {
         if (this._ws?.readyState === WebSocket.OPEN) try { this._ws.send(JSON.stringify(payload)); } catch (e) { Debug_1.Debug.write(`[GatewayClient] Send error (op ${payload?.op ?? "?"}): ${e.message}`); }
     }
 
     flashPresence(status, text, emoji) {
         if (!this.connected) return false;
+        const now = Date.now();
+        let _pstActive = 0;
+        for (let _i = 0; _i < this._pstCount; _i++) { const _t = this._pst[(this._pstHead - 1 - _i + 5) % 5]; if (now - _t <= 20000) _pstActive++; }
+        if (_pstActive >= 5) { Debug_1.Debug.write(`[GatewayClient] flashPresence rate limit (5/20s) â€” skipping`); return false; }
+        this._pst[this._pstHead] = now; this._pstHead = (this._pstHead + 1) % 5; this._pstCount = Math.min(this._pstCount + 1, 5); this._lastGwSentAt = now;
         this._flashStatus = status;
         let type4 = null;
         if (typeof text === "string" && text !== "") {
-            type4 = { type: 4, name: "Custom Status", state: text, emoji: emoji ? { name: emoji } : null };
+            type4 = { id: "custom", type: 4, name: "Custom Status", state: text, emoji: emoji ? { name: emoji } : null, created_at: Date.now() };
         } else if (text == null && this._lastActivity) {
             type4 = this._lastActivity;
         }
         const activities = [type4, this._lastRichPresenceActivity].filter(Boolean);
-        this._send({ op: 3, d: { since: status === "idle" ? Date.now() : null, afk: status === "idle", status, activities } });
+        this._send({ op: 3, d: { since: status === "idle" ? Date.now() : 0, afk: status === "idle", status, activities } });
         Debug_1.Debug.write("[GatewayClient] flashPresence " + status + " | " + (type4 ? type4.state : "none"));
         return true;
     }
-    clearFlashStatus() { this._flashStatus = null; }
-    clearLastActivity() { this._lastActivity = null; this._lastRichPresenceActivity = null; }
+    clearFlashStatus() { this._flashStatus = null; this._lastPayloadKey = ""; }
+    refreshPresenceStatus() { if (!this.connected) return false; this._lastPayloadKey = ""; return this.setCustomStatus(this._lastActivity?.state || "", this._lastActivity?.emoji?.name || null); }
+    clearLastActivity() { this._lastActivity = null; this._lastRichPresenceActivity = null; this._lastPayloadKey = ""; }
 
     setCustomStatus(text, emoji) {
         if (!this.connected) return false;
-        const now = Date.now(); if (now - (this._connectedAt || 0) < 3000) { Debug_1.Debug.write(`[GatewayClient] post-READY hold`); return "hold"; }
+        const now = Date.now(); if (now - (this._connectedAt || 0) < (this._postReadyHold || 3000)) { Debug_1.Debug.write(`[GatewayClient] post-READY hold`); return "hold"; }
+        const _pref0 = Settings_1.Settings.gateway?.presenceStatus || "online";
+        const _status0 = this._flashStatus || (_pref0 === 'mobile' ? 'online' : _pref0 === 'off' ? 'online' : _pref0 === 'invisible' ? 'invisible' : _pref0);
+        const _payloadKeyEarly = _status0 + "|" + (text || "") + "|" + (emoji || "") + "|" + (this._lastRichPresenceActivity ? JSON.stringify(this._lastRichPresenceActivity) : "");
+        if (_payloadKeyEarly === this._lastPayloadKey) { Debug_1.Debug.write("[GatewayClient] op3 payload unchanged (pre-check) \u2014 skipping"); return false; }
         const minGwInterval = Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000;
-        // RL-14: prune via circular buffer — count entries within 20s window
+        // RL-14: prune via circular buffer â€” count entries within 20s window
         let _pstActive = 0;
         for (let _i = 0; _i < this._pstCount; _i++) { const _t = this._pst[(this._pstHead - 1 - _i + 5) % 5]; if (now - _t <= 20000) _pstActive++; }
-        if (minGwInterval > 0 && this._lastGwSentAt > 0 && now - this._lastGwSentAt < minGwInterval) { Debug_1.Debug.write("[GatewayClient] op3 min interval (" + minGwInterval + "ms) not elapsed \u2014 skipping"); return false; }
+        const _gwJitteredFloor = minGwInterval + (this._gwSendJitterMs || 0);
+        if (_gwJitteredFloor > 0 && this._lastGwSentAt > 0 && now - this._lastGwSentAt < _gwJitteredFloor) { Debug_1.Debug.write("[GatewayClient] op3 min interval (" + minGwInterval + "ms) not elapsed \u2014 skipping"); return false; }
         if (_pstActive >= 5) { Debug_1.Debug.write(`[GatewayClient] op3 rate limit (5/20s) \u2014 skipping`); return false; }
         this._pst[this._pstHead] = now; this._pstHead = (this._pstHead + 1) % 5; this._pstCount = Math.min(this._pstCount + 1, 5); this._lastGwSentAt = now;
+        this._gwSendJitterMs = minGwInterval > 0 ? Math.random() * 0.20 * minGwInterval : 0;
         const pref = Settings_1.Settings.gateway?.presenceStatus || "online";
         const status = this._flashStatus || (pref === 'mobile' ? 'online' : pref === 'off' ? 'online' : pref === 'invisible' ? 'invisible' : pref);
-        const type4 = { type: 4, name: "Custom Status", state: text || "", emoji: emoji ? { name: emoji } : null };
+        const _newState = (text || "") + "|" + (emoji || "");
+        if (_newState !== this._lastType4State) { this._type4CreatedAt = now; this._lastType4State = _newState; }
+        const type4 = { id: "custom", type: 4, name: "Custom Status", state: text || "", emoji: emoji ? { name: emoji } : null, created_at: this._type4CreatedAt };
         this._lastActivity = type4;
         const activities = [type4, this._lastRichPresenceActivity].filter(Boolean);
-        this._send({ op: 3, d: { since: status === 'idle' ? now : null, afk: status === 'idle', status, activities } });
+        const _payloadKey = status + "|" + (text || "") + "|" + (emoji || "") + "|" + (this._lastRichPresenceActivity ? JSON.stringify(this._lastRichPresenceActivity) : "");
+        if (_payloadKey === this._lastPayloadKey) { Debug_1.Debug.write("[GatewayClient] op3 payload unchanged â€” skipping"); return false; }
+        this._lastPayloadKey = _payloadKey;
+        this._send({ op: 3, d: { since: status === 'idle' ? now : 0, afk: status === 'idle', status, activities } });
         return true;
     }
 }

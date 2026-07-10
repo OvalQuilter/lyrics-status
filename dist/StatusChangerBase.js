@@ -38,6 +38,9 @@ const _STYLES = {
     double_struck:    [0x1D552 - 0x61, 0x1D538 - 0x41, { 0x43: "\u2102", 0x48: "\u210D", 0x4E: "\u2115", 0x50: "\u2119", 0x51: "\u211A", 0x52: "\u211D", 0x5A: "\u2124" }, 0x1D7D8 - 0x30],
     fraktur:          [0x1D51E - 0x61, 0x1D504 - 0x41, { 0x43: "\u212D", 0x48: "\u210C", 0x49: "\u2111", 0x52: "\u211C", 0x5A: "\u2128" },                                   null],
     fraktur_bold:     [0x1D586 - 0x61, 0x1D56C - 0x41, null,                                                                                                                                      null],
+    script:           [0x1D4B6 - 0x61, 0x1D49C - 0x41, { 0x65: "\u212F", 0x67: "\u210A", 0x6F: "\u2134", 0x42: "\u212C", 0x45: "\u2130", 0x46: "\u2131", 0x48: "\u210B", 0x49: "\u2110", 0x4C: "\u2112", 0x4D: "\u2133", 0x52: "\u211B" }, null],
+    script_bold:      [0x1D4EA - 0x61, 0x1D4D0 - 0x41, null,                                                                                                                                      null],
+    monospace:        [0x1D68A - 0x61, 0x1D670 - 0x41, null,                                                                                                                                      0x1D7F6 - 0x30],
 };
 
 function _unicodeUnderline(s) {
@@ -68,7 +71,22 @@ const _SANITIZE = [
     [/\uFEFF/g, ""],
     [/[\u200B-\u200F\u202A-\u202E\u2060-\u2064]/g, ""],
 ];
-function sanitizeLyric(s) { return _SANITIZE.reduce((r, [p, v]) => r.replace(p, v), s).trim(); }
+const _PROFANITY_EXCLUDE = new Set(["god","sex","lust","lusting","horny","horniest","hotsex","viagra","v14gra","v1gra","cyalis","porn","porno","pornography","pornos","pron","p0rn","xrated","xxx","orgasim","orgasims","orgasm","orgasms","ejaculate","ejaculated","ejaculates","ejaculating","ejaculatings","ejaculation","ejakulate","semen","penis","vagina","testicle","testical","rectum","anus","pawn","cox","fanny","fannyflaps","fanyy","willy","willies","homo","heshe","muff","bum","tit"]);
+const _PROFANITY_LIST = Array.from(new Set(require("badwords-list").array.map(w=>w.toLowerCase()))).filter(w=>!_PROFANITY_EXCLUDE.has(w));
+const _escRe = w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const _PROFANITY_RE = new RegExp("\\b(" + _PROFANITY_LIST.slice().sort((a,b)=>b.length-a.length).map(_escRe).join("|") + ")\\b", "gi");
+function censorProfanity(s) {
+    let min = Settings_1.Settings.view?.profanityCensorMin; min = Number.isFinite(min) ? Math.floor(min) : 2;
+    let max = Settings_1.Settings.view?.profanityCensorMax; max = Number.isFinite(max) ? Math.floor(max) : 6;
+    if (max < min) max = min;
+    let ratio = Settings_1.Settings.view?.profanityCensorRatio; ratio = Number.isFinite(ratio) ? ratio / 100 : 0.5; ratio = Math.max(0, Math.min(1, ratio));
+    return s.replace(_PROFANITY_RE, w => {
+        const scaled = Math.round(w.length * ratio); // smart scaling: censor a % of the word, bounded by min/max
+        const c = Math.max(1, Math.min(w.length - 1, Math.min(max, Math.max(min, scaled))));
+        return w.slice(0, w.length - c) + "*".repeat(c);
+    });
+}
+function sanitizeLyric(s) { let r = _SANITIZE.reduce((r, [p, v]) => r.replace(p, v), s).trim(); if (Settings_1.Settings.view?.profanityFilter) r = censorProfanity(r); return r; }
 
 // FIX: accept `now` param so caller controls the timestamp — avoids bucket desync
 function resolveUnicodeStyle(adv, now) {
@@ -174,11 +192,14 @@ class StatusChangerBase {
             const elapsed = Date.now() - now;
             if (res.status === 429) {
                 res.text().then(raw => {
-                    Debug_1.Debug.write(`[StatusChanger] Rate limited (HTTP 429) | body: ${raw}`);
+                    const scope = res.headers.get("x-ratelimit-scope");
+                    Debug_1.Debug.write(`[StatusChanger] Rate limited (HTTP 429) | scope: ${scope} | body: ${raw}`);
                     let retryAfter = 5;
                     try { const b = JSON.parse(raw); if (typeof b.retry_after === "number" && b.retry_after > 0) retryAfter = Math.min(Math.max(b.retry_after, 5), 300); }
                     catch (e) { Debug_1.Debug.write(`[StatusChanger] Failed to parse rate limit body, defaulting to ${retryAfter}s: ${e}`); }
+                    if (scope === "shared") retryAfter = Math.min(retryAfter, 5);
                     this._rateLimitedUntil = Date.now() + retryAfter * 1000;
+                    if (res.headers.get("x-ratelimit-global") === "true") this._globalLimitedUntil = this._rateLimitedUntil;
                     Debug_1.Debug.write(`[StatusChanger] Backing off ${retryAfter}s (backoff=${Settings_1.Settings.rateLimit?.enableBackoff}) — rolling back sent state for retry`);
                     if (mergedLines) for (const ml of mergedLines) { if (!this._rollbackLines) this._rollbackLines = new Set(); this._rollbackLines.add(ml); }
                     if (sentLine && this.playbackState.currentLine === sentLine) this.playbackState.currentLine = null;
@@ -215,6 +236,7 @@ class StatusChangerBase {
 
     restoreStatus() {
         if (!this._captureReady) { Debug_1.Debug.write(`[StatusChanger] Restore skipped — capture not ready`); return; }
+        if (Date.now() < this._globalLimitedUntil) { Debug_1.Debug.write(`[StatusChanger] Restore skipped — global rate limit`); return; }
         const s = this._savedStatus;
         if (!s) return;
         Debug_1.Debug.write(`[StatusChanger] Restoring saved status: "${s.text}"`);
@@ -267,7 +289,7 @@ class StatusChangerBase {
         const mergedLines  = [anchor];
 
         if (mergeWindowMs > 0) {
-            const backwardMax = maxLines > 0 ? Math.floor((maxLines - 1) / 2) : 0;
+            const backwardMax = maxLines > 0 ? Math.floor((maxLines - 1) / 2) : Infinity;
 
             // Backward pass
             if (backwardMax > 0) {
@@ -275,31 +297,34 @@ class StatusChangerBase {
                 for (let j = anchorIndex - 1; j >= 0; j--) {
                     const ln = lines[j];
                     const isCatchup = this._catchupStaleLines?.has(ln);
-                    if (anchor.time - ln.time > win && !isCatchup) break;
                     if (!ln.text) { lastTime = ln.time; continue; }
-                    if (lastTime - ln.time > win && !isCatchup) break;
+                    const _catchupMult = Settings_1.Settings.rateLimit?.catchupWindowMultiplier ?? 3;
+                if (lastTime - ln.time > win && (!isCatchup || lastTime - ln.time > win * _catchupMult)) break;
                     const inRollback = this._rollbackLines?.has(ln);
                     if (!ignoreStale && !isCatchup && this.sentLines.has(ln) && !this._staleLines.has(ln) && !inRollback) break;
                     mergedLines.unshift(ln);
                     lastTime = ln.time;
                     if (mergedLines.length > backwardMax) break;
+                    if (maxLines > 0 && mergedLines.length >= maxLines) break;
                 }
             }
 
             // Forward pass
             let lastTime = anchor.time;
+            let _cl = cpLen(anchor.text||"");
             for (let j = anchorIndex + 1; j < lines.length; j++) {
                 const ln = lines[j];
                 if (!ln.text) { lastTime = ln.time; continue; }
-                if (ln.time - anchor.time > win) break;
                 if (ln.time - lastTime > win) break;
-                if (this.sentLines.has(ln) && !this._staleLines.has(ln)) break;
+                lastTime = ln.time;
+                const inRollback = this._rollbackLines?.has(ln);
+                if (!ignoreStale && this.sentLines.has(ln) && !this._staleLines.has(ln) && !inRollback) continue;
                 if (maxLines > 0 && mergedLines.length >= maxLines) break;
-                const _cl=mergedLines.reduce((a,l)=>a+(l.text||"").length+1,0);
-                if (_cl+(ln.text||"").length>120) break;
+                const addLen = cpLen(ln.text||"") + 1;
+                if (_cl + addLen > 128) break;
                 mergedLines.push(ln);
                 forwardLines.add(ln);
-                lastTime = ln.time;
+                _cl += addLen;
             }
         }
 
@@ -312,7 +337,7 @@ class StatusChangerBase {
     }
     applyTemplate(template, mergedText, line, ps, lineIndex, totalLines, styleFn) {
         if (mergedText) {
-            mergedText = mergedText.replace(/作曲\s*[:：][^\n]*/g, '').replace(/作词\s*[:：][^\n]*/g, '').replace(/编曲\s*[:：][^\n]*/g, '').replace(/纯音乐[，,]请欣赏/g, '').replace(/此歌曲为没有填词的纯音乐/g, '').trim();
+            mergedText = mergedText.replace(/作曲\s*[:：][^\n]*/g, '').replace(/作词\s*[:：][^\n]*/g, '').replace(/编曲\s*[:：][^\n]*/g, '').replace(/纯音乐[，]请欣赏/g, '').replace(/此歌曲为没有填词的纯音乐/g, '').trim();
         }
         if (!mergedText) template = '{song_name}';
         const durationSec = isFinite(ps.songDuration) ? +(ps.songDuration / 1000).toFixed(0) : 0;
@@ -330,12 +355,30 @@ class StatusChangerBase {
         let out = template;
         for (const [k, v] of Object.entries(vars)) {
             if (!out.includes("{" + k)) continue;
-            const clean     = v.replace(/[^a-zA-Z\s]/g, "");
-            const crop      = k.startsWith("song_") ? v.replace(/( - .+)|(\(.+\))/gi, "") : v;
-            const titleCase = v.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
-            let vals = [v, v.toUpperCase(), v.toLowerCase(), titleCase, clean, clean.toUpperCase(), clean.toLowerCase(), crop, crop.toUpperCase(), crop.toLowerCase()];
-            if (k === "lyrics" && styleFn) vals = vals.map(x => styleFn(x));
-            SUFFIXES.forEach((s, i) => { out = out.replace(TEMPLATE_RE.get(k + s), vals[i]); });
+            // PERF-2: only compute/substitute the suffix variants the template actually
+            // references, instead of unconditionally building all 10 case/crop/style
+            // variants (and running styleFn on all 10) for every var on every send.
+            let clean, crop;
+            for (const s of SUFFIXES) {
+                if (!out.includes("{" + k + s + "}")) continue;
+                let val;
+                if (s === "") val = v;
+                else if (s === "_upper") val = v.toUpperCase();
+                else if (s === "_lower") val = v.toLowerCase();
+                else if (s === "_title_case") val = v.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+                else {
+                    if (clean === undefined) clean = v.replace(/[^a-zA-Z\s]/g, "");
+                    if (crop === undefined) crop = k.startsWith("song_") ? v.replace(/( - .+)|(\(.+\))/gi, "") : v;
+                    if (s === "_letters_only") val = clean;
+                    else if (s === "_upper_letters_only") val = clean.toUpperCase();
+                    else if (s === "_lower_letters_only") val = clean.toLowerCase();
+                    else if (s === "_cropped") val = crop;
+                    else if (s === "_upper_cropped") val = crop.toUpperCase();
+                    else if (s === "_lower_cropped") val = crop.toLowerCase();
+                }
+                if (k === "lyrics" && styleFn) val = styleFn(val);
+                out = out.replace(TEMPLATE_RE.get(k + s), val);
+            }
         }
         out = out.replace(/^[\s\.,;:\-!?]+/, '').trim();
         return out;
@@ -343,6 +386,7 @@ class StatusChangerBase {
 
     _iOSSync(text, emoji, force = false) {
         if (!this._captureReady || !text || this._restoreTimer) return;
+        if (Date.now() < this._globalLimitedUntil) return;
         if (!Settings_1.Settings.gateway || !Settings_1.Settings.gateway.enabled) return;
         const _syncSongId = this.playbackState.songId;
         const now = Date.now();
@@ -370,9 +414,9 @@ class StatusChangerBase {
                     }, retryAfter * 1000);
                 }).catch(() => {});
             } else {
-                res.text().then(b => Debug_1.Debug.write(`[StatusChanger] iOS REST sync HTTP ${res.status}: ${b}`)).catch(() => {});
+                res.text().then(b => Debug_1.Debug.write(`[StatusChanger] iOS REST sync HTTP ${res.status}: ${b}`)).catch(() => {}); setTimeout(() => { if (this._lastSentText === text && this.playbackState.songId === _syncSongId) this._iOSSync(text, emoji, true); }, 5000);
             }
-        }).catch(e => Debug_1.Debug.write(`[StatusChanger] iOS REST sync error: ${e}`));
+        }).catch(e => { Debug_1.Debug.write(`[StatusChanger] iOS REST sync error: ${e}`); setTimeout(() => { if (this._lastSentText === text && this.playbackState.songId === _syncSongId) this._iOSSync(text, emoji, true); }, 5000); });
     }
 
     _onGatewayReady() {
@@ -383,7 +427,7 @@ class StatusChangerBase {
         const pendingEmoji = this._iOSSyncPending?.em;
         if (pendingText) {
             this._iOSSyncPending = null;
-            this._iOSSync(pendingText, pendingEmoji || emoji);
+            this._iOSSync(pendingText, pendingEmoji);
         } else {
             this._iOSSync(this._lastSentText, emoji);
         }

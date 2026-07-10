@@ -26,7 +26,8 @@ class QQMusicSource {
             if (!line) continue;
             const m = line.match(QQ_RE);
             if (!m?.[1] || !m[3] || !m[4]) continue;
-            lines.push({ time: (60 * +m[1] + +m[3]) * 1000 + parseInt(String(m[4]).padEnd(3, "0")), text: decode(line.replace(QQ_RE, "") || "") });
+            const qqText = decode(line.replace(QQ_RE, "").trim()); if (!qqText) continue;
+            lines.push({ time: (60 * +m[1] + +m[3]) * 1000 + parseInt(String(m[4]).padEnd(3, "0")), text: qqText });
         }
         return { lines };
     }

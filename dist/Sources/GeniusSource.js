@@ -54,29 +54,33 @@ class GeniusSource {
     _extractLines(html) {
         const lines = [];
         let time = 0;
-
-        // Extract all data-lyrics-container div contents
-        const containerRe = /data-lyrics-container="true"[^>]*>([\s\S]*?)<\/div>/g;
-        let containerMatch;
-        while ((containerMatch = containerRe.exec(html)) !== null) {
-            const inner = containerMatch[1];
-            // Convert <br> to newlines, strip all other tags
+        // Depth-counting to find balanced </div> — avoids truncation on nested divs
+        const openRe = /data-lyrics-container="true"[^>]*>/g;
+        let m;
+        while ((m = openRe.exec(html)) !== null) {
+            const start = m.index + m[0].length;
+            let depth = 1, i = start;
+            while (depth > 0 && i < html.length) {
+                const o = html.indexOf('<div', i);
+                const c = html.indexOf('</div>', i);
+                if (c === -1) break;
+                if (o !== -1 && o < c && /[\s>]/.test(html[o + 4] || '')) { depth++; i = o + 4; }
+                else { depth--; i = c + 6; }
+            }
+            if (depth !== 0) continue;
+            const inner = html.slice(start, i - 6);
             const text = inner
                 .replace(/<br\s*\/?>/gi, "\n")
                 .replace(/<[^>]+>/g, "")
-                .replace(/&#x27;/g, "'")
+                .replace(/&#x27;|&#39;/g, "'")
                 .replace(/&amp;/g, "&")
                 .replace(/&quot;/g, '"')
-                .replace(/&#39;/g, "'")
                 .replace(/&lt;/g, "<")
                 .replace(/&gt;/g, ">")
                 .replace(/&nbsp;/g, " ");
-
             for (const raw of text.split("\n")) {
                 const line = raw.trim();
-                if (!line) continue;
-                // Skip section headers like [Verse 1], [Chorus], etc.
-                if (/^\[.*\]$/.test(line)) continue;
+                if (!line || /^\[.*\]$/.test(line)) continue;
                 lines.push({ time, text: line });
                 time += LINE_DURATION_MS;
             }

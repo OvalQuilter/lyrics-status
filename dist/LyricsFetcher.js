@@ -36,7 +36,7 @@ class LyricsFetcher {
 
     addSource(source) { this.sources.push(source); }
 
-    async fetchLyrics(name, artist, songId) {
+    async fetchLyrics(name, artist, songId, durationMs = 0) {
         if (!name || !artist) return null;
 
         const key = (0, CacheStore_1.cacheKey)(name, artist);
@@ -64,13 +64,13 @@ class LyricsFetcher {
         // Cache miss — reset lastAttemptedFor so PlaybackStateUpdater can retry if needed
         this.lastAttemptedFor = "";
 
-        const p = this._doFetch(name, artist, songId);
+        const p = this._doFetch(name, artist, songId, durationMs);
         this._inFlight.set(key, p);
         p.finally(() => this._inFlight.delete(key));
         return p;
     }
 
-    async _doFetch(name, artist, songId) {
+    async _doFetch(name, artist, songId, durationMs = 0) {
         if (!this._skip) this._skip = new Map();
         let result = null;
         let appName = "none";
@@ -92,12 +92,27 @@ class LyricsFetcher {
         }));
 
         let fallback = null;
+        const _durationOk = r => {
+            if (!durationMs || durationMs <= 0) return true;
+            const times = r.lines.filter(l => l.time > 0).map(l => l.time);
+            if (!times.length) return true;
+            const lastTime = Math.max(...times);
+            if (lastTime > durationMs + 20000) return false; // lyrics run far past track end — likely wrong song
+            if (lastTime < durationMs * 0.15) return false; // lyrics end far too early — likely wrong/mismatched track (loose margin to avoid rejecting long-outro songs)
+            return true;
+        };
         for (const entry of results) {
             if (!entry?.r?.lines?.length) continue;
+            const _timed = entry.r.lines.some(l => l.time > 0);
+            if (_timed && !_durationOk(entry.r)) { Debug_1.Debug.write(`[LyricsFetcher] ${entry.source.getAppName()} duration mismatch — skipping (possible wrong track)`); continue; } // excluded from both primary AND fallback selection
             if (!fallback) { fallback = entry; }
-            if (entry.r.lines.some(l => l.time > 0)) { result = entry.r; appName = entry.source.getAppName(); break; }
+            if (_timed) { result = entry.r; appName = entry.source.getAppName(); break; }
         }
         if (!result && fallback) { result = fallback.r; appName = fallback.source.getAppName(); }
+        // CONN-40: mirror CacheStore's safeLines validity check here too, so the live
+        // (cache-miss) fetch path agrees with what a subsequent cache-hit would report,
+        // instead of briefly showing fully-untimed lyrics that then vanish on the next poll.
+        if (result && (!result.lines?.length || result.lines.every(l => l.time === 0))) { result = null; appName = "none"; }
 
         const error = !result ? (hadNetworkError ? "network" : "no_results") : undefined; // CONN-39: no_results avoids permanent cache on clean miss
         this.cache.set(name, artist, result?.lines ?? null, appName, error);

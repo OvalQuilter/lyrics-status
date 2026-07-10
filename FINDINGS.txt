@@ -1,35 +1,85 @@
-CONN-01 [index.js] onReady reassigned twice — race if connect() fires before wrapper set. | FIX: single onReady closure before connect(). | RISK: future double-assignment re-creates race. | INTRODUCED: future editors may re-add second onReady after connect(). | APPLIED: merged into one closure, fallbackTimer clear inside, connect() moved after.
-CONN-02 [PlaybackStateUpdater.js] False positive — finally runs on return, _updating always resets. | FIX: N/A. | RISK: N/A. | INTRODUCED: N/A. | APPLIED: N/A.
-CONN-03 [SpotifyDealerClient.js] _wsInstance not bumped before ws.terminate() — stale messages pass instance check. | FIX: ++this._wsInstance before terminate. | RISK: desired — silences stale handlers. | INTRODUCED: overflow at Number.MAX_SAFE_INTEGER (negligible). | APPLIED: ++this._wsInstance added in subscribe catch before ws.terminate().
-CONN-04 [GatewayClient.js] WS constructor throw leaves _reconnecting=true forever. | FIX: reset _reconnecting=false before _scheduleReconnect in WS catch. | RISK: double _scheduleReconnect if outer+inner catch both fire. | INTRODUCED: guard with if(_reconnecting)return at outer catch top if needed. | APPLIED: this._reconnecting=false added before _scheduleReconnect in WS create catch.
-CONN-05 [GatewayClient.js] _saveSession called with null sessionId before READY — bad session.json causes invalid RESUME. | FIX: if(!sessionId)return at top of _saveSession. | RISK: seq updates before READY skipped; stale seq on crash-during-resume (Discord recovers via op9). | INTRODUCED: see RISK. | APPLIED: null-guard added to _saveSession.
-CONN-06 [index.js] Proactive refresh timer fires every 60s when spotifyWebTokenExpiry=0. | FIX: guard block with if(_expiry>0); inner timer re-checks before rescheduling. | RISK: timer never starts if expiry set post-init at runtime. | INTRODUCED: see RISK. | APPLIED: if(_expiry>0) guard + inner if(exp>0) re-check added.
-CONN-07 [StatusChanger.js] Settings.gateway.enabled no optional chain — TypeError crash if gateway null. | FIX: gateway?.enabled. | RISK: none. | INTRODUCED: none. | APPLIED: optional chain added to usingGateway assignment.
-CONN-08 [LyricsFetcher.js] In-flight promise race — second caller may read stale lastFetchedFrom. | FIX: doc-only; callers already read via ps.lyricsSource post-await. | RISK: tiny window, not restructured. | INTRODUCED: double-stamp risk if restructured. | APPLIED: N/A (doc note only).
-CONN-09 [SpotifyService.js] Inline require("./Debug") in error path masks load failure. | FIX: top-level const Debug_1 = require("./Debug"). | RISK: none at runtime. | INTRODUCED: test-harness load failure if Debug absent at import time. | APPLIED: top-level require added, inline requires removed.
-CONN-10 [Updater.js] VERSION fetch no timeout — hangs init() indefinitely. | FIX: AbortController 10s timeout + res.ok check. | RISK: none — error falls through to init() via .catch. | INTRODUCED: none — AbortController clears timer in finally. | APPLIED: AbortController+clearTimeout(finally)+res.ok check added to checkUpdate().
-CONN-11 [index.js] _cleanExit skips WS destroy — 2s hang + dangling timers on Windows. | FIX: dealerClient?.destroy() + gatewayClient?.destroy() before exit. | RISK: _destroyed=true permanent — no reconnect if used in soft-restart path. | INTRODUCED: see RISK. | APPLIED: both destroy() calls added in _cleanExit before process.exit(0).
-CONN-12 [StatusChangerBase.js] iOS sync 429-retry closure ignores gateway toggle. | FIX: add Settings.gateway?.enabled to retry condition. | RISK: none. | INTRODUCED: none. | APPLIED: Settings_1.Settings.gateway?.enabled added to retry if-condition.
-CONN-13 [index.js] Progress regression threshold hardcoded -3000ms — valid scrubbing backward <3s treated as song change. | FIX: raise to 5000ms + isPlaying guard. | RISK: scrub-back <5s won't reset sentLines. | APPLIED: threshold→5000, isPlaying guard added.
-CONN-14 [index.js] _scheduleNextStatusCheck: minIntervalRemaining=0 collapses Math.min to 0 → busy-loop. | FIX: only include minIntervalRemaining in Math.min when >0. | APPLIED: ternary guards minIntervalRemaining>0.
-CONN-15 [GatewayClient.js] _reset calls ws.close(4000) then terminate in catch — if close() succeeds the "close" event fires, which calls _scheduleReconnect a second time after _reset already scheduled via setTimeout. | FIX: bump _wsInstance before close/terminate so "close" handler's instance check drops the event. _wsInstance is bumped after close() — move ++_wsInstance before ws.close(). | RISK: double reconnect: two _open() calls fire, both succeed, two WS connections live simultaneously. | INTRODUCED: none. | APPLIED: N/A.
-CONN-16 [GatewayClient.js] HB jitter +1 — spec says [0,interval), not [1,interval+1). | FIX: remove +1. | APPLIED: +1 removed.
-CONN-17 [SpotifyDealerClient.js] Async connect() gap allows duplicate concurrent connects. | FIX: _connecting flag; guard entry + clear on open/close/auth-fail. | APPLIED: _connecting flag added throughout connect().
-CONN-18 [SpotifyDealerClient.js] _reconnectAttempts never resets on success — transient failure permanently disables dealer after 10 retries. | FIX: reset on ws.on open. | APPLIED: _reconnectAttempts=0 on open (comment CONN-18).
-CONN-19 [StatusChangerBase.js] GW skip clears _lastSentText → same lyric re-sent on next tick. | FIX: remove _lastSentText="" on skip; _lastSentAt throttle is sufficient. | APPLIED: _lastSentText="" removed from GW skip path.
-CONN-20 [StatusChanger.js] songChanged(false) queues iOSSyncPending={t:null} — _iOSSync called with null text but guarded by if(!text). No bad send. | APPLIED: N/A — existing guard sufficient.
-CONN-21 [CacheStore.js] normalize() no /g flag — multi-paren tracks ("Song (feat. X) (Live)") cause cache misses. | FIX: /g + non-greedy. | APPLIED: regex→/ \(.+?\)/g.
-CONN-22 [PlaybackStateUpdater.js] songStartEpoch computed post-fetchLyrics await — drifts by 1-3s. | FIX: capture _epochDealer = Date.now()-progressMs before await. | APPLIED: _epochDealer captured pre-await, assigned after.
-CONN-23 [index.js] uncaughtException swallows all "fetch failed" incl. non-network causes. | FIX: check e.cause?.code whitelist. | APPLIED: _isNetErr guard added with ECONNREFUSED/ENOTFOUND/ETIMEDOUT/ECONNRESET whitelist.
+MERGE BLEED — ROOT CAUSES & FIX RISK ANALYSIS
+==============================================
 
----PATCHING-CONTEXT---
-- Always read exact anchor strings before patching (substring probe, not full file)
-- One PS call per file max; chain all replacements on same $c variable, write once
-- Use [char]96 for backtick literals to avoid PS string parse errors
-- CRLF is 
- — always use it in replacement strings
-- Use [IO.File]::ReadAllText/WriteAllText with UTF8Encoding(False) — no BOM
-- Verify with .Contains() checks in same call as write, never a separate read
-- Never use str_replace — use .Replace() on in-memory string only
-- Probe ambiguous anchors with .IndexOf()+.Substring() before committing
-- dist/ only — no src/
+B1. ignoreStale=true on every GW tick
+--------------------------------------
+Line: buildMergedLines(lines, i, mergeWindow, _styleBucketChanged || usingGateway)
+usingGateway is true on every tick in GW mode, so ignoreStale is always true.
+The break guard `!ignoreStale && sentLines.has(j) && !_staleLines.has(j)` never fires.
+Every line within mergeWindowMs of the anchor is always pulled in.
+
+FIX: change to `_styleBucketChanged` only (remove `|| usingGateway`).
+RISK: GW mode currently relies on ignoreStale=true to force a resend after reconnect/hold.
+The real mechanism for that is changeStatusRequest returning "hold" and clearing _lastSentText,
+which causes the dedup check to pass and a fresh send to occur — ignoreStale is not needed for that.
+Safe to remove.
+
+B2. _staleLines persists across anchor changes
+-----------------------------------------------
+After a send, `this._staleLines.delete(ml)` removes only the lines in the current mergedLines.
+Lines added to _staleLines for a prior anchor (e.g. from a previous style-bucket resend) that
+were NOT included in the new anchor's merge window are never cleaned up.
+On subsequent ticks those orphaned stale entries suppress the break guard for unrelated merges.
+
+FIX: in changeStatus, when anchor changes (_lastAnchorLine !== line), clear _staleLines before
+calling buildMergedLines.
+RISK: _staleLines is also used by the style-bucket resend path. Clearing it on anchor change is
+safe because a new anchor means the old stale context is irrelevant. No regression.
+
+B3. Rate-limit rollback re-exposes prior lines
+-----------------------------------------------
+On GW skip / 429: `for (ml of mergedLines) this.sentLines.delete(ml)`
+Next tick: those lines are absent from sentLines, backward walk collects them again.
+Result: "prev line + new anchor" output.
+
+FIX: move deleted lines into _staleLines instead of fully removing from sentLines.
+sentLines.has(j) still returns true so the break guard fires; _staleLines.has(j) is true
+so ignoreStale=false still allows inclusion — but only when explicitly requested.
+RISK: On genuine retry of the same line, sentLines.has(anchor) is true and the outer
+`if (this.sentLines.has(line) && (!_styleBucketChanged || this._lastAnchorLine !== line)) break`
+guard would skip it. Must ensure _lastSentText="" (already done in rollback) forces re-entry
+via the dedup check, not via the sentLines guard. Need to also clear _lastAnchorLine in rollback
+so the sentLines guard evaluates `_lastAnchorLine !== line` as true and doesn't break early.
+RISK is low but needs _lastAnchorLine = null added to both GW-skip and 429 rollback paths.
+
+B4. (NEW) Skipped empty lines stamp sentLines but are included in merge walk
+------------------------------------------------------------------------------
+Line: `if (!line.text) { if (!this.sentLines.has(line)) this.sentLines.add(line); continue; }`
+Empty lines (instrumental gaps, blank lyric lines) are added to sentLines.
+buildMergedLines skips them via `if (!lines[j].text) continue` — so they don't contribute text.
+BUT they do NOT break the backward walk. A cluster of empty lines between two real lines
+does not stop the merge, so a real line on the far side of an empty cluster can still be pulled in
+even if its gap from the anchor exceeds the intent of the merge window
+(because gapFromAnchor is measured by time, not by line count, so this is actually correct behaviour).
+NOT a bug — documenting to confirm it was checked.
+
+B5. (NEW) sentLines.size > 200 trim can delete lines still within merge window
+-------------------------------------------------------------------------------
+`const arr = [...this.sentLines].slice(-200)` keeps the 200 most recently added.
+If a song has >200 lines, the oldest are dropped. buildMergedLines backward walk can then
+reach a line no longer in sentLines and not break — treating it as unsent, pulling it into the merge.
+Only affects very long songs (>200 lyric lines) or sessions with many songs without a restart.
+FIX: trim threshold of 200 is probably fine for normal use, but the trim should also add
+dropped lines to _staleLines so the break guard still fires for them.
+RISK: low — only affects edge case songs. Easy fix: `for (const dropped of droppedLines) _staleLines.add(dropped)`
+
+FIX INTERACTION RISKS
+----------------------
+- B1+B3 interact: removing usingGateway from ignoreStale AND moving rollback deletes to _staleLines
+  means GW rollback lines end up in _staleLines but ignoreStale=false, so the break guard fires
+  on them (sentLines.has=true, _staleLines.has=true → guard does NOT break — wait, the guard is
+  `sentLines.has && !_staleLines.has` → breaks only when NOT stale). So stale lines do NOT break
+  the walk — they're still included. That's the intended behaviour for style-bucket resends.
+  For rollback retry we DON'T want them included with a new anchor. Conflict.
+
+  RESOLUTION: distinguish rollback-stale from style-stale. Use a separate `_rollbackLines` Set.
+  buildMergedLines break guard: break if `sentLines.has(j) && !_staleLines.has(j) && !_rollbackLines.has(j)`
+  but only include _rollbackLines entries when the anchor IS the rolled-back line (i.e. same anchor retry),
+  not when a new anchor is chosen. Implement by clearing _rollbackLines when anchor changes.
+
+- B2+B5 interact: clearing _staleLines on anchor change (B2 fix) also clears any B5 trim entries.
+  Fine — if the anchor changed, the trimmed old lines are even less relevant.
+Root cause of gw freeze: setCustomStatus mutated _lastGwSentAt/_pst before checking payload dedup, so identical-content retries kept resetting the send floor without ever transmitting, permanently starving real sends; watchdog also cleared _rollbackLines entirely instead of forcing the stuck line to retry, so its 'fix' left the anchor permanently stale.
+Stale-line hardening: capped _catchupStaleLines size (prevents leak on long sessions with many seeks) and bounded the backward-merge catch-up bypass to 3x mergeWindowMs (prevents merging lyrics from far-apart timestamps into one status).
+iOS REST sync audit: RL-NEW-02 (force path ignoring _rateLimitedUntil) appears already fixed -- line 355 checks rateLimitedUntil unconditionally, not gated by !force. Real bug found: _iOSSyncPending is set/fired whenever gateway.enabled is true, with no check on presenceStatus==='mobile', so non-mobile-spoofing users still get a redundant REST PATCH every ~10s alongside every GW send, wasting rate-limit budget for no benefit. Second bug: _onGatewayReady() does 'pendingEmoji || emoji', which overwrites an intentionally-null pending emoji with the default note emoji, causing iOS status to show an emoji desktop status doesn't have.
+Lyrics-source audit: GeniusSource intentionally fakes incrementing timestamps (LINE_DURATION_MS=4000) to avoid all-zero-time arrays, so it's rarely affected except on single-line results. CacheStore.set already discards fully all-zero-time lines as unusable; LyricsFetcher._doFetch did not apply the same check on the live return path, so first-fetch-of-song and later cache-hit-fetch could disagree on whether lyrics exist -- now aligned (CONN-40). Did not touch CacheStore's identical single-line edge case (single time=0 line also gets dropped there) to avoid scope creep -- pre-existing, symmetrical now, not worsened.

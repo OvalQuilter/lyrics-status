@@ -1,4 +1,33 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// panel.js — runtime core
+const MASK_DOTS = "\u2022".repeat(20);
+function _maskField(el) {
+    if (el.readOnly || !el.value) return;
+    el.dataset.realValue = el.value;
+    el.value = MASK_DOTS;
+    el.readOnly = true;
+}
+function _unmaskField(el) {
+    if (!el.readOnly) return;
+    el.value = el.dataset.realValue || "";
+    delete el.dataset.realValue;
+    el.readOnly = false;
+}
+function initTokenMasking() {
+    const ids = ["user-token","spotify-web-token","musixmatch-token","spotify-cookies","client-secret"];
+    for (const id of ids) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        if (document.activeElement !== el) _maskField(el);
+        if (el._maskBound) continue;
+        el._maskBound = true;
+        el.addEventListener("focus", () => _unmaskField(el));
+        el.addEventListener("blur", () => { clearTimeout(el._maskTimer); _maskField(el); });
+        el.addEventListener("input", () => {
+            clearTimeout(el._maskTimer);
+            el._maskTimer = setTimeout(() => { el.blur(); }, 2000);
+        });
+    }
+}
+﻿// panel.js — runtime core
 // Depends on: panel-data.js, panel-ui.js (loaded before this file)
 
 const getPath = (obj, path) => path.split(".").reduce((o,k) => o != null ? o[k] : undefined, obj);
@@ -32,6 +61,7 @@ function mergeSettings(parsed) {
     s.cache        = { ...DEFAULTS.cache,        ...(parsed.cache||{}) };
     s.spotifyParty = { ...DEFAULTS.spotifyParty, ...(parsed.spotifyParty||{}) };
     s.profileColor = { ...DEFAULTS.profileColor, ...(parsed.profileColor||{}) };
+    s.idle         = { ...DEFAULTS.idle,         ...(parsed.idle||{}) };
     return s;
 }
 
@@ -77,7 +107,7 @@ function updateNowPlaying(d) {
     const playing = d.isPlaying;
     bar.className = playing ? "" : "paused";
     if (song) song.textContent = d.song || "Not playing";
-    if (badge) { badge.textContent = playing ? "\u25B6 Playing" : (d.song ? "\u23F8 Paused" : "Idle"); badge.className = "np-status-badge " + (playing ? "playing" : d.song ? "paused" : "idle"); }
+    if (badge) { badge.textContent = playing ? "\u25B6 Playing" : (d.song ? "\u23F8 Paused" : "Idle"); badge.className = "np-status-badge " + (playing ? "playing" : d.song ? "paused" : "idle"); } const pi=document.getElementById("np-play-icon"); if(pi){ pi.textContent = playing ? "\u25B6" : "\u23F8"; pi.classList.toggle("playing", playing); }
     if (lyric) { lyric.style.display = d.lyric ? "" : "none"; lyric.textContent = d.lyric || ""; }
     if (author) author.textContent = d.author || "\u2014";
     if (source) source.textContent = d.source || "\u2014";
@@ -147,11 +177,52 @@ function syncAdvancedSwt(on) {
     if (lb) lb.disabled = on;
 }
 
+function _localApplyStyle(text, style) {
+    if (!style || style === "none") return text;
+    if (style === "underline") return [...text].map(c => /\s/.test(c) ? c : c + "̲").join("");
+    if (style === "strikethrough") return [...text].map(c => /\s/.test(c) ? c : c + "̶").join("");
+    const S = {
+        bold: [0x1D41A-0x61, 0x1D400-0x41], italic: [0x1D44E-0x61, 0x1D434-0x41],
+        bold_italic: [0x1D482-0x61, 0x1D468-0x41], sans: [0x1D5BA-0x61, 0x1D5A0-0x41],
+        sans_bold: [0x1D5EE-0x61, 0x1D5D4-0x41], sans_italic: [0x1D622-0x61, 0x1D608-0x41],
+        sans_bold_italic: [0x1D656-0x61, 0x1D63C-0x41], double_struck: [0x1D552-0x61, 0x1D538-0x41],
+        fraktur: [0x1D51E-0x61, 0x1D504-0x41], fraktur_bold: [0x1D586-0x61, 0x1D56C-0x41],
+        script: [0x1D4B6-0x61, 0x1D49C-0x41], script_bold: [0x1D4EA-0x61, 0x1D4D0-0x41],
+        monospace: [0x1D68A-0x61, 0x1D670-0x41]
+    };
+    const s = S[style];
+    if (!s) return text;
+    return [...text].map(c => {
+        const cp = c.codePointAt(0);
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + s[0]);
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + s[1]);
+        return c;
+    }).join("");
+}
 function updatePreview() {
     const el = document.getElementById("status-preview");
     if (!el) return;
-    const { timestamp, label } = settings.view;
-    el.textContent = `${timestamp?`[${fmtTime(137000)}] `:""}${label?"Song lyrics \u2014 ":""}La-la-la`;
+    const adv = settings.view?.advanced || {};
+    const { timestamp, label } = settings.view || {};
+    let styled = "La-la-la";
+    const cm = (adv.styleCharMap || "").split(",").map(x=>x.trim()).filter(Boolean);
+    const wm = (adv.styleWordMap || "").split(",").map(x=>x.trim()).filter(Boolean);
+    const alRaw = adv.styleAlternateList || [adv.styleAlternateStyleA, adv.styleAlternateStyleB].filter(Boolean).join(",");
+    const al = alRaw.split(",").map(x=>x.trim()).filter(Boolean);
+    if (cm.length) {
+        let wi = 0;
+        styled = [...styled].map(c => /\s/.test(c) ? c : _localApplyStyle(c, cm[wi++ % cm.length])).join("");
+    } else if (wm.length) {
+        let wi = 0;
+        styled = styled.split(/([-\s]+)/).map(tok => /^[-\s]+$/.test(tok) ? tok : _localApplyStyle(tok, wm[wi++ % wm.length])).join("");
+    } else if (adv.styleAlternateEnabled && al.length) {
+        styled = _localApplyStyle(styled, al[0]);
+    } else if (adv.unicodeStyle && adv.unicodeStyle !== "none") {
+        styled = _localApplyStyle(styled, adv.unicodeStyle);
+    }
+    const brk = (adv.lyricsBrackets || "").split(",");
+    if (brk.length === 2 && brk[0]) styled = brk[0] + styled + brk[1];
+    el.textContent = `${timestamp?`[${fmtTime(137000)}] `:""}${label?"Song lyrics \u2014 ":""}${styled}`;
 }
 
 function updateRestoreDisplay() {
@@ -208,6 +279,29 @@ function updateIntervalRows() {
     const rr = document.getElementById("rest-interval-row");
     if (gr) gr.style.display = gw ? "" : "none";
     if (rr) rr.style.display = gw ? "none" : "";
+    // Show effective interval hint when merge floor is active
+    const mergeActive = settings.rateLimit?.enableMergeLines;
+    const mergeWindow = settings.rateLimit?.mergeWindowMs || 0;
+    const gwRaw = settings.gateway?.minGwIntervalMs ?? 5000;
+    const restRaw = settings.rateLimit?.enableMinInterval ? (settings.rateLimit?.minIntervalMs || 5000) : 0;
+    const effectiveGw = mergeActive ? Math.max(gwRaw, mergeWindow) : gwRaw;
+    const effectiveRest = mergeActive ? Math.max(restRaw, mergeWindow) : restRaw;
+    let hint = document.getElementById("effective-interval-hint");
+    if (!hint) {
+        hint = document.createElement("div");
+        hint.id = "effective-interval-hint";
+        hint.style.cssText = "font-size:11px;color:var(--accent);margin-top:4px;padding-left:2px;";
+        const target = gw ? gr : rr;
+        if (target) target.appendChild(hint);
+    }
+    if (mergeActive && mergeWindow > 0) {
+        const effective = gw ? effectiveGw : effectiveRest;
+        const raw = gw ? gwRaw : restRaw;
+        hint.style.display = effective > raw ? "" : "none";
+        hint.textContent = effective > raw ? "⚡ Effective: " + effective + "ms (floored to merge window)" : "";
+    } else {
+        hint.style.display = "none";
+    }
 }
 
 function updateSpWarn() {
@@ -239,9 +333,10 @@ function applyToDom() {
         if (ok) ok.classList.toggle("show", !!(settings.credentials?.refreshToken||settings.credentials?.code));
         updateSpotifyTokenStatus(); updateRestoreDisplay(); updatePreview(); updatePresenceToggle();
         updateFlashStateToggle(); updateFlashRestoreSelect();
-        renderSourceList(); updateStyleAlternateIntervalVisibility(); initWordStyleChecks();
+        renderSourceList(); updateStyleAlternateIntervalVisibility(); initStyleAlternateChecks(); initWordStyleChecks(); initCharStyleChecks();
         updateRpGwWarn();
     updateSpWarn();
+        initTokenMasking();
     updateIntervalRows(); updateRpAlbumArtRow();
 
     // Restore delay: stored as ms internally, displayed as seconds
@@ -261,12 +356,37 @@ function applyToDom() {
 }
 
 
+function initStyleAlternateChecks() {
+    const wrap = document.getElementById("style-alternate-checks");
+    if (!wrap) return;
+    const adv = settings.view?.advanced || {};
+    const listStr = adv.styleAlternateList || [adv.styleAlternateStyleA, adv.styleAlternateStyleB].filter(Boolean).join(",");
+    const active = listStr ? listStr.split(",").map(x=>x.trim()).filter(Boolean) : [];
+    const styles = [["underline","U̲n̲d̲e̲r̲l̲i̲n̲e̲"],["strikethrough","S̶t̶r̶i̶k̶e̶"],["bold","𝐁𝐨𝐥𝐝"],["italic","𝐼𝑡𝑎𝑙𝑖𝑐"],["bold_italic","𝒃𝒐𝒍𝒅 𝒊𝒕"],["sans","𝒂𝒆𝒗𝒔"],["sans_bold","𝗦𝗕"],["sans_italic","𝘚𝘪"],["sans_bold_italic","𝙜𝙘𝙗𝙜"],["double_struck","𝔻𝕌𝕊𝕍"],["fraktur","𝔉𝔶𝔞𝔮"],["fraktur_bold","𝚘𝚔𝚓𝚘"],["script","𝒮𝒸𝓇𝒾𝓅𝓉"],["script_bold","𝓢𝓬𝓻𝓲𝓹𝓽 𝓑𝓸𝓵𝓭"],["monospace","𝙼𝚘𝚗𝚘𝚜𝚙𝚊𝚌𝚎"]];
+    if (!wrap._bound) {
+        wrap.innerHTML = styles.map(([v,l]) =>
+            `<label style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;cursor:pointer"><input type="checkbox" value="${v}"> ${l}</label>`
+        ).join("");
+        wrap.addEventListener("change", () => {
+            const v = Array.from(wrap.querySelectorAll("input:checked")).map(x=>x.value).join(",");
+            if (!settings.view) settings.view = {};
+            if (!settings.view.advanced) settings.view.advanced = {};
+            settings.view.advanced.styleAlternateList = v;
+            const parts = v.split(",").filter(Boolean);
+            settings.view.advanced.styleAlternateStyleA = parts[0] || "bold";
+            settings.view.advanced.styleAlternateStyleB = parts[1] || "italic";
+            _dirty = true; save(); updatePreview();
+        });
+        wrap._bound = true;
+    }
+    for (const cb of wrap.querySelectorAll("input")) cb.checked = active.includes(cb.value);
+}
 function initWordStyleChecks() {
     const wrap = document.getElementById("style-word-map-checks");
     if (!wrap) return;
     const current = (settings.view && settings.view.advanced && settings.view.advanced.styleWordMap) || "";
     const active = current ? current.split(",").map(x=>x.trim()).filter(Boolean) : [];
-    const styles = [["underline","U̲n̲d̲e̲r̲l̲i̲n̲e̲"],["strikethrough","S̶t̶r̶i̶k̶e̶"],["bold","𝐁𝐨𝐥𝐝"],["italic","𝐼𝑡𝑎𝑙𝑖𝑐"],["bold_italic","𝒃𝒐𝒍𝒅 𝒊𝒕𝒂𝒍𝒊𝒄"],["sans","𝖲𝖺𝗇𝗌"],["sans_bold","𝗦𝗮𝗻𝘀 𝗕𝗼𝗹𝗱"],["sans_italic","𝘚𝘢𝘯𝘴 𝘐𝘵𝘢𝘭𝘪𝘤"],["sans_bold_italic","𝙎𝙖𝙣𝙨 𝘽𝙄"],["double_struck","𝔻𝕠𝕦𝕓𝕝𝕖"],["fraktur","𝔉𝔯𝔞𝔨𝔱𝔲𝔯"],["fraktur_bold","𝖋𝖗𝖆𝖐𝖙𝖚𝖗 𝕭𝖔𝖑𝖉"]];
+    const styles = [["underline","U̲n̲d̲e̲r̲l̲i̲n̲e̲"],["strikethrough","S̶t̶r̶i̶k̶e̶"],["bold","𝐁𝐨𝐥𝐝"],["italic","𝐼𝑡𝑎𝑙𝑖𝑐"],["bold_italic","𝒃𝒐𝒍𝒅 𝒊𝒕𝒂𝒍𝒊𝒄"],["sans","𝖲𝖺𝗇𝗌"],["sans_bold","𝗦𝗮𝗻𝘀 𝗕𝗼𝗹𝗱"],["sans_italic","𝘚𝘢𝘯𝘴 𝘐𝘵𝘢𝘭𝘪𝘤"],["sans_bold_italic","𝙎𝙖𝙣𝙨 𝘽𝙄"],["double_struck","𝔻𝕠𝕦𝕓𝕝𝕖"],["fraktur","𝔉𝔯𝔞𝔨𝔱𝔲𝔯"],["fraktur_bold","𝖋𝖗𝖆𝖐𝖙𝖚𝖗 𝕭𝖔𝖑𝖉"],["script","𝒮𝒸𝓇𝒾𝓅𝓉"],["script_bold","𝓢𝓬𝓻𝓲𝓹𝓽 𝓑𝓸𝓵𝓭"],["monospace","𝙼𝚘𝚗𝚘𝚜𝚙𝚊𝚌𝚎"]];
     if (!wrap._bound) {
         wrap.innerHTML = styles.map(([v,l]) =>
             `<label style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;cursor:pointer"><input type="checkbox" value="${v}"> ${l}</label>`
@@ -276,7 +396,28 @@ function initWordStyleChecks() {
             if (!settings.view) settings.view = {};
             if (!settings.view.advanced) settings.view.advanced = {};
             settings.view.advanced.styleWordMap = v;
-            _dirty = true; save();
+            _dirty = true; save(); updatePreview();
+        });
+        wrap._bound = true;
+    }
+    for (const cb of wrap.querySelectorAll("input")) cb.checked = active.includes(cb.value);
+}
+function initCharStyleChecks() {
+    const wrap = document.getElementById("style-char-map-checks");
+    if (!wrap) return;
+    const current = (settings.view && settings.view.advanced && settings.view.advanced.styleCharMap) || "";
+    const active = current ? current.split(",").map(x=>x.trim()).filter(Boolean) : [];
+    const styles = [["underline","U̲n̲d̲e̲r̲l̲i̲n̲e̲"],["strikethrough","S̶t̶r̶i̶k̶e̶"],["bold","𝐁𝐨𝐥𝐝"],["italic","𝐼𝑡𝑎𝑙𝑖𝑐"],["bold_italic","𝒃𝒐𝒍𝒅 𝒊𝒕𝒂𝒍𝒊𝒄"],["sans","𝖲𝖺𝗇𝗌"],["sans_bold","𝗦𝗮𝗻𝘀 𝗕𝗼𝗹𝗱"],["sans_italic","𝘚𝘢𝘯𝘴 𝘐𝘵𝘢𝘭𝘪𝘤"],["sans_bold_italic","𝙎𝙖𝙣𝙨 𝘽𝙄"],["double_struck","𝔻𝕠𝕦𝕓𝕝𝕖"],["fraktur","𝔉𝔯𝔞𝔨𝔱𝔲𝔯"],["fraktur_bold","𝖋𝖗𝖆𝖐𝖙𝖚𝖗 𝕭𝖔𝖑𝖉"],["script","𝒮𝒸𝓇𝒾𝓅𝓉"],["script_bold","𝓢𝓬𝓻𝓲𝓹𝓽 𝓑𝓸𝓵𝓭"],["monospace","𝙼𝚘𝚗𝚘𝚜𝚙𝚊𝚌𝚎"]];
+    if (!wrap._bound) {
+        wrap.innerHTML = styles.map(([v,l]) =>
+            `<label style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;cursor:pointer"><input type="checkbox" value="${v}"> ${l}</label>`
+        ).join("");
+        wrap.addEventListener("change", () => {
+            const v = Array.from(wrap.querySelectorAll("input:checked")).map(x=>x.value).join(",");
+            if (!settings.view) settings.view = {};
+            if (!settings.view.advanced) settings.view.advanced = {};
+            settings.view.advanced.styleCharMap = v;
+            _dirty = true; save(); updatePreview();
         });
         wrap._bound = true;
     }
@@ -290,16 +431,17 @@ function bindAll() {
             el.addEventListener("change", () => {
                 setPath(settings, path, el.checked);
                 if (sel === "#enable-advanced-swt") syncAdvancedSwt(el.checked);
-                if (sel === "#style-alternate-enabled") updateStyleAlternateIntervalVisibility();
+                if (sel === "#style-alternate-enabled") { updateStyleAlternateIntervalVisibility(); updatePreview(); }
                 if (sel==="#enable-timestamp"||sel==="#enable-label") updatePreview();
                 if (sel==="#rp-enabled"||sel==="#gateway-enabled") updateRpGwWarn();
                 if (sel==="#gateway-enabled") updateIntervalRows();
                 if (sel==="#sp-enabled"||sel==="#rp-enabled") updateSpWarn();
                 if (sel==="#rp-show-album-art") updateRpAlbumArtRow();
+                if (sel==="#enable-merge-lines"||sel==="#merge-window-ms"||sel==="#gw-min-interval-ms"||sel==="#min-interval-ms") updateIntervalRows();
                 _dirty = true; save();
             });
         } else if (type === "select") {
-            el.addEventListener("change", () => { setPath(settings, path, el.value); _dirty = true; save(); });
+            el.addEventListener("change", () => { setPath(settings, path, el.value); _dirty = true; save(); if (sel==="#unicode-style"||sel==="#lyrics-brackets") updatePreview(); });
         } else if (type === "number") {
             el.addEventListener("input", () => {
                 let v = parseFloat(el.value);
@@ -377,8 +519,10 @@ const withBtnSpinner = (btn, fn) => {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-    renderSections();
-    bindAll();
+    try { renderSections(); } catch(e) { console.error('[panel] renderSections failed:', e); }
+    try { bindAll(); } catch(e) { console.error('[panel] bindAll failed:', e); }
+    try { initTokenMasking(); } catch(e) { console.error('[panel] initTokenMasking failed:', e); }
+    const _pcEl = document.getElementById('pc-enabled'); if (_pcEl) { _pcEl.disabled = true; _pcEl.checked = false; }
 
     for (const [sel, info] of Object.entries(HELP)) {
         const el = document.querySelector(sel);

@@ -1,3 +1,4 @@
+
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startServer = startServer;
@@ -11,9 +12,12 @@ const SpotifyService_1 = require("../SpotifyService");
 const Debug_1 = require("../Debug");
 
 const STATIC = join(__dirname, "../../static");
-const KEYS = ["credentials","view","timings","update","rateLimit","sources","chineseConversion","restore","gateway","statusFlash","richPresence"];
+const KEYS = ["credentials","view","timings","update","rateLimit","sources","chineseConversion","restore","gateway","statusFlash","richPresence","spotifyParty","profileColor","idle"];
 
 let _lastStatus = null;
+let _saveTimer = null;
+function saveDebounced(){ if(_saveTimer) return; _saveTimer=setTimeout(()=>{_saveTimer=null;Settings_1.Settings.save();},400); }
+let _tokenRefreshFails = 0;
 
 function refreshSpotifyWebToken() {
     const cookies = Settings_1.Settings.credentials.cookies;
@@ -23,18 +27,21 @@ function refreshSpotifyWebToken() {
     })
     .then(r => r.json())
     .then(j => {
-        if (!j?.accessToken) { Debug_1.Debug.write("[SpotifyToken] Refresh failed: " + JSON.stringify(j).slice(0, 200)); setTimeout(refreshSpotifyWebToken, 60000); return; }
+        if (!j?.accessToken) { Debug_1.Debug.write("[SpotifyToken] Refresh failed: " + JSON.stringify(j).slice(0, 200)); if(++_tokenRefreshFails<10) setTimeout(refreshSpotifyWebToken, 60000); else Debug_1.Debug.write("[SpotifyToken] Giving up after 10 fails"); return; }
         const expiry = (j.accessTokenExpirationTimestampMs > Date.now()) ? j.accessTokenExpirationTimestampMs : Date.now() + 3600000;
         Settings_1.Settings.credentials.spotifyWebToken = j.accessToken;
         Settings_1.Settings.credentials.spotifyWebTokenExpiry = expiry;
+        _tokenRefreshFails = 0;
         Settings_1.Settings.save();
         Debug_1.Debug.write("[SpotifyToken] Refreshed, expires " + new Date(expiry).toISOString());
         setTimeout(refreshSpotifyWebToken, Math.max(60000, expiry - Date.now() - 300000));
     })
-    .catch(e => { Debug_1.Debug.write("[SpotifyToken] Error: " + e + " — retry in 60s"); setTimeout(refreshSpotifyWebToken, 60000); });
+    .catch(e => { Debug_1.Debug.write("[SpotifyToken] Error: " + e + " — retry in 60s"); if(++_tokenRefreshFails<10) setTimeout(refreshSpotifyWebToken, 60000); });
 }
 
 function startServer() {
+    if (!Settings_1.Settings.credentials.panelKey) { Settings_1.Settings.credentials.panelKey = require("crypto").randomBytes(16).toString("hex"); Settings_1.Settings.save(); }
+    const _panelKey = Settings_1.Settings.credentials.panelKey;
     if (!existsSync(STATIC)) {
         console.error("\x1b[31m[lyrics-status] static/ directory not found at: " + STATIC + "\n  The panel UI will not load. Re-download the release zip.\x1b[0m");
         Debug_1.Debug.write("[Server] static/ directory missing: " + STATIC);
@@ -42,9 +49,9 @@ function startServer() {
 
     const app = express();
     const httpServer = createServer(app);
-    const wss = new WebSocketServer({ server: httpServer, path: "/ws", maxPayload: 65536 });
+    const wss = new WebSocketServer({ server: httpServer, path: "/ws", maxPayload: 65536, verifyClient: (info, cb) => cb(true) });
     app.use("/", express.static(STATIC));
-    app.get("/", (_, res) => res.sendFile(join(STATIC, "index.html")));
+    app.get("/", (req, res) => { if (req.query.key !== _panelKey) return res.status(401).send("Unauthorized. Use the panel URL with ?key=... from the app."); res.sendFile(join(STATIC, "index.html")); });
     app.get("/callback", (req, res) => {
         if (Settings_1.Settings.credentials.useExternalAuthServer) {
             if (!req.query.refresh_token) return res.sendStatus(401);
@@ -55,10 +62,9 @@ function startServer() {
             Settings_1.Settings.credentials.code = req.query.code;
             SpotifyService_1.SpotifyService.exchange().then(() => Settings_1.Settings.save()).catch(e => Debug_1.Debug.write("[Server] exchange failed: " + e));
         }
-        res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Authorized</title><script>(function(){try{if(window.opener&&!window.opener.closed)window.close();}catch(e){}})()</\script></head><body><p>Authorization complete. You can close this window.</p></body></html>');
+        res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Authorized</title><script>(function(){try{if(window.opener&&!window.opener.closed)window.close();}catch(e){}})()</\script></head><body><p>You’re authorized. Close this window and return to the app.</p></body></html>');
     });
 
-    // Ping/pong heartbeat — terminates zombie panel connections
     const heartbeat = setInterval(() => {
         for (const ws of wss.clients) {
             if (!ws.isAlive) { ws.terminate(); continue; }
@@ -75,10 +81,10 @@ function startServer() {
         ws.on("message", data => {
             let p; try { p = JSON.parse(data.toString()); } catch { return; }
             if (!p || typeof p !== "object") return;
-            // Guard: ignore status/shutdown messages sent from panel (shouldn't happen, but safe)
             if (p.type === "status" || p.type === "server_shutdown") return;
             for (const k of KEYS) {
                 if (p[k] == null) continue;
+                if (typeof p[k] !== typeof Settings_1.Settings[k]) continue;
                 if (typeof Settings_1.Settings[k] === "object" && !Array.isArray(Settings_1.Settings[k]) && typeof p[k] === "object") {
                     Settings_1.Settings[k] = { ...Settings_1.Settings[k], ...p[k] };
                     if (k === "view" && p[k].advanced) Settings_1.Settings[k].advanced = { ...Settings_1.Settings[k].advanced, ...p[k].advanced };
@@ -86,12 +92,10 @@ function startServer() {
                     Settings_1.Settings[k] = p[k];
                 }
             }
-            Settings_1.Settings.save();
+            saveDebounced();
         });
-        // Send settings payload
         const payload = JSON.stringify(Object.fromEntries(KEYS.map(k => [k, Settings_1.Settings[k]])));
         if (ws.readyState === WebSocket.OPEN) try { ws.send(payload); } catch (e) { Debug_1.Debug.write("[Server] Send failed: " + e); }
-        // Send last cached status so panel shows data immediately on reload
         if (_lastStatus && ws.readyState === WebSocket.OPEN) try { ws.send(JSON.stringify(_lastStatus)); } catch (e) { Debug_1.Debug.write("[Server] Send lastStatus failed: " + e); }
     });
 

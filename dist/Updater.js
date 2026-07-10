@@ -20,29 +20,48 @@ class Updater {
         }
     }
     static async checkUpdate() {
-        // Bug 3 fix: use fork URL, not upstream
-        const remote = (await (await fetch("https://github.com/RamenFighter03/lyrics-status/raw/refs/heads/v3/VERSION")).text()).trim();
-        return readFileSync(join(__dirname, "../VERSION"), "utf-8").trim() !== remote;
+        // CONN-10: 10s timeout prevents indefinite hang; AbortController cleans up timer on resolve
+        const _ctrl = new AbortController(); const _tmo = setTimeout(() => _ctrl.abort(), 10000);
+        let _verRes; try { _verRes = await fetch("https://github.com/RamenFighter03/lyrics-status/raw/refs/heads/v3/VERSION", { signal: _ctrl.signal }); } finally { clearTimeout(_tmo); }
+        if (!_verRes.ok) throw new Error("[Updater] VERSION fetch HTTP " + _verRes.status);
+        const remote = (await _verRes.text()).trim();
+        let local;
+        try {
+            local = readFileSync(join(__dirname, "../VERSION"), "utf-8").trim();
+        } catch (e) {
+            console.warn("[lyrics-status] VERSION file missing — assuming stale, forcing update.");
+            Debug_1.Debug.write("[Updater] VERSION missing: " + e.message);
+            return true;
+        }
+        return local !== remote;
     }
     static async forceUpdate() {
         const tmp = join(__dirname, "../temp");
-        if (existsSync(tmp)) rmSync(tmp, { recursive: true, force: true });
-        mkdirSync(tmp);
-        // Bug 3 fix: use fork repo
-        await Updater.downloadRepo("RamenFighter03", "lyrics-status", "v3", tmp);
-        // Bug 2 fix: dynamically find extracted folder instead of hardcoded "lyrics-status-3"
-        const extracted = readdirSync(tmp).find(f => f.startsWith("lyrics-status"));
-        Updater.replaceFiles(resolve(join(tmp, extracted)), resolve(join(__dirname, "../")), EXCLUDE.map(e => resolve(e)));
+        let tmpCreated = false;
+        try {
+            if (existsSync(tmp)) rmSync(tmp, { recursive: true, force: true });
+            mkdirSync(tmp);
+            tmpCreated = true;
+            await Updater.downloadRepo("RamenFighter03", "lyrics-status", "v3", tmp);
+            const extracted = readdirSync(tmp).find(f => f.startsWith("lyrics-status"));
+            if (!extracted) {
+                throw new Error("Extracted folder not found in temp/ — zip may be malformed or download failed.");
+            }
+            Updater.replaceFiles(resolve(join(tmp, extracted)), resolve(join(__dirname, "../")), EXCLUDE.map(e => resolve(e)));
+        } finally {
+            // Clean up temp regardless of success/failure
+            try { if (tmpCreated && existsSync(tmp)) rmSync(tmp, { recursive: true, force: true }); } catch {}
+        }
     }
     static async downloadRepo(user, repo, branch, outDir) {
         const url = `https://github.com/${user}/${repo}/archive/refs/heads/${branch}.zip`;
         const zipPath = join(resolve(outDir), "v3.zip");
         if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
         const res = await fetch(url);
-        await new Promise(r => Readable.fromWeb(res.body).pipe(createWriteStream(zipPath)).on("finish", r));
+        if (!res.ok) throw new Error("[Updater] Download HTTP " + res.status);
+        await new Promise((r,j) => { const rs=Readable.fromWeb(res.body); const ws=createWriteStream(zipPath); rs.on("error",j); ws.on("error",j); ws.on("finish", r); rs.pipe(ws); });
         await (new StreamZip.async({ file: zipPath })).extract(null, outDir);
     }
-    // Bug 1 fix: build del from dst names not in src, not via cross-product
     static replaceFiles(src, dst, exclude) {
         const srcFiles = readdirSync(src, { withFileTypes: true });
         const dstFiles = readdirSync(dst, { withFileTypes: true });

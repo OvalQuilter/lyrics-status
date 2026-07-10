@@ -18,6 +18,7 @@ exports.cacheKey = cacheKey;
 class CacheStore {
     constructor(dbPath) {
         // 1. Open DB
+        try { mkdirSync(require("path").dirname(dbPath), { recursive: true }); } catch (_) {}
         this.db = new Database(dbPath);
 
         // 2. integrity_check FIRST — before pragmas
@@ -68,6 +69,7 @@ class CacheStore {
         this._stmtEvict = this.db.prepare(
             "DELETE FROM lyrics WHERE key IN (SELECT key FROM lyrics ORDER BY ts ASC LIMIT ?)"
         );
+        this._setCount = 0;
     }
 
     get(name, artist) {
@@ -100,6 +102,8 @@ class CacheStore {
             lines: safeLines,
             error: error ?? null
         });
+
+        if (++this._setCount % 20 === 0) this.evict(Settings_1.Settings.cache.maxRows || 2000);
     }
 
     evict(maxRows) {

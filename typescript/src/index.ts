@@ -1,31 +1,3 @@
-﻿import { execSync } from "child_process"
-import * as path from "path"
-import { existsSync, rmSync } from "fs"
-
-// --- Startup checks ---
-const _nodeVer = process.versions.node.split(".").map(Number)
-if (_nodeVer[0] < 17) {
-    console.error(`\x1b[31m[lyrics-status] Node.js v${process.versions.node} is not supported. Please upgrade to v17 or later.\x1b[0m`)
-    process.exit(1)
-}
-try {
-    require("better-sqlite3")
-} catch (e: any) {
-    if (e.code === "ERR_DLOPEN_FAILED" || (e.message && e.message.includes("NODE_MODULE_VERSION"))) {
-        console.error(`\x1b[33m[lyrics-status] Native module mismatch - rebuilding better-sqlite3 for Node.js v${process.versions.node}...\x1b[0m`)
-        try {
-            execSync("npm rebuild better-sqlite3", { stdio: "inherit", cwd: path.resolve(__dirname, "..") })
-            console.log("\x1b[32m[lyrics-status] Rebuild successful - starting...\x1b[0m")
-        } catch {
-            console.error("\x1b[31m[lyrics-status] Rebuild failed. Try running 'npm rebuild' manually.\x1b[0m")
-            process.exit(1)
-        }
-    } else {
-        console.error(`\x1b[31m[lyrics-status] Failed to load better-sqlite3: ${e.message}\x1b[0m`)
-        process.exit(1)
-    }
-}
-// --- End startup checks ---
 import { LyricsFetcher } from "./LyricsFetcher"
 import { CacheStore } from "./CacheStore"
 import { SpotifySource } from "./Sources/SpotifySource"
@@ -43,19 +15,9 @@ import { Updater } from "./Updater"
 import { SpotifyService } from "./SpotifyService"
 import { v4 as uuidv4 } from "uuid"
 import { ExternalAuthServerAPI } from "./ExternalAuthServerAPI"
+import * as path from "path"
 
 Settings.load()
-
-// Cleanup leftover temp/ from failed autoupdate
-const _tmpDir = path.resolve(__dirname, "../temp")
-try {
-    if (existsSync(_tmpDir)) {
-        rmSync(_tmpDir, { recursive: true, force: true })
-        Debug.write("[init] Cleaned up leftover temp/ dir")
-    }
-} catch (e) {
-    Debug.write("[init] Failed to clean temp/: " + (e as Error).message)
-}
 
 const SOURCES: Record<string, { cls: () => any, key: keyof typeof Settings.sources }> = {
     Spotify:    { cls: () => new SpotifySource(),          key: "enableSpotify" },
@@ -103,6 +65,9 @@ function init(): void {
         statusChanger.changeStatus()
         playbackState.songProgress += Date.now() - now
         if (playbackState.ended) statusChanger.songChanged()
+        // NOTE: src/index.ts display loop is superseded by dist/index.js version.
+        // dist version uses ANSI overwrite (no console.clear) and includes gateway/op3 status.
+        // Gateway display: GW <op3Used>/5 (connected), GW reconnecting, GW disconnected, or REST.
         console.clear()
         console.log(`
     Song: ${playbackState.songName || "Not listening"}
@@ -114,7 +79,7 @@ function init(): void {
         now = Date.now()
     }, 1000 / 60)
 
-    const { broadcast: _broadcastStatus } = startServer()
+    startServer()
 }
 
 function shutdown() {

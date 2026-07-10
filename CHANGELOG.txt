@@ -1,3 +1,67 @@
+134. fix: watchdog scanIndex reset now bounds-checked against current song's line count (was leaving stale scanIndex past lines.length after prior fix, freezing sends all song)
+133. fix: watchdog no longer calls songChanged() (was wiping sentLines/scanIndex mid-song, causing repeat/duplicate lines) -- only clears _lastSentAt + _rollbackLines now
+132. feat: index.js terminal panel -- debug row (scanIndex/sentLines/rollback/watchdog timer/iosSync/gwStuck), red WATCHDOG label flash on trigger, full non-abbreviated labels
+131. feat: self-heal watchdogs added -- stuck lyric sends (10s idle), stuck gateway disconnect (15s), stale Discord-presence activity (10s), iOS REST sync retry on failure (5s)
+130. fix: index.js scheduler skip-check now also respects _rollbackLines, was starving GW-throttled retries up to 500ms
+129. fix: StatusChangerBase buildMergedLines used .length (UTF-16 units) instead of cpLen for the 128-char merge budget -- undercounted merge room for surrogate-pair/emoji lyrics
+128. fix: Panel Server.js WS verifyClient was silently rejecting connections (Referer-only key fallback) -- panel settings appeared to not save because the socket never connected; now accepts unconditionally (HTTP page load still key-gated)
+127. feat: single-instance lock (PID lockfile) + Settings.load() type validation on load (skips type-mismatched keys instead of corrupting state)
+126. fix: Settings.save() debounced (300ms) to stop disk thrash on rapid panel edits; flush added on process 'exit' so pending save isn't lost on quick restarts
+125. fix: index.js _cleanExit now clears StatusChanger._lastLineClearTimer and kills Tray icon (were leaking/orphaning on exit)
+124. fix: GatewayClient reconnect delay now has jitter + attempt counter (was thundering-herd on mass reconnect); mobile/PS identify properties now include client_build_number (was missing, required field)
+123. removed: PlayStation presence option (GUI dropdown + backend) -- Discord platform badges aren't derived from IDENTIFY os/browser/device spoofing, require real linked PSN+console session; was non-functional
+122. feat: script, script_bold, monospace also added to the Word styles, Char styles, and Alternate-styles-on-a-timer checkbox groups (panel.js), plus panel.js's client-side preview shifter -- was only added to the Unicode style dropdown in 121
+121. feat: added 3 more unicode styles -- script, script_bold, monospace -- to _STYLES map and both panel dropdowns (uses standard Mathematical Alphanumeric Symbols block with correct legacy-letterlike exceptions for plain script)
+120. feat: added 5 more lyric bracket pair options to panel (corner, angle, guillemet, light paren, double square)
+118. perf: _denseCount/_staticWindow/mergeWindow sizing moved from the top of changeStatus() into the anchor-advance branch -- was recomputing an O(remaining lines) slice+filter on every ~100ms poll tick even when nothing was due to send
+119. perf: applyTemplate now only computes/substitutes the specific suffix variants (_upper, _cropped, etc.) a template actually references, instead of unconditionally building and style-transforming all 10 variants per var on every status update
+117. fix: LyricsFetcher._doFetch now applies the same validity check CacheStore.set already used (drop fully all-zero-time lines) before returning to the caller -- previously a fresh cache-miss fetch could hand back unusable untimed lyrics that a later cache-hit for the same song would correctly report as 'None', causing lyrics to flicker in then vanish
+116. revert: iOS REST sync gating on presenceStatus==='mobile' (entry 114) removed per request -- sync now fires for any presence mode while gateway is enabled, not mobile-only
+114. fix: iOS REST sync now only fires when presenceStatus is 'mobile' -- was firing on every GW send regardless of presence mode, wasting REST rate-limit budget for non-mobile users
+115. fix: _onGatewayReady no longer overwrites an intentionally-null pending emoji with the default note emoji, so iOS REST status matches desktop GW status exactly
+112. fix: _catchupStaleLines capped at 100 entries (trimmed like sentLines) to stop unbounded growth over long sessions with frequent seeks
+113. fix: backward merge window bypass for catch-up-stale lines capped at 3x mergeWindowMs, so distant catch-up lines no longer merge into unrelated far-apart lyric text
+110. fix: GatewayClient.setCustomStatus pre-checks payload dedup before touching op3 rate-limit/timer state ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â retries of identical content no longer burn budget and permanently push the send floor forward (root cause of gateway freezes)
+111. fix: index.js watchdog no longer wipes _rollbackLines wholesale; forces the stuck anchor line back into rollback so it actually resends instead of silently going permanently stale
+## Entry 109 -- 2026-06-27: Fixed crash - applyCharStyles undefined
+Files: dist/StatusChanger.js, dist/StatusChangerBase.js
+- dist/StatusChanger.js line 9 destructure was missing applyCharStyles -- it was added to StatusChangerBase.js exports during an earlier char-style patch but the import list in StatusChanger.js was never updated
+- Result: ReferenceError thrown from _style() inside changeStatus() any time adv.styleCharMap was set, killing the whole process (fatal error, not caught)
+- Fix: added applyCharStyles to the destructure import
+- Also removed a leftover duplicate applyCharStyles function definition in StatusChangerBase.js (dead code from the same half-applied patch -- harmless due to function-hoisting overwrite, but confusing)
+- Watch: log.txt should no longer show 'applyCharStyles is not defined'; char-style status text should render correctly
+
+## Entry 108 -- 2026-06-13: Idle timeout setting switched to seconds
+Files: dist/index.js, dist/Settings.js, static/panel-data.js, static/panel-ui.js
+- Settings.idle.timeoutMs -> Settings.idle.timeoutSec (default 300)
+- Panel field idle-timeout-ms -> idle-timeout-sec
+
+## Entry 107 -- 2026-06-13: Auto-disconnect gateway after playback inactivity
+Files: dist/index.js, dist/Settings.js, dist/Panel/Server.js, static/panel-data.js, static/panel.js, static/panel-ui.js
+- New Settings.idle = { enabled:true, timeoutMs:300000 } -- gateway disconnects after this much time with no playback so a manually-set status sticks
+- Auto-reconnects the instant playback resumes
+- Exposed in panel under Gateway section: 'Auto-disconnect gateway when idle' toggle + ms input
+- Terminal display shows 'GW idle' (gray) distinct from a real drop/reconnect
+
+## Entry 106 -- 2026-06-13: Fix permanent loss of catch-up-skipped lines
+Files: dist/StatusChanger.js, dist/StatusChangerBase.js, dist/index.js
+- New _catchupStaleLines set tracks due-but-never-displayed lines (multiple lines became due between checks)
+- These were previously stripped from _staleLines on the next real anchor advance before backward-merge could reach them -- permanently lost
+- buildMergedLines backward pass now bypasses win-distance/sentLines-block checks for catchup lines so they fold into the next sent status instead of vanishing
+- index.js scheduler now mirrors changeStatus's effectiveInterval (gateway + merge floor), removing redundant early wake-ups
+
+## Entry 105 -- 2026-06-13: Fix merge window collapse during style cycling
+Files: dist/StatusChanger.js
+- New _lastAnchorAdvanceAt tracks real anchor changes, separate from _lastSentAt (touched on every style-flip resend)
+- mergeWindow now derived from _lastAnchorAdvanceAt; style alternation no longer collapses the merge window to ~0 and starving line merges
+
+## Entry 104 -- 2026-06-13: Fix merge logic: first-line window, static maxInterGap, blank-line interGap
+Files: dist/StatusChanger.js, dist/StatusChangerBase.js
+- mergeWindow now uses _staticWindow (not 0) when _lastSentAt===0, so the first line of a song can merge neighbors
+- buildMergedLines takes new staticWindowMs param; maxInterGap computed from static window not dynamic window, preventing overly tight gaps right after a send
+- backward pass interGap now tracks lastMergedTime (last accepted lyric's time) instead of lines[j+1].time, skipping blank lines correctly
+- forward pass interGap likewise uses lastMergedTime instead of lines[j-1].time
+
 ## Entry 103 -- 2026-06-10: Humanise Discord outbound sends
 Files: dist/StatusChangerBase.js, dist/GatewayClient.js
 - REST sends now have 0-250ms random jitter before firing; breaks metronomic send pattern
@@ -27,7 +91,7 @@ Files: dist/index.js, dist/GatewayClient.js
 
 ## Entry 97 -- 2026-06-10: Add static X-Super-Properties to _discordPatch
 Files: dist/StatusChangerBase.js
-- Added hardcoded X-Super-Properties header (Chrome 136 / build 390018) to all PATCH /users/@me/settings calls; Discord anti-abuse systems flag its absence. Static string — no scraping, no network calls.
+- Added hardcoded X-Super-Properties header (Chrome 136 / build 390018) to all PATCH /users/@me/settings calls; Discord anti-abuse systems flag its absence. Static string ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â no scraping, no network calls.
 
 ## Entry 96 -- 2026-06-10: Remove suspicious Discord net code; upgrade to v10 API
 Files: dist/StatusChangerBase.js, dist/index.js

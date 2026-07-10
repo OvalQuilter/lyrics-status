@@ -1,18 +1,22 @@
+
 // panel-data.js — constants only
 
 const DEFAULTS = {
-    credentials: { token:"", cookies:"", musixmatchToken:"", clientID:"", clientSecret:"", useExternalAuthServer:false, code:"", refreshToken:"", uuid:"", customRedirectUri:"", spotifyWebToken:"", useDealer:true },
-    view: { timestamp:true, label:true, advanced:{ enabled:false, customEmoji:"\uD83C\uDFB6", customStatus:"[{timestamp}] Song lyrics - {lyrics}", unicodeStyle:"none", styleAlternateEnabled:false, styleAlternateIntervalMs:3000, styleAlternateStyleA:"bold", styleAlternateStyleB:"italic", styleWordMap:"" } },
+    credentials: { token:"", cookies:"", musixmatchToken:"", clientID:"", clientSecret:"", useExternalAuthServer:false, code:"", refreshToken:"", uuid:"", customRedirectUri:"", spotifyWebToken:"", useDealer:true, useDiscordPresence:false },
+    view: { timestamp:true, label:true, advanced:{ enabled:false, customEmoji:"\uD83C\uDFB6", customStatus:"[{timestamp}] Song lyrics - {lyrics}", unicodeStyle:"none", styleAlternateEnabled:false, styleAlternateIntervalMs:3000, styleAlternateStyleA:"bold", styleAlternateStyleB:"italic", styleWordMap:"", styleCharMap:"", styleAlternateList:"", styleAlternateRandom:false, styleWordMapMarquee:false, lyricsBrackets:"" } },
     timings:   { sendTimeOffset:500, enableAutooffset:true, autooffset:3 },
     update:    { enableAutoupdate:true },
-    rateLimit: { enableBackoff:true, enableMinInterval:true, minIntervalMs:5000, enableMergeLines:true, mergeWindowMs:8000, mergeSeparator:" " },
-    sources:   { enableSpotify:true, enableMusixmatch:true, enableLrcLib:true, enableNetEase:true, enableQQMusic:true, enableGenius:true, sourceOrder:["Spotify","Musixmatch","LrcLib","NetEase","QQMusic","Genius"] },
+    rateLimit: { enableBackoff:true, enableMinInterval:true, minIntervalMs:5000, enableMergeLines:true, mergeWindowMs:8000, mergeSeparator:" ", mergeMaxLines:3 },
+    sources:   { enableSpotify:true, enableMusixmatch:true, enableLrcLib:true, enableNetEase:true, enableQQMusic:true, enableGenius:true, enableKugou:true, sourceOrder:["Spotify","Musixmatch","LrcLib","NetEase","QQMusic","Genius","Kugou"] },
     cache: { path:"", lyricsTtlDays:30, emptyTtlDays:7, errorTtlHours:1, maxRows:2000 },
     chineseConversion: "off",
     restore: { enabled:true, savedStatus:null, delayMs:15000 },
     gateway: { enabled:false, presenceStatus:"online", minGwIntervalMs:5000, clearAfterLastLineMs:3000 },
     statusFlash: { enabled:false, states:["online","idle","dnd"], intervalMs:500, restoreStatus:null },
-    richPresence: { enabled:false, appName:"Spotify", showAlbumArt:true, albumArtUrl:"", showProgressBar:true, buttonLabel:"", buttonUrl:"", detailsTemplate:"{lyrics}", stateTemplate:"{song_author}" },
+    richPresence: { enabled:false, appName:"Spotify", applicationId:"", showAlbumArt:true, albumArtUrl:"", smallImage:"", showProgressBar:true, buttonLabel:"", buttonUrl:"", detailsTemplate:"{lyrics}", stateTemplate:"{song_author}" },
+    spotifyParty: { enabled:false, partyId:"", partySize:1, partyMax:10, syncId:"", flags:48 },
+    profileColor: { enabled:false, accentShift:30 },
+    idle: { enabled:true, timeoutSec:300 },
 };
 
 const BINDINGS = [
@@ -25,14 +29,24 @@ const BINDINGS = [
     ["#use-external-auth-server","credentials.useExternalAuthServer", "checkbox"],
     ["#enable-timestamp",        "view.timestamp",                    "checkbox"],
     ["#enable-label",            "view.label",                        "checkbox"],
+    ["#profanity-filter",        "view.profanityFilter",              "checkbox"],
+    ["#profanity-censor-min",    "view.profanityCensorMin",           "number"],
+    ["#profanity-censor-max",    "view.profanityCensorMax",           "number"],
+    ["#profanity-censor-ratio",  "view.profanityCensorRatio",         "number"],
     ["#enable-advanced-swt",     "view.advanced.enabled",             "checkbox"],
     ["#custom-emoji",            "view.advanced.customEmoji",         "text"],
+    ["#mood-hearts-enabled",     "view.advanced.moodHeartsEnabled",   "checkbox"],
     ["#custom-status",           "view.advanced.customStatus",        "textarea"],
     ["#unicode-style",           "view.advanced.unicodeStyle",        "select"],
     ["#style-alternate-enabled", "view.advanced.styleAlternateEnabled",    "checkbox"],
     ["#style-alternate-interval","view.advanced.styleAlternateIntervalMs", "number"],
     ["#style-alternate-a",       "view.advanced.styleAlternateStyleA",     "select"],
     ["#style-alternate-b",       "view.advanced.styleAlternateStyleB",     "select"],
+    ["#style-alternate-list",    "view.advanced.styleAlternateList",       "text"],
+    ["#style-alternate-random",  "view.advanced.styleAlternateRandom",     "checkbox"],
+    ["#style-word-map-marquee",  "view.advanced.styleWordMapMarquee",      "checkbox"],
+
+    ["#lyrics-brackets",         "view.advanced.lyricsBrackets",           "select"],
     ["#send-time-offset",        "timings.sendTimeOffset",            "number"],
     ["#enable-autooffset",       "timings.enableAutooffset",          "checkbox"],
     ["#autooffset",              "timings.autooffset",                "number"],
@@ -43,6 +57,7 @@ const BINDINGS = [
     ["#enable-merge-lines",      "rateLimit.enableMergeLines",        "checkbox"],
     ["#merge-window-ms",         "rateLimit.mergeWindowMs",           "number"],
     ["#merge-separator",          "rateLimit.mergeSeparator",          "text"],
+    ["#merge-max-lines",          "rateLimit.mergeMaxLines",           "number"],
     ["#chinese-conversion",      "chineseConversion",                 "select"],
     ["#restore-enabled",         "restore.enabled",                   "checkbox"],
     ["#restore-delay-ms",        "restore.delayMs",                   "number"],
@@ -60,10 +75,13 @@ const BINDINGS = [
     ["#rp-show-progress-bar",    "richPresence.showProgressBar",      "checkbox"],
     ["#rp-button-label",         "richPresence.buttonLabel",          "text"],
     ["#rp-button-url",           "richPresence.buttonUrl",            "text"],
+    ["#rp-application-id",       "richPresence.applicationId",        "text"],
+    ["#rp-small-image",          "richPresence.smallImage",           "text"],
     // Gateway
     ["#gw-clear-last-line-ms",   "gateway.clearAfterLastLineMs",      "number"],
     // Credentials
     ["#use-dealer",              "credentials.useDealer",             "checkbox"],
+    ["#use-discord-presence",     "credentials.useDiscordPresence",    "checkbox"],
     ["#musixmatch-token",        "credentials.musixmatchToken",       "text"],
     // Flash
     ["#flash-restore-status",    "statusFlash.restoreStatus",         "select"],
@@ -73,6 +91,19 @@ const BINDINGS = [
     ["#cache-error-ttl",         "cache.errorTtlHours",               "number"],
     ["#cache-max-rows",          "cache.maxRows",                     "number"],
     ["#cache-path",              "cache.path",                        "text"],
+    // Spotify Party
+    ["#sp-enabled",              "spotifyParty.enabled",              "checkbox"],
+    ["#sp-party-id",             "spotifyParty.partyId",              "text"],
+    ["#sp-party-size",           "spotifyParty.partySize",            "number"],
+    ["#sp-party-max",            "spotifyParty.partyMax",             "number"],
+    ["#sp-sync-id",              "spotifyParty.syncId",               "text"],
+    ["#sp-flags",                "spotifyParty.flags",                "number"],
+    // Profile Color
+    ["#pc-enabled",              "profileColor.enabled",              "checkbox"],
+    ["#pc-accent-shift",         "profileColor.accentShift",          "number"],
+    // Idle
+    ["#idle-enabled",             "idle.enabled",                       "checkbox"],
+    ["#idle-timeout-sec",        "idle.timeoutSec",                   "number"],
 ];
 
 const SOURCE_META = {
@@ -81,7 +112,8 @@ const SOURCE_META = {
     LrcLib:     { key:"enableLrcLib",     desc:"no key required",           badge:"Free" },
     NetEase:    { key:"enableNetEase",    desc:"strong Asian coverage",     badge:"CN" },
     QQMusic:    { key:"enableQQMusic",    desc:"strong Chinese coverage",   badge:"CN" },
-    Genius:     { key:"enableGenius",     desc:"scraped plain lyrics, no timestamps", badge:"EN" }
+    Genius:     { key:"enableGenius",     desc:"scraped plain lyrics, no timestamps", badge:"EN" },
+    Kugou:      { key:"enableKugou",      desc:"strong Chinese coverage, timestamped", badge:"CN" }
 };
 
 const HELP = {
@@ -125,19 +157,21 @@ Cropped to <strong>128 Unicode code points</strong>.`
     },
     "#rp-help": {
         title: "Rich Presence",
-        html: `Shows lyrics as a Discord rich presence activity (type 2 &ldquo;Listening to&rdquo;).<br><br>Requires <strong>Gateway</strong> to be enabled &mdash; rich presence is not possible via REST.<br><br>Uses the same template variables as the custom status field. <strong>Details</strong> maps to the top line; <strong>State</strong> maps to the artist/subtitle line.<br><br>The progress bar is derived from song start/end timestamps. Album art is fetched from Spotify&rsquo;s CDN automatically.`
+        html: `Shows lyrics as a Discord rich presence activity (type 2 &ldquo;Listening to&rdquo;).<br><br>Requires <strong>Gateway</strong> to be enabled &mdash; rich presence is not possible via REST.<br><br>Uses the same template variables as the custom status field. <strong>Details</strong> maps to the top line; <strong>State</strong> maps to the artist/subtitle line.<br><br>The progress bar is derived from song start/end timestamps. Album art is fetched from Spotify&rsquo;s CDN automatically.<br><br><strong>Application ID:</strong> optional Discord app ID added to the activity payload &mdash; leave blank to omit.<br><strong>Small image:</strong> asset key or external URL for the small icon. External URLs are auto-prefixed with <code>mp:</code>.`
+    },
+    "#sp-help": {
+        title: "Spotify Party (Listening Together)",
+        html: `Spoofs a &ldquo;Listening Together&rdquo; party on your rich presence activity.<br><br>Requires <strong>Rich Presence</strong> to be enabled.<br><br><strong>Party ID:</strong> leave blank to auto-generate per song. Set a fixed string to keep the same party across tracks.<br><br><strong>Party size / max:</strong> cosmetic &mdash; the numbers shown to friends. Max must be &ge; size.<br><br><strong>Sync ID:</strong> leave blank to use the real Spotify track ID. Override to point to a different track for the listen-along sync.<br><br><strong>Flags:</strong> <code>48</code> = SYNC+JOIN (shows Listen Along button). <code>32</code> = SYNC only. <code>16</code> = JOIN only. <code>0</code> = neither.`
     },
 };
 
 const SECTION_DEFS = [
     ["\uD83D\uDD11", "Authentication",   "Discord and Spotify credentials, stored locally.",                "auth",    true],
-    ["\uD83C\uDFA4", "Status Display",   "What appears in your Discord status, timing, and rate limiting.", "display", true],
-    ["\u26A1",       "Gateway",          "WebSocket updates, status flash, and rich presence.",             "gateway", false],
     ["\u267B",       "Restore & Sources","Status restore, lyrics sources, cache, and updates.",             "restore", false],
+    ["\uD83C\uDFA4", "Status Display",   "What appears in your Discord status, timing, and rate limiting.", "display", false],
+    ["\u26A1",       "Gateway",          "WebSocket updates, status flash, rich presence, and profile color.", "gateway", false],
 ];
 
-// BUG 4 fix: child spans use pointer-events:none (see index.html CSS or inline on li render)
-// Dedup: single base array, RESTORE prepends the empty "use gateway" option
 const BASE_STATUS_OPTIONS = [
     { value:"online",    label:"\uD83D\uDFE2 Online" },
     { value:"idle",      label:"\uD83C\uDF19 Idle" },

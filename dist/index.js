@@ -14,12 +14,6 @@ try {
 }
 const LyricsFetcher_1 = require("./LyricsFetcher");
 const CacheStore_1 = require("./CacheStore");
-const SpotifySource_1 = require("./Sources/SpotifySource");
-const NetEaseMusicSource_1 = require("./Sources/NetEaseMusicSource");
-const LrcLibSource_1 = require("./Sources/LrcLibSource");
-const QQMusicSource_1 = require("./Sources/QQMusicSource");
-const MusixmatchSource_1 = require("./Sources/MusixmatchSource");
-const GeniusSource_1 = require("./Sources/GeniusSource");
 const PlaybackStateUpdater_1 = require("./PlaybackStateUpdater");
 const PlaybackState_1 = require("./PlaybackState");
 const StatusChanger_1 = require("./StatusChanger");
@@ -68,7 +62,7 @@ async function _validateDiscordToken() {
 
 async function init() {
     if (!Settings_1.Settings.credentials.uuid) { Settings_1.Settings.credentials.uuid = (0, uuid_1.v4)(); Settings_1.Settings.save(); }
-    const _tokenValid = await _validateDiscordToken();
+    const _tokenValidPromise = _validateDiscordToken();
     ExternalAuthServerAPI_1.ExternalAuthServerAPI.register();
     const useDiscordPresence = !!Settings_1.Settings.credentials.useDiscordPresence;
     if (!useDiscordPresence && Settings_1.Settings.credentials.refreshToken && !Settings_1.Settings.credentials.useExternalAuthServer) {
@@ -86,9 +80,9 @@ async function init() {
     _store = new CacheStore_1.CacheStore(dbPath);
     const lyricsFetcher = new LyricsFetcher_1.LyricsFetcher(_store);
     const src = Settings_1.Settings.sources;
-    const SOURCE_MAP = {Spotify:()=>new SpotifySource_1.SpotifySource(),Musixmatch:()=>new MusixmatchSource_1.MusixmatchSource(),LrcLib:()=>new LrcLibSource_1.LrcLibSource(),NetEase:()=>new NetEaseMusicSource_1.NetEaseMusicSource(),QQMusic:()=>new QQMusicSource_1.QQMusicSource(),Genius:()=>new GeniusSource_1.GeniusSource()};
-    const ENABLE_KEY = { Spotify:"enableSpotify", Musixmatch:"enableMusixmatch", LrcLib:"enableLrcLib", NetEase:"enableNetEase", QQMusic:"enableQQMusic", Genius:"enableGenius" };
-    const DEFAULT_ORDER = ["Spotify","Musixmatch","LrcLib","NetEase","QQMusic","Genius"];
+    const SOURCE_MAP = {Spotify:()=>new (require("./Sources/SpotifySource").SpotifySource)(),Musixmatch:()=>new (require("./Sources/MusixmatchSource").MusixmatchSource)(),LrcLib:()=>new (require("./Sources/LrcLibSource").LrcLibSource)(),NetEase:()=>new (require("./Sources/NetEaseMusicSource").NetEaseMusicSource)(),QQMusic:()=>new (require("./Sources/QQMusicSource").QQMusicSource)(),Genius:()=>new (require("./Sources/GeniusSource").GeniusSource)()};
+    const ENABLE_KEY = { Spotify:"enableSpotify", Musixmatch:"enableMusixmatch", LrcLib:"enableLrcLib", NetEase:"enableNetEase", QQMusic:"enableQQMusic", Genius:"enableGenius", Kugou:"enableKugou" };
+    const DEFAULT_ORDER = ["Spotify","Musixmatch","LrcLib","NetEase","QQMusic","Genius","Kugou"];
     const order = src.sourceOrder?.length ? src.sourceOrder : DEFAULT_ORDER;
     const activeNames = order.filter(n => src[ENABLE_KEY[n]] !== false && SOURCE_MAP[n]);
     for (const n of activeNames) lyricsFetcher.addSource(SOURCE_MAP[n]());
@@ -97,22 +91,27 @@ async function init() {
     const playbackStateUpdater = new PlaybackStateUpdater_1.PlaybackStateUpdater(playbackState, lyricsFetcher);
     const gatewayClient = new GatewayClient_1.GatewayClient();
     const statusChanger = new StatusChanger_1.StatusChanger(playbackState, Settings_1.Settings.restore?.savedStatus || null, gatewayClient);
+    const _tokenValid = await _tokenValidPromise;
     if (!_tokenValid) statusChanger._tokenInvalid = true;
     gatewayClient.onReady = () => statusChanger._onGatewayReady();
-    const _identityPref = p => p === "mobile" ? "mobile" : p === "playstation" ? "playstation" : "other";
+    const _identityPref = p => p === "mobile" ? "mobile" : "other";
     let _lastIdentityPref = _identityPref(Settings_1.Settings.gateway?.presenceStatus);
+    let _lastRawPref = Settings_1.Settings.gateway?.presenceStatus;
     setInterval(() => {
         if (!statusChanger._tokenInvalid) return;
         _validateDiscordToken().then(ok => { if (!ok) return; statusChanger._tokenInvalid = false; Debug_1.Debug.write("[init] Token re-validated OK — resuming sends"); if (Settings_1.Settings.gateway?.enabled && !gatewayClient.connected) gatewayClient.connect().catch(e => Debug_1.Debug.write(`[init] gateway reconnect after token recovery: ${e && e.stack || e}`)); });
     }, 10000);
     setInterval(() => {
         if (!Settings_1.Settings.gateway?.enabled) return;
-        const p = _identityPref(Settings_1.Settings.gateway?.presenceStatus);
-        if (p !== _lastIdentityPref) { _lastIdentityPref = p; Debug_1.Debug.write("[init] presenceStatus identity changed — forcing fresh gateway IDENTIFY"); gatewayClient.forceReconnect(); }
+        const raw = Settings_1.Settings.gateway?.presenceStatus;
+        const p = _identityPref(raw);
+        if (p !== _lastIdentityPref) { _lastIdentityPref = p; _lastRawPref = raw; Debug_1.Debug.write("[init] presenceStatus identity changed — forcing fresh gateway IDENTIFY"); gatewayClient.forceReconnect(); }
+        else if (raw !== _lastRawPref) { _lastRawPref = raw; Debug_1.Debug.write("[init] presenceStatus changed — refreshing presence"); gatewayClient.refreshPresenceStatus(); }
     }, 2000);
+    setInterval(() => { if (!Settings_1.Settings.gateway?.enabled) return; const stuck = !gatewayClient.connected && !gatewayClient._reconnecting && gatewayClient._ws === null && !_idleDisconnected; if (stuck) { if (!_gwStuckSince) _gwStuckSince = Date.now(); else if (Date.now() - _gwStuckSince > 15000) { Debug_1.Debug.write("[init] Watchdog: gateway stuck disconnected 15s -- forcing connect"); gatewayClient.connect(); _gwStuckSince = 0; } } else _gwStuckSince = 0; }, 5000);
     if (_tokenValid && Settings_1.Settings.gateway?.enabled) gatewayClient.connect();
     let _now = Date.now(), _songEndedFired = false, _lastKnownSongId = "", _wasPlaying = null, _lastProgress = 0, _lastActivityAt = Date.now(), _idleDisconnected = false;
-    let _progressInterval = null, _pollInterval = null;
+    let _progressInterval = null, _pollInterval = null; let _wdActiveSince = 0; let _gwStuckSince = 0; let _wdFiredAt = 0;
     const useDealer = !useDiscordPresence && Settings_1.Settings.credentials.useDealer !== false && !!Settings_1.Settings.credentials.cookies;
     let dealerClient = null;
     let _dealerConnected = false;
@@ -120,6 +119,7 @@ async function init() {
         Debug_1.Debug.write("[init] Discord presence mode — Spotify polling disabled");
         gatewayClient.onSpotifyActivity = playbackStateUpdater.applyDiscordSpotifyActivity.bind(playbackStateUpdater);
         _wasPlaying = false;
+        setInterval(() => { const t=playbackStateUpdater._lastDiscordActivityAt||0; if (t && Date.now()-t>10000 && gatewayClient.connected) { Debug_1.Debug.write("[init] Watchdog: no Discord activity update in 10s -- forcing reconnect"); playbackStateUpdater._lastDiscordActivityAt=Date.now(); gatewayClient.forceReconnect(); } }, 10000);
     } else if (useDealer) {
         Debug_1.Debug.write("[init] Dealer mode enabled — starting Spotify dealer WebSocket");
         dealerClient = new SpotifyDealerClient_1.SpotifyDealerClient();
@@ -174,14 +174,14 @@ async function init() {
         if (!_songChanged && playbackState.isPlaying && _wasPlaying === false) { statusChanger.songChanged(false); _rescheduleStatusCheck(0); }
         _wasPlaying = playbackState.isPlaying;
         if (Settings_1.Settings.gateway?.enabled) {
-            if (playbackState.isPlaying) {
+            if (playbackState.isPlaying && playbackState.hasLyrics) {
                 _lastActivityAt = now;
-                if (_idleDisconnected) { _idleDisconnected = false; Debug_1.Debug.write("[init] Playback resumed -- reconnecting gateway after idle disconnect"); setTimeout(()=>gatewayClient.connect(),Math.random()*2000); }
+                if (_idleDisconnected) { _idleDisconnected = false; Debug_1.Debug.write("[init] Playback resumed -- reconnecting gateway after idle disconnect"); setTimeout(()=>gatewayClient.connect(), 100 + Math.random()*300); }
             } else if (!_idleDisconnected && gatewayClient.connected && Settings_1.Settings.idle?.enabled !== false) {
                 const _idleTimeoutMs = (Settings_1.Settings.idle?.timeoutSec || 300) * 1000;
                 if (now - _lastActivityAt >= _idleTimeoutMs) {
                     _idleDisconnected = true;
-                    Debug_1.Debug.write(`[init] No playback for ${_idleTimeoutMs}ms -- disconnecting gateway (idle)`);
+                    Debug_1.Debug.write(`[init] No lyrics sent for ${_idleTimeoutMs}ms (playing=${playbackState.isPlaying}, hasLyrics=${playbackState.hasLyrics}) -- disconnecting gateway (idle)`);
                     gatewayClient.destroy();
                 }
             }
@@ -196,6 +196,7 @@ async function init() {
                 if (!useDealer) playbackStateUpdater.update().catch(e => Debug_1.Debug.write('[PlaybackStateUpdater][song-end] ' + e));
             }
         } else _songEndedFired = false;
+        if (playbackState.isPlaying && playbackState.hasLyrics) { if (!_wdActiveSince) _wdActiveSince = now; const _wdIdle = statusChanger._lastSentAt > _wdActiveSince ? 0 : now - _wdActiveSince; if (_wdIdle > 10000) { Debug_1.Debug.write(`[init] Watchdog: idle ${_wdIdle}ms (lastSentAt=${statusChanger._lastSentAt}, scanIndex=${statusChanger._scanIndex}, sentLines=${statusChanger.sentLines?.size}) -- forcing reset`); statusChanger._lastSentAt = 0; if (!statusChanger._rollbackLines) statusChanger._rollbackLines = new Set(); if (statusChanger._lastAnchorLine) { statusChanger._rollbackLines.add(statusChanger._lastAnchorLine); Debug_1.Debug.write('[init] Watchdog: forcing anchor retry'); } if (statusChanger._scanIndex >= (statusChanger.playbackState.lyrics?.lines?.length||0)) statusChanger._scanIndex = 0; _rescheduleStatusCheck(0); _wdActiveSince = now; _wdFiredAt = now; } } else _wdActiveSince = 0;
     }, 100);
     let _statusCheckTimer = null;
     function _scheduleNextStatusCheck() {
@@ -215,7 +216,7 @@ async function init() {
         for (let i = 0; i < lines.length; i++) {
             const lineEta = lines[i].time - offset;
             if (lineEta > progress) {
-                if (statusChanger.sentLines.has(lines[i]) && !statusChanger._staleLines.has(lines[i])) continue;
+                if (statusChanger.sentLines.has(lines[i]) && !statusChanger._staleLines.has(lines[i]) && !statusChanger._rollbackLines?.has(lines[i])) continue;
                 nextLineMs = lineEta - progress; break;
             }
         }
@@ -300,7 +301,8 @@ async function init() {
             row(`${C.gray}song   ${C.reset}${songDisplay}    ${playBadge}`),
             row(`${C.gray}artist ${C.reset}${artistDisplay}`),
             row(`${C.gray}time   ${C.reset}${timeStr}  ${barStr}`),
-            row(`${C.gray}src    ${C.reset}${lyricsBadge}   ${C.gray}order: ${C.reset}${C.dim}${_trunc(_cachedSourcesLine, W - 24)}${C.reset}`),
+            row(`${C.gray}src    ${C.reset}${lyricsBadge}`),
+            row(`${C.gray}order  ${C.reset}${C.dim}${_trunc(_cachedSourcesLine, W - 9)}${C.reset}`),
             sep,
             row(`${C.green}\u25b6${C.reset}  ${dueDisplay}`),
             row(`${C.gray}\u203a${C.reset}  ${nextDisplay}`),
@@ -308,6 +310,8 @@ async function init() {
             row(`${C.gray}sent   ${C.reset}${sentText}`),
             row(`${C.gray}send   ${C.reset}${sendBadge}   ${C.gray}restore: ${C.reset}${restoreBadge}${savedRaw ? "  " + C.dim + '"' + _trunc(savedRaw, 22) + '"' + C.reset : ""}`),
             row(`${C.gray}limits ${C.reset}${rlSettings}`),
+            row(`${C.gray}debug  ${C.reset}scanIndex:${statusChanger._scanIndex||0} sentLines:${statusChanger.sentLines?.size||0} rollback:${statusChanger._rollbackLines?.size||0} watchdog:${_wdActiveSince?((Date.now()-_wdActiveSince)/1000).toFixed(0)+"s":"-"}`),
+            row(`${C.gray}iosSync ${C.reset}${statusChanger._iOSSyncSentAt?((Date.now()-statusChanger._iOSSyncSentAt)/1000).toFixed(0)+"s ago":"never"}   ${C.gray}gwStuck ${C.reset}${_gwStuckSince?((Date.now()-_gwStuckSince)/1000).toFixed(0)+"s":"-"}   ${_wdFiredAt&&Date.now()-_wdFiredAt<5000?C.red+"WATCHDOG":C.gray+"watchdog"}${C.reset}`),
             sepBot,
         ].map(r => r + "\x1b[K").join("\n");
         process.stdout.write("\x1b[H\x1b[97m" + out + "\n\x1b[J");
@@ -349,3 +353,4 @@ process.on("unhandledRejection", reason => {
     const _isNetRej = reason instanceof Error && reason.message.includes("fetch failed") && (!reason.cause || ["ECONNREFUSED","ENOTFOUND","ETIMEDOUT","ECONNRESET"].includes(reason.cause && reason.cause.code));
     if (!_isNetRej) { console.error("\x1b[33m[lyrics-status] Unhandled rejection: " + (reason instanceof Error ? reason.message : String(reason)) + "\x1b[0m"); }
 });
+

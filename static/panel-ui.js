@@ -20,8 +20,8 @@ const h = {
     divider: () => `<div class="divider"></div>`,
 };
 
-const _STYLE_OPTIONS = `<option value="none">None</option><option value="underline">U\u0332n\u0332d\u0332e\u0332r\u0332l\u0332i\u0332n\u0332e\u0332 Underline</option><option value="strikethrough">S\u0336t\u0336r\u0336i\u0336k\u0336e\u0336 Strikethrough</option><option value="bold">\uD835\uDC01\uD835\uDC28\uD835\uDC25\uD835\uDC1D Bold</option><option value="italic">\uD835\uDC3C\uD835\uDC61\uD835\uDC4E\uD835\uDC59\uD835\uDC56\uD835\uDC50 Italic</option><option value="bold_italic">\uD835\uDC54\uD835\uDC90\uD835\uDC8F\uD835\uDC88 Bold Italic</option><option value="sans">\uD835\uDE34\uD835\uDE30\uD835\uDE2F\uD835\uDE34 Sans</option><option value="sans_bold">\uD835\uDDE6\uD835\uDDBC\uD835\uDDB3\uD835\uDDE6 Sans Bold</option><option value="sans_italic">\uD835\uDE58\uD835\uDE54\uD835\uDE53\uD835\uDE5A Sans Italic</option><option value="sans_bold_italic">\uD835\uDE5C\uD835\uDE58\uD835\uDE57\uD835\uDE5C Sans Bold Italic</option><option value="double_struck">\uD835\uDD64\uD835\uDD60\uD835\uDD5F\uD835\uDD64 Double-Struck</option><option value="fraktur">\uD835\uDD30\uD835\uDD2C\uD835\uDD2B\uD835\uDD30 Fraktur</option><option value="fraktur_bold">\uD835\uDE98\uD835\uDE94\uD835\uDE93\uD835\uDE98 Fraktur Bold</option>`;
-const _STYLE_OPTIONS_NO_NONE = `<option value="underline">U\u0332n\u0332d\u0332e\u0332r\u0332l\u0332i\u0332n\u0332e\u0332 Underline</option><option value="strikethrough">S\u0336t\u0336r\u0336i\u0336k\u0336e\u0336 Strikethrough</option><option value="bold">\uD835\uDC01\uD835\uDC28\uD835\uDC25\uD835\uDC1D Bold</option><option value="italic">\uD835\uDC3C\uD835\uDC61\uD835\uDC4E\uD835\uDC59\uD835\uDC56\uD835\uDC50 Italic</option><option value="bold_italic">\uD835\uDC54\uD835\uDC90\uD835\uDC8F\uD835\uDC88 Bold Italic</option><option value="sans">\uD835\uDE34\uD835\uDE30\uD835\uDE2F\uD835\uDE34 Sans</option><option value="sans_bold">\uD835\uDDE6\uD835\uDDBC\uD835\uDDB3\uD835\uDDE6 Sans Bold</option><option value="sans_italic">\uD835\uDE58\uD835\uDE54\uD835\uDE53\uD835\uDE5A Sans Italic</option><option value="sans_bold_italic">\uD835\uDE5C\uD835\uDE58\uD835\uDE57\uD835\uDE5C Sans Bold Italic</option><option value="double_struck">\uD835\uDD64\uD835\uDD60\uD835\uDD5F\uD835\uDD64 Double-Struck</option><option value="fraktur">\uD835\uDD30\uD835\uDD2C\uD835\uDD2B\uD835\uDD30 Fraktur</option><option value="fraktur_bold">\uD835\uDE98\uD835\uDE94\uD835\uDE93\uD835\uDE98 Fraktur Bold</option>`;
+const _STYLE_OPTIONS = `<option value="none">None</option><option value="underline">U\u0332n\u0332d\u0332e\u0332r\u0332l\u0332i\u0332n\u0332e\u0332 Underline</option><option value="strikethrough">S\u0336t\u0336r\u0336i\u0336k\u0336e\u0336 Strikethrough</option><option value="bold">\uD835\uDC01\uD835\uDC28\uD835\uDC25\uD835\uDC1D Bold</option><option value="italic">\uD835\uDC3C\uD835\uDC61\uD835\uDC4E\uD835\uDC59\uD835\uDC56\uD835\uDC50 Italic</option><option value="bold_italic">\uD835\uDC54\uD835\uDC90\uD835\uDC8F\uD835\uDC88 Bold Italic</option><option value="sans">\uD835\uDE34\uD835\uDE30\uD835\uDE2F\uD835\uDE34 Sans</option><option value="sans_bold">\uD835\uDDE6\uD835\uDDBC\uD835\uDDB3\uD835\uDDE6 Sans Bold</option><option value="sans_italic">\uD835\uDE58\uD835\uDE54\uD835\uDE53\uD835\uDE5A Sans Italic</option><option value="sans_bold_italic">\uD835\uDE5C\uD835\uDE58\uD835\uDE57\uD835\uDE5C Sans Bold Italic</option><option value="double_struck">\uD835\uDD64\uD835\uDD60\uD835\uDD5F\uD835\uDD64 Double-Struck</option><option value="fraktur">\uD835\uDD30\uD835\uDD2C\uD835\uDD2B\uD835\uDD30 Fraktur</option><option value="fraktur_bold">\uD835\uDE98\uD835\uDE94\uD835\uDE93\uD835\uDE98 Fraktur Bold</option><option value="script">\uD835\uDCB6\uD835\uDCB7\uD835\uDCB8\uD835\uDCB3 Script</option><option value="script_bold">\uD835\uDCEA\uD835\uDCEB\uD835\uDCEC\uD835\uDCE7 Script Bold</option><option value="monospace">\uD835\uDE8A\uD835\uDE87\uD835\uDE87\uD835\uDE94 Monospace</option>`;
+const _STYLE_OPTIONS_NO_NONE = `<option value="underline">U\u0332n\u0332d\u0332e\u0332r\u0332l\u0332i\u0332n\u0332e\u0332 Underline</option><option value="strikethrough">S\u0336t\u0336r\u0336i\u0336k\u0336e\u0336 Strikethrough</option><option value="bold">\uD835\uDC01\uD835\uDC28\uD835\uDC25\uD835\uDC1D Bold</option><option value="italic">\uD835\uDC3C\uD835\uDC61\uD835\uDC4E\uD835\uDC59\uD835\uDC56\uD835\uDC50 Italic</option><option value="bold_italic">\uD835\uDC54\uD835\uDC90\uD835\uDC8F\uD835\uDC88 Bold Italic</option><option value="sans">\uD835\uDE34\uD835\uDE30\uD835\uDE2F\uD835\uDE34 Sans</option><option value="sans_bold">\uD835\uDDE6\uD835\uDDBC\uD835\uDDB3\uD835\uDDE6 Sans Bold</option><option value="sans_italic">\uD835\uDE58\uD835\uDE54\uD835\uDE53\uD835\uDE5A Sans Italic</option><option value="sans_bold_italic">\uD835\uDE5C\uD835\uDE58\uD835\uDE57\uD835\uDE5C Sans Bold Italic</option><option value="double_struck">\uD835\uDD64\uD835\uDD60\uD835\uDD5F\uD835\uDD64 Double-Struck</option><option value="fraktur">\uD835\uDD30\uD835\uDD2C\uD835\uDD2B\uD835\uDD30 Fraktur</option><option value="fraktur_bold">\uD835\uDE98\uD835\uDE94\uD835\uDE93\uD835\uDE98 Fraktur Bold</option><option value="script">\uD835\uDCB6\uD835\uDCB7\uD835\uDCB8\uD835\uDCB3 Script</option><option value="script_bold">\uD835\uDCEA\uD835\uDCEB\uD835\uDCEC\uD835\uDCE7 Script Bold</option><option value="monospace">\uD835\uDE8A\uD835\uDE87\uD835\uDE87\uD835\uDE94 Monospace</option>`;
 
 const SECTION_BODIES = {
     auth: () =>
@@ -30,6 +30,7 @@ const SECTION_BODIES = {
         h.row(h.label("Spotify token"),   h.field(h.inline(h.input("spotify-web-token","Auto-fetched from cookies on startup") + `<span id="spotify-token-status"></span>`) + h.hint("Optional \u2014 only needed if auto-fetch fails."))) +
         h.row(h.label("Musixmatch token"),h.field(h.input("musixmatch-token","Auto-fetched; paste override if needed") + h.hint("Optional. Auto-managed — only override if auto-fetch fails repeatedly."))) +
         h.row("", h.field(h.check("use-dealer","Use Spotify Dealer WebSocket (push-based)") + h.hint("Recommended. Replaces 5s polling with real-time push events. Requires sp_dc cookie."))) +
+        h.row("", h.field(h.check("use-discord-presence","Use Discord presence for playback (no Spotify login)") + h.hint("Reads your Spotify activity from Discord. No sp_dc or client ID needed — just link Spotify in Discord settings. Disables Spotify polling when on."))) +
         h.row(h.label("Client ID"),       h.field(h.input("client-id","Spotify app client ID"))) +
         h.row(h.label("Client secret"),   h.field(h.input("client-secret","Spotify app client secret"))) +
         h.row(h.label("Redirect URI"),    h.field(h.input("custom-redirect-uri","Must match URI in Spotify app settings"))) +
@@ -38,20 +39,27 @@ const SECTION_BODIES = {
     display: () =>
         h.row("", h.field(h.check("enable-timestamp","Show playback timestamp"))) +
         h.row("", h.field(h.check("enable-label","Show label before lyrics"))) +
+        h.row("", h.field(h.check("profanity-filter","Censor common swear words"))) +
+        h.row(h.label("Censor chars (min/max)"), h.field(`<input type="number" id="profanity-censor-min" min="1" max="15" style="width:64px"> – <input type="number" id="profanity-censor-max" min="1" max="15" style="width:64px">`)) +
+        h.row(h.label("Censor ratio (% of word)"), h.field(`<input type="number" id="profanity-censor-ratio" min="0" max="100" style="width:64px">%`)) +
         h.row(h.label("Live preview"), h.field(`<span class="preview-badge" id="status-preview">[2:17] Song lyrics \u2014 La-la-la</span>`)) +
         h.divider() +
         h.row("", h.field(h.check("enable-advanced-swt","Advanced custom status template"))) +
         `<div class="sub-box" id="advanced-swt">` +
             h.row(h.label("Custom emoji"), h.inline(`<input type="text" id="custom-emoji" style="width:64px" maxlength="4" placeholder="\uD83C\uDFB6">` + h.ibtn("custom-emoji-help","Emoji help"))) +
+            h.row("", h.field(h.check("mood-hearts-enabled","Mood-colored hearts") + h.hint("❤️ love · 💛 happy · 💙 sad · 💚 calm · 🖤 angry — picked from the lyric, falls back to the custom emoji above otherwise."))) +
             h.row(h.label("Status template"), h.field(`<textarea id="custom-status" class="full"></textarea>` + h.inline(h.hint("128 char limit. Variables: {lyrics}, {timestamp}, {song_name}, {song_author}, {source}, {progress}, {duration}, {line_number}") + h.ibtn("custom-status-help","Template help")))) +
             h.row(h.label("Unicode style"), h.field(`<select id="unicode-style">${_STYLE_OPTIONS}</select>` + h.hint("Converts a\u2013z A\u2013Z to Unicode math chars. Works in Discord status. Non-latin letters pass through."))) +
-            h.row("", h.field(h.check("style-alternate-enabled","Alternate styles on a timer") + h.hint("Choose two styles to cycle. Overrides Unicode style above."))) +
+            h.row("", h.field(h.check("style-alternate-enabled","Alternate styles on a timer") + h.hint("Select 2+ styles below. Cycles through them on an interval. Overrides Unicode style."))) +
             `<div id="style-alternate-interval-row">` +
-                h.row(h.label("Style A"), h.field(`<select id="style-alternate-a">${_STYLE_OPTIONS}</select>`)) +
-                h.row(h.label("Style B"), h.field(`<select id="style-alternate-b">${_STYLE_OPTIONS}</select>`)) +
-                h.row(h.label("Alternate interval"), h.inline(h.number("style-alternate-interval",500,60000,500) + h.muted("ms per style"))) +
+                h.row(h.label("Styles"), h.field(`<div id="style-alternate-checks" class="check-group"></div><select id="style-alternate-a" style="display:none"></select><select id="style-alternate-b" style="display:none"></select><input id="style-alternate-list" style="display:none">` + h.hint("Pick 2+ to cycle. Selection order = cycle order."))) +
+                h.row("", h.field(h.check("style-alternate-random","Randomise order") + h.hint("Deterministic — same beat always picks the same style."))) +
+                h.row(h.label("Interval"), h.inline(h.number("style-alternate-interval",500,60000,500) + h.muted("ms per style"))) +
             `</div>` +
             h.row(h.label("Word styles"), h.field(`<div id="style-word-map-checks" class="check-group"></div>` + h.hint("Comma-separated styles per word, cycled. Overrides Unicode/alternate styles."))) +
+            h.row("", h.field(h.check("style-word-map-marquee","Animate word styles (marquee)") + h.hint("Shifts the word-style pattern each interval — creates a travelling colour effect."))) +
+            h.row(h.label("Char styles"), h.field(`<div id="style-char-map-checks" class="check-group"></div>` + h.hint("Cycles per character instead of per word. Overrides word styles."))) +
+            h.row(h.label("Lyric brackets"), h.field(`<select id="lyrics-brackets" style="width:auto;margin-right:6px"><option value="">None</option><option value="『,』">『 』</option><option value="【,】">【 】</option><option value="❝,❞">❝ ❞</option><option value="«,»">« »</option><option value="♪,♪">♪ ♪</option><option value="⌈,⌉">⌈ ⌉</option><option value="❮,❯">❮ ❯</option><option value="「,」">「 」</option><option value="〈,〉">〈 〉</option><option value="‹,›">‹ ›</option><option value="❨,❩">❨ ❩</option><option value="⟦,⟧">⟦ ⟧</option></select>` + h.hint("Wraps {lyrics} with a decorative bracket pair."))) +
         `</div>` +
         h.divider() +
         h.row(h.label("Send offset (ms)"), h.inline(h.number("send-time-offset",-2000,5000,100) + h.ibtn("send-time-offset-help","Offset help"))) +
@@ -77,13 +85,16 @@ const SECTION_BODIES = {
             `<div class="presence-toggle" id="presence-toggle">` +
             PRESENCE_OPTIONS.map(o => `<button class="presence-btn" data-value="${o.value}" style="--pc:${o.color}">${o.label}</button>`).join("") +
             `</div>` +
-            h.hint("Mobile presence requires a restart to take effect. Sets your Discord status on each op\u00a03 send. Invisible hides you from others while still updating your custom status. Gateway must be enabled.") +
+            h.hint("Mobile/PlayStation presence requires a restart to take effect. Sets your Discord status on each op\u00a03 send. Invisible hides you from others while still updating your custom status. Gateway must be enabled.") +
             `</div>`
         ) +
         `<div id="gw-interval-row">` + h.row(h.label("Update speed"), h.inline(h.number("gw-min-interval-ms",0,60000,500) + h.muted("ms between op\u00a03 sends"))) +
         h.indent(h.hint("How frequently your status updates in Gateway mode. 0 = Discord's limit only (5 per 20s). Raise if it feels too rapid.")) + `</div>` +
         h.row(h.label("Clear after last line"), h.inline(h.number("gw-clear-last-line-ms",0,30000,500) + h.muted("ms (0 = off)"))) +
         h.indent(h.hint("Clears your Discord status via GW a few seconds after the last lyric line is sent. 0 disables. Default: 3000\u2009ms.")) +
+        h.row("", h.field(h.check("idle-enabled","Auto-disconnect gateway when idle"))) +
+        h.indent(h.row(h.inline(h.number("idle-timeout-sec",10,3600,10) + h.muted("seconds with no playback before disconnecting")))) +
+        h.indent(h.hint("Disconnects the gateway connection after this much time with no playback, so a manually-set Discord status sticks instead of being overwritten. Reconnects automatically when playback resumes.")) +
         h.divider() +
         h.row("", h.inline(h.check("flash-enabled","Enable status flash") + h.ibtn("flash-help","Flash help"))) +
         h.row(h.label("Cycle states"),
@@ -108,6 +119,7 @@ const SECTION_BODIES = {
         h.row("", h.inline(h.check("rp-enabled","Enable rich presence (type\u00a02)") + h.ibtn("rp-help","Rich Presence help"))) +
         h.row("", h.field(`<small class="hint" id="rp-gw-warn" style="color:var(--amber);display:none">\u26a0 Gateway must be enabled for rich presence to work.</small>`)) +
         h.row(h.label("App name"),        h.field(h.input("rp-app-name","e.g. Spotify") + h.hint(`Shown as \u201cListening to [App name]\u201d in Discord.`))) +
+        h.row(h.label("Application ID"), h.field(h.input("rp-application-id","Optional Discord app ID") + h.hint("Adds <code>application_id</code> to the activity payload. Leave blank to omit."))) +
         h.row(h.label("Details (line 1)"),h.field(`<textarea id="rp-details-template" class="full"></textarea>` + h.inline(h.hint("Top line. Same variables as custom status template.") + h.ibtn("custom-status-help","Template help")))) +
         h.row(h.label("State (line 2)"),  h.field(h.input("rp-state-template","e.g. {song_author}") + h.hint("Artist/subtitle row."))) +
         h.row("", h.field(h.check("rp-show-progress-bar","Show progress bar (uses timestamps)"))) +
@@ -115,6 +127,7 @@ const SECTION_BODIES = {
         `<div id="rp-album-art-url-row">` +
             h.indent(h.row(h.label("Album art URL"), h.field(h.input("rp-album-art-url","Override URL (leave blank for auto)")))) +
         `</div>` +
+        h.row(h.label("Small image"), h.field(h.input("rp-small-image","Asset key or image URL") + h.hint("Small icon overlaid on album art. External URLs auto-prefixed with <code>mp:</code>."))) +
         h.row(h.label("Button label"),   h.field(h.input("rp-button-label","Leave blank to hide button"))) +
         h.row(h.label("Button URL"),     h.field(h.input("rp-button-url","https://...") + h.hint("Must start with http/https."))) +
         h.divider() +
@@ -128,7 +141,7 @@ const SECTION_BODIES = {
             h.row(h.label("Flags"),      h.inline(h.number("sp-flags",0,63,1) + h.muted("48=SYNC+JOIN  32=SYNC  16=JOIN  0=none"))) +
         `</div>` +
         h.divider() +
-        h.row("", h.field(h.check("pc-enabled","\uD83C\uDFA8 Auto profile color from album art") + h.hint("Sets your Discord profile <code>accent_color</code> and <code>theme_colors</code> on each song change. Requires Nitro."))) +
+        h.row("", h.field(`<span style="opacity:0.4;pointer-events:none">` + h.check("pc-enabled","\uD83C\uDFA8 Auto profile color from album art") + `</span>` + '<small class="hint" style="color:var(--amber)">&#9888; Permanently disabled in this build.</small>')) +
         h.row(h.label("Accent hue shift"), h.inline(h.number("pc-accent-shift",-180,180,5) + h.muted("degrees (default 30)"))) +
         h.indent(h.hint("How far the accent/secondary color shifts in hue from the base. 30 = subtle, 90 = vivid contrast.")),
 
@@ -156,6 +169,8 @@ const SECTION_BODIES = {
         h.row("", h.field(h.check("enable-autoupdate","Automatic update checks"))),
 };
 
+function _safeBody(id) { try { return SECTION_BODIES[id](); } catch(e) { console.error("[panel] Section error:", id, e); return "<p style=\"color:var(--red,#e74c3c);padding:8px;font-size:12px\">Section render error (" + id + "): " + e.message + "</p>"; } }
+
 function renderSections() {
     const container = document.getElementById("sections");
     container.innerHTML = SECTION_DEFS.map(([icon, title, desc, id, open]) => `
@@ -170,7 +185,7 @@ function renderSections() {
                 </div>
                 <span class="section-chevron">&#x25BE;</span>
             </div>
-            <div class="section-body">${SECTION_BODIES[id]()}</div>
+            <div class="section-body">${_safeBody(id)}</div>
         </div>
     `).join("");
     // UI-5: restore persisted open/close state

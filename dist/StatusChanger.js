@@ -19,7 +19,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
     _flashSend(status, label) {
         const usingGateway = Settings_1.Settings.gateway && Settings_1.Settings.gateway.enabled && this._gateway && this._gateway.connected;
         if (usingGateway) { this._gateway.flashPresence(status, null, null); return; }
-        if (Date.now() < this._rateLimitedUntil) { Debug_1.Debug.write("[StatusFlash] Skipping — rate limited (RL-09)"); return; }
+        if (Date.now() < this._rateLimitedUntil || Date.now() < this._globalLimitedUntil) { Debug_1.Debug.write("[StatusFlash] Skipping — rate limited (RL-09)"); return; }
         this._discordPatch({ status })
             .then(res => {
                 if (res.status === 429) {
@@ -83,7 +83,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
         if (!restorePresence || !wasActive) return;
         const sf = Settings_1.Settings.statusFlash;
         const _rawBase = (sf && sf.restoreStatus) || (Settings_1.Settings.gateway && Settings_1.Settings.gateway.presenceStatus) || "online";
-        const base = (_rawBase === "mobile" || _rawBase === "playstation" || _rawBase === "off") ? "online" : _rawBase;
+        const base = (_rawBase === "mobile" || _rawBase === "off") ? "online" : _rawBase;
         if (!VALID_FLASH_STATES.has(base)) return;
         const now = Date.now();
         if (now - this._flashRestoreSentAt < 2000) return;
@@ -184,18 +184,13 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
         const offset = Settings_1.Settings.timings.enableAutooffset
             ? this.autooffset.getMedianValue() + 100
             : (Settings_1.Settings.timings.sendTimeOffset || 0);
-        const _denseCount = lines.filter(l => l.text && l.time >= songProgress+offset && l.time < songProgress+offset+20000).length;
-        const _staticWindow = _denseCount > 5 ? Math.max(mergeWindowMs || 8000, 5000) : (mergeWindowMs || 8000);
-        // When _lastSentAt===0 (first line of song / after song change), use the full static window
-        // instead of 0 so the first anchor can still pull in neighbors.
-        const mergeWindow = enableMergeLines
-            ? Math.min(this._lastAnchorAdvanceAt > 0 ? now - this._lastAnchorAdvanceAt : _staticWindow, _staticWindow)
-            : 0;
-
-        for (let i = 0; i < lines.length; i++) {
+if (this._lastProgressSeen != null && songProgress < this._lastProgressSeen - 2000) this._scanIndex = 0;
+        this._lastProgressSeen = songProgress;
+        for (let i = this._scanIndex||0; i < lines.length; i++) {
             const line = lines[i];
             const nextLine = lines[i + 1];
             if (line.time < (songProgress + offset)) {
+                this._scanIndex = i;
                 if (!line.text) { if (!this.sentLines.has(line)) this.sentLines.add(line); continue; }
                 if (nextLine && nextLine.time < (songProgress + offset) && (songProgress + offset - line.time) > 3000) {
                     if (!this.sentLines.has(line)) { this.sentLines.add(line); this._staleLines.add(line); if (!this._catchupStaleLines) this._catchupStaleLines = new Set(); this._catchupStaleLines.add(line); }
@@ -204,14 +199,26 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                 const _inRollback = this._rollbackLines && this._rollbackLines.has(line);
                 if (this.sentLines.has(line) && !this._staleLines.has(line) && !_inRollback && (!_styleBucketChanged || this._lastAnchorLine !== line)) break;
 
-                if (this._lastAnchorLine !== line) { this._rollbackLines = new Set(); this._staleLines = new Set([...this._staleLines].filter(sl => sl.time > line.time)); this._lastAnchorAdvanceAt = now; } // B2: drop past stale entries only; keep future forward-merged lines
+                const _isNewAnchor = this._lastAnchorLine !== line;
+                if (_isNewAnchor) { this._rollbackLines = new Set(); this._staleLines = new Set([...this._staleLines].filter(sl => sl.time > line.time)); this._lastAnchorAdvanceAt = now; } // B2: drop past stale entries only; keep future forward-merged lines
+
+                // PERF-1: moved off the per-tick hot path -- only computed when a line is actually
+                // about to be sent (anchor advance or style-bucket resend), not on every changeStatus() poll.
+                const _denseCount = lines.slice(this._scanIndex||0).filter(l => l.text && l.time >= songProgress+offset && l.time < songProgress+offset+20000).length;
+                const _staticWindow = _denseCount > 5 ? Math.max(mergeWindowMs || 8000, 5000) : (mergeWindowMs || 8000);
+                // When _lastSentAt===0 (first line of song / after song change), use the full static window
+                // instead of 0 so the first anchor can still pull in neighbors.
+                const mergeWindow = enableMergeLines
+                    ? (_isNewAnchor ? _staticWindow : Math.min(this._lastAnchorAdvanceAt > 0 ? now - this._lastAnchorAdvanceAt : _staticWindow, _staticWindow))
+                    : 0;
 
                 let mergedText, lyricLines, joinedLines, mergedLines, forwardLines;
                 if (mergeWindow === 0) {
                     const mt = sanitizeLyric(line.text || "");
                     mergedText = mt; lyricLines = [mt]; joinedLines = [mt]; mergedLines = [line]; forwardLines = null;
                 } else {
-                    const _maxLines = Settings_1.Settings.rateLimit?.mergeMaxLines || 0;
+                    let _maxLines = Settings_1.Settings.rateLimit?.mergeMaxLines;
+                    _maxLines = (Number.isFinite(_maxLines) && _maxLines > 0) ? Math.floor(_maxLines) : 0;
                     ({ forwardLines, mergedText, lyricLines, joinedLines, mergedLines } = this.buildMergedLines(lines, i, mergeWindow, _styleBucketChanged, _maxLines, _staticWindow));
                 }
 
@@ -275,6 +282,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
                     this.sentLines = new Set(arr);
                     for (const d of dropped) this._staleLines.add(d);
                     this._staleLines = new Set([...this._staleLines].filter(l => this.sentLines.has(l)));
+                if (this._catchupStaleLines && this._catchupStaleLines.size > 100) { this._catchupStaleLines = new Set([...this._catchupStaleLines].slice(-100)); }
                 }
                 if (Settings_1.Settings.gateway && Settings_1.Settings.gateway.enabled) this._iOSSyncPending = { t: statusText, em: emoji };
                 if (usingGateway && this._gateway) {
@@ -305,7 +313,7 @@ class StatusChanger extends StatusChangerBase_1.StatusChangerBase {
     }
 
     songChanged(isEnd = false) {
-        this.sentLines = new Set(); this._staleLines = new Set(); this._rollbackLines = new Set(); this._lastMergedLines = null; this._lastAnchorLine = null; this._lastAnchorAdvanceAt = 0; this._catchupStaleLines = new Set(); this._wordStyleCursor = 0; this._lastMarqueeBucket = -1;
+        this.sentLines = new Set(); this._staleLines = new Set(); this._rollbackLines = new Set(); this._lastMergedLines = null; this._lastAnchorLine = null; this._lastAnchorAdvanceAt = 0; this._catchupStaleLines = new Set(); this._wordStyleCursor = 0; this._lastMarqueeBucket = -1; this._scanIndex = 0; this._lastProgressSeen = null;
         this._rpActivityId = require("crypto").randomBytes(8).toString("hex"); this._lastRpKey = "";
         if (this._lastLineClearTimer) { clearTimeout(this._lastLineClearTimer); this._lastLineClearTimer = null; }
         if (Date.now() >= this._rateLimitedUntil) this._lastSentAt = 0;

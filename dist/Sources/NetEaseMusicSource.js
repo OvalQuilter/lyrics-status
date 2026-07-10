@@ -32,7 +32,7 @@ class NetEaseMusicSource {
             // Bug 7 fix: skip lines with no timestamp instead of pushing time:0
             // (avoids spurious status at t=0 from non-timestamped metadata that passed JUNK_RE)
             if (!times.length) continue;
-            for (const time of times) lines.push({ time, text: line });
+            const text = line.trim(); if (text) for (const time of times) lines.push({ time, text });
         }
         return { lines: lines.sort((a, b) => a.time - b.time) };
     }
