@@ -62,11 +62,11 @@ const SECTION_BODIES = {
             h.row(h.label("Lyric brackets"), h.field(`<select id="lyrics-brackets" style="width:auto;margin-right:6px"><option value="">None</option><option value="『,』">『 』</option><option value="【,】">【 】</option><option value="❝,❞">❝ ❞</option><option value="«,»">« »</option><option value="♪,♪">♪ ♪</option><option value="⌈,⌉">⌈ ⌉</option><option value="❮,❯">❮ ❯</option><option value="「,」">「 」</option><option value="〈,〉">〈 〉</option><option value="‹,›">‹ ›</option><option value="❨,❩">❨ ❩</option><option value="⟦,⟧">⟦ ⟧</option></select>` + h.hint("Wraps {lyrics} with a decorative bracket pair."))) +
         `</div>` +
         h.divider() +
-        h.row(h.label("Send offset (ms)"), h.inline(h.number("send-time-offset",-2000,5000,100) + h.ibtn("send-time-offset-help","Offset help"))) +
-        h.row("", h.inline(h.check("enable-autooffset","Enable autooffset") + h.ibtn("autooffset-help","Autooffset help"))) +
-        h.row(h.label("Autooffset samples"), h.inline(h.number("autooffset",1,20,1) + h.muted("requests"))) +
+        h.row(h.label("Timing offset (ms)"), h.inline(h.number("send-time-offset",-2000,5000,100) + h.ibtn("send-time-offset-help","Offset help"))) +
+        h.row("", h.inline(h.check("enable-autooffset","Auto-calibrate timing offset") + h.ibtn("autooffset-help","Autooffset help"))) +
+        h.row(h.label("Calibration samples"), h.inline(h.number("autooffset",1,20,1) + h.muted("requests"))) +
         h.divider() +
-        h.row("", h.field(h.check("enable-backoff","Auto backoff on rate limit"))) +
+        h.row("", h.field(h.check("enable-backoff","Automatically slow down if rate-limited"))) +
         h.indent(h.hint("Pauses sending for Discord\u2019s suggested retry window on 429.")) +
         `<div id="rest-interval-row">` + h.row("", h.field(h.check("enable-min-interval","Limit update frequency"))) +
         h.indent(h.row(h.inline(h.number("min-interval-ms",1000,60000,500) + h.muted("ms — 5000 = every 5s, raise to 10000 if rate limited")))) +
@@ -79,7 +79,7 @@ const SECTION_BODIES = {
         h.indent(h.row(h.label("Max lines"), h.inline(h.number("merge-max-lines",0,10,1) + h.muted("lines per update (0 = unlimited)")))) +
         h.indent(h.hint("Caps how many lines can merge into one update. Prevents over-merging on fast-tempo sections.")),
     gateway: () =>
-        h.row("", h.inline(h.check("gateway-enabled","Use gateway (op\u00a03) instead of REST") + h.ibtn("gateway-help","Gateway help"))) +
+        h.row("", h.inline(h.check("gateway-enabled","Use Gateway connection (real-time) instead of REST API") + h.ibtn("gateway-help","Gateway help"))) +
         h.row(h.label("Presence status"),
             `<div class="row-field">` +
             `<div class="presence-toggle" id="presence-toggle">` +
@@ -116,7 +116,7 @@ const SECTION_BODIES = {
             `</div>`
         ) +
         h.divider() +
-        h.row("", h.inline(h.check("rp-enabled","Enable rich presence (type\u00a02)") + h.ibtn("rp-help","Rich Presence help"))) +
+        h.row("", h.inline(h.check("rp-enabled","Enable Rich Presence (“Listening to…” card)") + h.ibtn("rp-help","Rich Presence help"))) +
         h.row("", h.field(`<small class="hint" id="rp-gw-warn" style="color:var(--amber);display:none">\u26a0 Gateway must be enabled for rich presence to work.</small>`)) +
         h.row(h.label("App name"),        h.field(h.input("rp-app-name","e.g. Spotify") + h.hint(`Shown as \u201cListening to [App name]\u201d in Discord.`))) +
         h.row(h.label("Application ID"), h.field(h.input("rp-application-id","Optional Discord app ID") + h.hint("Adds <code>application_id</code> to the activity payload. Leave blank to omit."))) +
@@ -127,18 +127,18 @@ const SECTION_BODIES = {
         `<div id="rp-album-art-url-row">` +
             h.indent(h.row(h.label("Album art URL"), h.field(h.input("rp-album-art-url","Override URL (leave blank for auto)")))) +
         `</div>` +
-        h.row(h.label("Small image"), h.field(h.input("rp-small-image","Asset key or image URL") + h.hint("Small icon overlaid on album art. External URLs auto-prefixed with <code>mp:</code>."))) +
+        h.row(h.label("Small icon"), h.field(h.input("rp-small-image","Asset key or image URL") + h.hint("Small icon overlaid on album art. External URLs auto-prefixed with <code>mp:</code>."))) +
         h.row(h.label("Button label"),   h.field(h.input("rp-button-label","Leave blank to hide button"))) +
         h.row(h.label("Button URL"),     h.field(h.input("rp-button-url","https://...") + h.hint("Must start with http/https."))) +
         h.divider() +
-        h.row("", h.inline(h.check("sp-enabled","Listening Together (party spoof)") + h.ibtn("sp-help","Spotify Party help"))) +
+        h.row("", h.inline(h.check("sp-enabled","Fake “Listening Together” party") + h.ibtn("sp-help","Spotify Party help"))) +
         h.row("", h.field('<small class="hint" id="sp-rp-warn" style="color:var(--amber);display:none">\u26a0 Rich Presence must be enabled for party to work.</small>')) +
         `<div id="sp-fields">` +
             h.row(h.label("Party ID"),   h.field(h.input("sp-party-id","Leave blank to auto-generate per song"))) +
             h.row(h.label("Party size"), h.inline(h.number("sp-party-size",1,999,1) + h.muted("current listeners (cosmetic)"))) +
             h.row(h.label("Party max"),  h.inline(h.number("sp-party-max",1,999,1)  + h.muted("max slots (cosmetic)"))) +
             h.row(h.label("Sync ID"),    h.field(h.input("sp-sync-id","Leave blank to use real track ID"))) +
-            h.row(h.label("Flags"),      h.inline(h.number("sp-flags",0,63,1) + h.muted("48=SYNC+JOIN  32=SYNC  16=JOIN  0=none"))) +
+            h.row(h.label("Party sync flags"), h.inline(h.number("sp-flags",0,63,1) + h.muted("48=sync+join, 32=sync only, 16=join only, 0=none"))) +
         `</div>` +
         h.divider() +
         h.row("", h.field(`<span style="opacity:0.4;pointer-events:none">` + h.check("pc-enabled","\uD83C\uDFA8 Auto profile color from album art") + `</span>` + '<small class="hint" style="color:var(--amber)">&#9888; Permanently disabled in this build.</small>')) +
@@ -152,7 +152,7 @@ const SECTION_BODIES = {
         h.indent(h.hint("15 seconds recommended to avoid rate limits on skips.")) +
         h.divider() +
         `<ul id="source-list"></ul>` +
-        h.row(h.label("Chinese script"), h.field(
+        h.row(h.label("Chinese text conversion"), h.field(
             `<select id="chinese-conversion"><option value="off">Off</option><option value="toTraditional">Simplified \u2192 Traditional</option><option value="toSimplified">Traditional \u2192 Simplified</option></select>` +
             h.hint("Converts Chinese lyrics at fetch time. Clear cache to reprocess existing songs.")
         )) +
