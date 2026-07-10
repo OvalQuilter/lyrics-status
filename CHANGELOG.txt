@@ -1,3 +1,19 @@
+150. fix: LyricsFetcher duration-sanity guard -- rejects timed-lyrics candidates whose last timestamp is wildly outside the actual track duration (likely wrong-song match), falls through to next source
+149. fix: Updater.downloadRepo stream had no error handling -- a network drop mid-download could hang the update check (and startup) forever
+148. fix: profanity filter regex now escapes list entries before building the alternation -- unescaped ./+/* caused false positives (e.g. "shi tzu", "sooob"); excluded common-word/brand collisions (god, sex, viagra, etc)
+147. feat: profanity filter added -- badwords-list-backed word list, smart %/min/max censoring, toggle + tunables in panel
+146. feat: Panel Server.js -- key-based auth (auto-generated, ?key= query), settings save debounced 400ms, Spotify token refresh capped at 10 retries, WS payload type-validation
+145. fix: Settings.js/CacheStore.js path resolution now __dirname-based instead of relative to process cwd (settings could silently save to the wrong location)
+144. fix: main changeStatus scan pointer (_scanIndex) was advancing on every line including not-yet-due ones -- could strand at array end on a single tick, permanently skipping remaining lyrics until restart
+143. perf: main changeStatus loop rescanned all lyric lines from index 0 every tick -- now resumes from cached _scanIndex, with seek-backward reset
+142. removed: dead PlayStation platform-badge code (never cleared on mode switch, feature already non-functional per 123) -- fully removed
+141. fix: GatewayClient Discord-relay Spotify tracking picked first session found across devices -- now picks most-recently-started; added staleness expiry and change-dedupe
+140. feat: global 429 lock now shared across REST status send, flash presence, iOS sync, and restoreStatus (previously only the main status route respected it)
+139. fix: 429 handler now reads X-RateLimit-Scope header -- shared-scope 429s capped to 5s backoff instead of full retry_after
+138. fix: mergeMaxLines=0 (default/unlimited) was disabling backward merge entirely -- 0 now correctly means unlimited both directions; added input validation
+137. fix: new-anchor mergeWindow was always computed as 0, disabling merge on every line's first send -- root cause of reported skipped-line merging
+136. feat: backward catchup gap multiplier now Settings-tunable (was hardcoded 3x)
+135. fix: forward merge pass now skips already-sent lines instead of aborting the entire scan
 134. fix: watchdog scanIndex reset now bounds-checked against current song's line count (was leaving stale scanIndex past lines.length after prior fix, freezing sends all song)
 133. fix: watchdog no longer calls songChanged() (was wiping sentLines/scanIndex mid-song, causing repeat/duplicate lines) -- only clears _lastSentAt + _rollbackLines now
 132. feat: index.js terminal panel -- debug row (scanIndex/sentLines/rollback/watchdog timer/iosSync/gwStuck), red WATCHDOG label flash on trigger, full non-abbreviated labels

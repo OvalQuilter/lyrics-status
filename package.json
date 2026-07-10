@@ -1,6 +1,6 @@
 {
   "name": "lyrics-status",
-  "version": "3.6.0.0",
+  "version": "3.6.1.0",
   "dependencies": {
     "@sentry/node": "^10.53.1",
     "@stef-0012/synclyrics": "^2.5.10",
