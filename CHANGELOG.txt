@@ -1,3 +1,5 @@
+151. feat: start.bat added (Windows double-click launcher) -- checks for Node.js, then runs launcher.js
+150. feat: launcher.js now self-healing -- hashes package.json and auto-runs npm install on first run and whenever dependencies change (e.g. after an update), no more manual npm install step
 150. fix: LyricsFetcher duration-sanity guard -- rejects timed-lyrics candidates whose last timestamp is wildly outside the actual track duration (likely wrong-song match), falls through to next source
 149. fix: Updater.downloadRepo stream had no error handling -- a network drop mid-download could hang the update check (and startup) forever
 148. fix: profanity filter regex now escapes list entries before building the alternation -- unescaped ./+/* caused false positives (e.g. "shi tzu", "sooob"); excluded common-word/brand collisions (god, sex, viagra, etc)
