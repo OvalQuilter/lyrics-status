@@ -12,7 +12,7 @@ const SpotifyService_1 = require("../SpotifyService");
 const Debug_1 = require("../Debug");
 
 const STATIC = join(__dirname, "../../static");
-const KEYS = ["credentials","view","timings","update","rateLimit","sources","chineseConversion","restore","gateway","statusFlash","richPresence","spotifyParty","profileColor","idle"];
+const KEYS = ["credentials","view","timings","update","rateLimit","sources","chineseConversion","restore","gateway","statusFlash","richPresence","spotifyParty","profileColor","idle","gamePresence"];
 
 let _lastStatus = null;
 let _saveTimer = null;

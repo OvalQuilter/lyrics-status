@@ -8,7 +8,7 @@ import { Settings } from "../Settings"
 import { SpotifyService } from "../SpotifyService"
 
 const STATIC = join(__dirname, "../../static")
-const KEYS = ["credentials","view","timings","update","rateLimit","sources","chineseConversion","restore","gateway","statusFlash","richPresence"]
+const KEYS = ["credentials","view","timings","update","rateLimit","sources","chineseConversion","restore","gateway","statusFlash","richPresence","spotifyParty","profileColor","idle","gamePresence"]
 
 let _lastStatus: object | null = null
 
