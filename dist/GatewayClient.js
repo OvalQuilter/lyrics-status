@@ -285,7 +285,18 @@ class GatewayClient {
         return true;
     }
     clearFlashStatus() { this._flashStatus = null; this._lastPayloadKey = ""; }
-    refreshPresenceStatus() { if (!this.connected) return false; this._lastPayloadKey = ""; return this.setCustomStatus(this._lastActivity?.state || "", this._lastActivity?.emoji?.name || null); }
+    refreshPresenceStatus() {
+        if (!this.connected) return false;
+        this._lastPayloadKey = "";
+        if (!this._lastActivity) {
+            const pref = Settings_1.Settings.gateway?.presenceStatus || "online";
+            const status = this._flashStatus || (pref === "mobile" ? "online" : pref === "off" ? "online" : pref === "invisible" ? "invisible" : pref);
+            const activities = [this._lastRichPresenceActivity, this._lastGameActivity].filter(Boolean);
+            this._send({ op: 3, d: { since: status === "idle" ? Date.now() : 0, afk: status === "idle", status, activities } });
+            return true;
+        }
+        return this.setCustomStatus(this._lastActivity.state || "", this._lastActivity.emoji?.name || null);
+    }
     _buildGameActivity() {
         const gp = Settings_1.Settings.gamePresence;
         if (!gp || !gp.enabled) return null;
@@ -294,7 +305,7 @@ class GatewayClient {
         const max = Math.max(1, Number(gp.partyMax) || tmpl.defaultMax);
         const current = Math.max(1, Math.min(Number(gp.partyCurrent) || 1, max));
         if (!this._gameActivityCreatedAt) this._gameActivityCreatedAt = Date.now();
-        const activity = { id: "game", type: 0, name: tmpl.name, application_id: tmpl.id, party: { id: "party_" + tmpl.id, size: [current, max] }, created_at: this._gameActivityCreatedAt };
+        const activity = { id: "game", type: 0, name: tmpl.name, application_id: tmpl.id, party: { id: "party_" + tmpl.id, size: [current, max] }, timestamps: { start: this._gameActivityCreatedAt } };
         if (gp.details) activity.details = gp.details;
         if (gp.state) activity.state = gp.state;
         return activity;
