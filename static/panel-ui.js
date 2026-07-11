@@ -1,0 +1,274 @@
+
+// panel-ui.js — HTML builders and DOM rendering
+// Depends on: panel-data.js (DEFAULTS, SOURCE_META, SECTION_DEFS, SECTION_BODIES keys,
+//             PRESENCE_OPTIONS, FLASH_STATE_OPTIONS, RESTORE_STATUS_OPTIONS)
+// Depends on: panel.js globals: settings, save()
+
+const h = {
+    row:     (...cols) => `<div class="row">${cols.map(c=>c||"").join("")}</div>`,
+    label:   t => `<span class="row-label">${t}</span>`,
+    field:   inner => `<div class="row-field">${inner}</div>`,
+    inline:  inner => `<div class="row-inline">${inner}</div>`,
+    input:   (id, ph="", extra="") => `<input type="text" id="${id}" class="full" placeholder="${ph}" ${extra}>`,
+    number:  (id, min, max, step) => `<input type="number" id="${id}" min="${min}" max="${max}" step="${step}">`,
+    check:   (id, label) => `<label class="check-row"><input type="checkbox" id="${id}"><span>${label}</span></label>`,
+    btn:     (id, text, cls="") => `<button id="${id}" class="${cls}">${text}</button>`,
+    ibtn:    (id, title) => `<button id="${id}" class="icon-btn" title="${title}">?</button>`,
+    hint:    t => `<small class="hint">${t}</small>`,
+    muted:   t => `<span style="font-size:12px;color:var(--muted)">${t}</span>`,
+    indent:  inner => `<div class="indent">${inner}</div>`,
+    divider: () => `<div class="divider"></div>`,
+};
+
+const _STYLE_OPTIONS = `<option value="none">None</option><option value="underline">U\u0332n\u0332d\u0332e\u0332r\u0332l\u0332i\u0332n\u0332e\u0332 Underline</option><option value="strikethrough">S\u0336t\u0336r\u0336i\u0336k\u0336e\u0336 Strikethrough</option><option value="bold">\uD835\uDC01\uD835\uDC28\uD835\uDC25\uD835\uDC1D Bold</option><option value="italic">\uD835\uDC3C\uD835\uDC61\uD835\uDC4E\uD835\uDC59\uD835\uDC56\uD835\uDC50 Italic</option><option value="bold_italic">\uD835\uDC54\uD835\uDC90\uD835\uDC8F\uD835\uDC88 Bold Italic</option><option value="sans">\uD835\uDE34\uD835\uDE30\uD835\uDE2F\uD835\uDE34 Sans</option><option value="sans_bold">\uD835\uDDE6\uD835\uDDBC\uD835\uDDB3\uD835\uDDE6 Sans Bold</option><option value="sans_italic">\uD835\uDE58\uD835\uDE54\uD835\uDE53\uD835\uDE5A Sans Italic</option><option value="sans_bold_italic">\uD835\uDE5C\uD835\uDE58\uD835\uDE57\uD835\uDE5C Sans Bold Italic</option><option value="double_struck">\uD835\uDD64\uD835\uDD60\uD835\uDD5F\uD835\uDD64 Double-Struck</option><option value="fraktur">\uD835\uDD30\uD835\uDD2C\uD835\uDD2B\uD835\uDD30 Fraktur</option><option value="fraktur_bold">\uD835\uDE98\uD835\uDE94\uD835\uDE93\uD835\uDE98 Fraktur Bold</option><option value="script">\uD835\uDCB6\uD835\uDCB7\uD835\uDCB8\uD835\uDCB3 Script</option><option value="script_bold">\uD835\uDCEA\uD835\uDCEB\uD835\uDCEC\uD835\uDCE7 Script Bold</option><option value="monospace">\uD835\uDE8A\uD835\uDE87\uD835\uDE87\uD835\uDE94 Monospace</option>`;
+const _STYLE_OPTIONS_NO_NONE = `<option value="underline">U\u0332n\u0332d\u0332e\u0332r\u0332l\u0332i\u0332n\u0332e\u0332 Underline</option><option value="strikethrough">S\u0336t\u0336r\u0336i\u0336k\u0336e\u0336 Strikethrough</option><option value="bold">\uD835\uDC01\uD835\uDC28\uD835\uDC25\uD835\uDC1D Bold</option><option value="italic">\uD835\uDC3C\uD835\uDC61\uD835\uDC4E\uD835\uDC59\uD835\uDC56\uD835\uDC50 Italic</option><option value="bold_italic">\uD835\uDC54\uD835\uDC90\uD835\uDC8F\uD835\uDC88 Bold Italic</option><option value="sans">\uD835\uDE34\uD835\uDE30\uD835\uDE2F\uD835\uDE34 Sans</option><option value="sans_bold">\uD835\uDDE6\uD835\uDDBC\uD835\uDDB3\uD835\uDDE6 Sans Bold</option><option value="sans_italic">\uD835\uDE58\uD835\uDE54\uD835\uDE53\uD835\uDE5A Sans Italic</option><option value="sans_bold_italic">\uD835\uDE5C\uD835\uDE58\uD835\uDE57\uD835\uDE5C Sans Bold Italic</option><option value="double_struck">\uD835\uDD64\uD835\uDD60\uD835\uDD5F\uD835\uDD64 Double-Struck</option><option value="fraktur">\uD835\uDD30\uD835\uDD2C\uD835\uDD2B\uD835\uDD30 Fraktur</option><option value="fraktur_bold">\uD835\uDE98\uD835\uDE94\uD835\uDE93\uD835\uDE98 Fraktur Bold</option><option value="script">\uD835\uDCB6\uD835\uDCB7\uD835\uDCB8\uD835\uDCB3 Script</option><option value="script_bold">\uD835\uDCEA\uD835\uDCEB\uD835\uDCEC\uD835\uDCE7 Script Bold</option><option value="monospace">\uD835\uDE8A\uD835\uDE87\uD835\uDE87\uD835\uDE94 Monospace</option>`;
+
+const _GAME_OPTIONS = `<option value="valorant">VALORANT</option><option value="minecraft">Minecraft</option><option value="fortnite">Fortnite</option><option value="lol">League of Legends</option><option value="apex">Apex Legends</option><option value="cs2">Counter-Strike 2</option><option value="gta5">Grand Theft Auto V</option><option value="amongus">Among Us</option><option value="warzone">Call of Duty: Warzone</option><option value="r6siege">Rainbow Six Siege</option><option value="fallguys">Fall Guys</option><option value="rocketleague">Rocket League</option>`;
+
+const SECTION_BODIES = {
+    auth: () =>
+        h.row(h.label("Discord token"),   h.field(h.inline(h.input("user-token","Paste your Discord user token") + h.btn("check-token","\u2192 Verify")))) +
+        h.row(h.label("Spotify cookies"), h.field(h.input("spotify-cookies","Paste your sp_dc cookie value") + h.hint("Only the <code>sp_dc</code> value \u2014 DevTools \u2192 Application \u2192 Cookies \u2192 open.spotify.com"))) +
+        h.row(h.label("Spotify token"),   h.field(h.inline(h.input("spotify-web-token","Auto-fetched from cookies on startup") + `<span id="spotify-token-status"></span>`) + h.hint("Optional \u2014 only needed if auto-fetch fails."))) +
+        h.row(h.label("Musixmatch token"),h.field(h.input("musixmatch-token","Auto-fetched; paste override if needed") + h.hint("Optional. Auto-managed — only override if auto-fetch fails repeatedly."))) +
+        h.row("", h.field(h.check("use-dealer","Use Spotify Dealer WebSocket (push-based)") + h.hint("Recommended. Replaces 5s polling with real-time push events. Requires sp_dc cookie."))) +
+        h.row("", h.field(h.check("use-discord-presence","Use Discord presence for playback (no Spotify login)") + h.hint("Reads your Spotify activity from Discord. No sp_dc or client ID needed — just link Spotify in Discord settings. Disables Spotify polling when on."))) +
+        h.row(h.label("Client ID"),       h.field(h.input("client-id","Spotify app client ID"))) +
+        h.row(h.label("Client secret"),   h.field(h.input("client-secret","Spotify app client secret"))) +
+        h.row(h.label("Redirect URI"),    h.field(h.input("custom-redirect-uri","Must match URI in Spotify app settings"))) +
+        h.row("", h.field(`<button id="btn-authorize" class="primary" style="width:100%;margin-bottom:8px">\u2192 Authorize Spotify</button><div class="auth-bottom">${h.check("use-external-auth-server","Use external auth server")}<span id="spotify-ok">\u2713 Authorized</span></div>`)),
+
+    display: () =>
+        h.row("", h.field(h.check("enable-timestamp","Show playback timestamp"))) +
+        h.row("", h.field(h.check("enable-label","Show label before lyrics"))) +
+        h.row("", h.field(h.check("profanity-filter","Censor common swear words"))) +
+        h.row(h.label("Censor chars (min/max)"), h.field(`<input type="number" id="profanity-censor-min" min="1" max="15" style="width:64px"> – <input type="number" id="profanity-censor-max" min="1" max="15" style="width:64px">`)) +
+        h.row(h.label("Censor ratio (% of word)"), h.field(`<input type="number" id="profanity-censor-ratio" min="0" max="100" style="width:64px">%`)) +
+        h.row(h.label("Live preview"), h.field(`<span class="preview-badge" id="status-preview">[2:17] Song lyrics \u2014 La-la-la</span>`)) +
+        h.divider() +
+        h.row("", h.field(h.check("enable-advanced-swt","Advanced custom status template"))) +
+        `<div class="sub-box" id="advanced-swt">` +
+            h.row(h.label("Custom emoji"), h.inline(`<input type="text" id="custom-emoji" style="width:64px" maxlength="4" placeholder="\uD83C\uDFB6">` + h.ibtn("custom-emoji-help","Emoji help"))) +
+            h.row("", h.field(h.check("mood-hearts-enabled","Mood-colored hearts") + h.hint("❤️ love · 💛 happy · 💙 sad · 💚 calm · 🖤 angry — picked from the lyric, falls back to the custom emoji above otherwise."))) +
+            h.row(h.label("Status template"), h.field(`<textarea id="custom-status" class="full"></textarea>` + h.inline(h.hint("128 char limit. Variables: {lyrics}, {timestamp}, {song_name}, {song_author}, {source}, {progress}, {duration}, {line_number}") + h.ibtn("custom-status-help","Template help")))) +
+            h.row(h.label("Unicode style"), h.field(`<select id="unicode-style">${_STYLE_OPTIONS}</select>` + h.hint("Converts a\u2013z A\u2013Z to Unicode math chars. Works in Discord status. Non-latin letters pass through."))) +
+            h.row("", h.field(h.check("style-alternate-enabled","Alternate styles on a timer") + h.hint("Select 2+ styles below. Cycles through them on an interval. Overrides Unicode style."))) +
+            `<div id="style-alternate-interval-row">` +
+                h.row(h.label("Styles"), h.field(`<div id="style-alternate-checks" class="check-group"></div><select id="style-alternate-a" style="display:none"></select><select id="style-alternate-b" style="display:none"></select><input id="style-alternate-list" style="display:none">` + h.hint("Pick 2+ to cycle. Selection order = cycle order."))) +
+                h.row("", h.field(h.check("style-alternate-random","Randomise order") + h.hint("Deterministic — same beat always picks the same style."))) +
+                h.row(h.label("Interval"), h.inline(h.number("style-alternate-interval",500,60000,500) + h.muted("ms per style"))) +
+            `</div>` +
+            h.row(h.label("Word styles"), h.field(`<div id="style-word-map-checks" class="check-group"></div>` + h.hint("Comma-separated styles per word, cycled. Overrides Unicode/alternate styles."))) +
+            h.row("", h.field(h.check("style-word-map-marquee","Animate word styles (marquee)") + h.hint("Shifts the word-style pattern each interval — creates a travelling colour effect."))) +
+            h.row(h.label("Char styles"), h.field(`<div id="style-char-map-checks" class="check-group"></div>` + h.hint("Cycles per character instead of per word. Overrides word styles."))) +
+            h.row(h.label("Lyric brackets"), h.field(`<select id="lyrics-brackets" style="width:auto;margin-right:6px"><option value="">None</option><option value="『,』">『 』</option><option value="【,】">【 】</option><option value="❝,❞">❝ ❞</option><option value="«,»">« »</option><option value="♪,♪">♪ ♪</option><option value="⌈,⌉">⌈ ⌉</option><option value="❮,❯">❮ ❯</option><option value="「,」">「 」</option><option value="〈,〉">〈 〉</option><option value="‹,›">‹ ›</option><option value="❨,❩">❨ ❩</option><option value="⟦,⟧">⟦ ⟧</option></select>` + h.hint("Wraps {lyrics} with a decorative bracket pair."))) +
+        `</div>` +
+        h.divider() +
+        h.row(h.label("Timing offset (ms)"), h.inline(h.number("send-time-offset",-2000,5000,100) + h.ibtn("send-time-offset-help","Offset help"))) +
+        h.row("", h.inline(h.check("enable-autooffset","Auto-calibrate timing offset") + h.ibtn("autooffset-help","Autooffset help"))) +
+        h.row(h.label("Calibration samples"), h.inline(h.number("autooffset",1,20,1) + h.muted("requests"))) +
+        h.divider() +
+        h.row("", h.field(h.check("enable-backoff","Automatically slow down if rate-limited"))) +
+        h.indent(h.hint("Pauses sending for Discord\u2019s suggested retry window on 429.")) +
+        `<div id="rest-interval-row">` + h.row("", h.field(h.check("enable-min-interval","Limit update frequency"))) +
+        h.indent(h.row(h.inline(h.number("min-interval-ms",1000,60000,500) + h.muted("ms — 5000 = every 5s, raise to 10000 if rate limited")))) +
+        h.indent(h.hint("How often your status can update via REST. Raise if you keep getting rate limited.")) + `</div>` +
+        h.row("", h.field(h.check("enable-merge-lines","Merge nearby lyric lines"))) +
+        h.indent(h.row(h.inline(h.number("merge-window-ms",1000,30000,500) + h.muted("ms — 8000 = join lines within 8s of each other")))) +
+        h.indent(h.hint("Lines close together get joined into one status update. Helps reduce update frequency.")) +
+        h.indent(h.row(h.label("Merge separator"), h.field(h.input("merge-separator","e.g.  |  or  \u2014","maxlength=20 style=\"max-width:120px\"")))) +
+        h.indent(h.hint("String placed between merged lines, e.g. | or —. Visible in your Discord status between the joined lyric lines.")) +
+        h.indent(h.row(h.label("Max lines"), h.inline(h.number("merge-max-lines",0,10,1) + h.muted("lines per update (0 = unlimited)")))) +
+        h.indent(h.hint("Caps how many lines can merge into one update. Prevents over-merging on fast-tempo sections.")),
+    gateway: () =>
+        h.row("", h.inline(h.check("gateway-enabled","Use Gateway connection (real-time) instead of REST API") + h.ibtn("gateway-help","Gateway help"))) +
+        h.row(h.label("Presence status"),
+            `<div class="row-field">` +
+            `<div class="presence-toggle" id="presence-toggle">` +
+            PRESENCE_OPTIONS.map(o => `<button class="presence-btn" data-value="${o.value}" style="--pc:${o.color}">${o.label}</button>`).join("") +
+            `</div>` +
+            h.hint("Mobile/PlayStation presence requires a restart to take effect. Sets your Discord status on each op\u00a03 send. Invisible hides you from others while still updating your custom status. Gateway must be enabled.") +
+            `</div>`
+        ) +
+        `<div id="gw-interval-row">` + h.row(h.label("Update speed"), h.inline(h.number("gw-min-interval-ms",0,60000,500) + h.muted("ms between op\u00a03 sends"))) +
+        h.indent(h.hint("How frequently your status updates in Gateway mode. 0 = Discord's limit only (5 per 20s). Raise if it feels too rapid.")) + `</div>` +
+        h.row(h.label("Clear after last line"), h.inline(h.number("gw-clear-last-line-ms",0,30000,500) + h.muted("ms (0 = off)"))) +
+        h.indent(h.hint("Clears your Discord status via GW a few seconds after the last lyric line is sent. 0 disables. Default: 3000\u2009ms.")) +
+        h.row("", h.field(h.check("idle-enabled","Auto-disconnect gateway when idle"))) +
+        h.indent(h.row(h.inline(h.number("idle-timeout-sec",10,3600,10) + h.muted("seconds with no playback before disconnecting")))) +
+        h.indent(h.hint("Disconnects the gateway connection after this much time with no playback, so a manually-set Discord status sticks instead of being overwritten. Reconnects automatically when playback resumes.")) +
+        h.divider() +
+        h.row("", h.inline(h.check("flash-enabled","Enable status flash") + h.ibtn("flash-help","Flash help"))) +
+        h.row(h.label("Cycle states"),
+            `<div class="row-field">` +
+            `<div class="flash-state-toggle" id="flash-state-toggle">` +
+            FLASH_STATE_OPTIONS.map(o => `<button class="flash-state-btn" data-value="${o.value}">${o.label}</button>`).join("") +
+            `</div>` +
+            h.hint("Select which presence states to cycle through. Order: online \u2192 idle \u2192 dnd \u2192 invisible. At least one must be active.") +
+            `</div>`
+        ) +
+        h.row(h.label("Interval"), h.inline(h.number("flash-interval-ms",300,5000,100) + h.muted("ms per state"))) +
+        h.indent(h.hint("Minimum 300\u2009ms. Discord presence propagation to other users takes ~1\u20133s.")) +
+        h.row(h.label("Restore to"),
+            `<div class="row-field">` +
+            `<select id="flash-restore-status">` +
+            RESTORE_STATUS_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join("") +
+            `</select>` +
+            h.hint("Presence status to restore when playback stops.") +
+            `</div>`
+        ) +
+        h.divider() +
+        h.row("", h.inline(h.check("rp-enabled","Enable Rich Presence (“Listening to…” card)") + h.ibtn("rp-help","Rich Presence help"))) +
+        h.row("", h.field(`<small class="hint" id="rp-gw-warn" style="color:var(--amber);display:none">\u26a0 Gateway must be enabled for rich presence to work.</small>`)) +
+        h.row(h.label("App name"),        h.field(h.input("rp-app-name","e.g. Spotify") + h.hint(`Shown as \u201cListening to [App name]\u201d in Discord.`))) +
+        h.row(h.label("Application ID"), h.field(h.input("rp-application-id","Optional Discord app ID") + h.hint("Adds <code>application_id</code> to the activity payload. Leave blank to omit."))) +
+        h.row(h.label("Details (line 1)"),h.field(`<textarea id="rp-details-template" class="full"></textarea>` + h.inline(h.hint("Top line. Same variables as custom status template.") + h.ibtn("custom-status-help","Template help")))) +
+        h.row(h.label("State (line 2)"),  h.field(h.input("rp-state-template","e.g. {song_author}") + h.hint("Artist/subtitle row."))) +
+        h.row("", h.field(h.check("rp-show-progress-bar","Show progress bar (uses timestamps)"))) +
+        h.row("", h.field(h.check("rp-show-album-art","Show album art (Spotify CDN)"))) +
+        `<div id="rp-album-art-url-row">` +
+            h.indent(h.row(h.label("Album art URL"), h.field(h.input("rp-album-art-url","Override URL (leave blank for auto)")))) +
+        `</div>` +
+        h.row(h.label("Small icon"), h.field(h.input("rp-small-image","Asset key or image URL") + h.hint("Small icon overlaid on album art. External URLs auto-prefixed with <code>mp:</code>."))) +
+        h.row(h.label("Button label"),   h.field(h.input("rp-button-label","Leave blank to hide button"))) +
+        h.row(h.label("Button URL"),     h.field(h.input("rp-button-url","https://...") + h.hint("Must start with http/https."))) +
+        h.divider() +
+        h.row("", h.inline(h.check("sp-enabled","Fake “Listening Together” party") + h.ibtn("sp-help","Spotify Party help"))) +
+        h.row("", h.field('<small class="hint" id="sp-rp-warn" style="color:var(--amber);display:none">\u26a0 Rich Presence must be enabled for party to work.</small>')) +
+        `<div id="sp-fields">` +
+            h.row(h.label("Party ID"),   h.field(h.input("sp-party-id","Leave blank to auto-generate per song"))) +
+            h.row(h.label("Party size"), h.inline(h.number("sp-party-size",1,999,1) + h.muted("current listeners (cosmetic)"))) +
+            h.row(h.label("Party max"),  h.inline(h.number("sp-party-max",1,999,1)  + h.muted("max slots (cosmetic)"))) +
+            h.row(h.label("Sync ID"),    h.field(h.input("sp-sync-id","Leave blank to use real track ID"))) +
+            h.row(h.label("Party sync flags"), h.inline(h.number("sp-flags",0,63,1) + h.muted("48=sync+join, 32=sync only, 16=join only, 0=none"))) +
+        `</div>` +
+        h.divider() +
+        h.row("", h.check("game-presence-enabled","Show as playing a game (fake party status)")) +
+        `<div id="game-presence-fields">` +
+            h.row(h.label("Game"), h.field(`<select id="game-presence-select">${_GAME_OPTIONS}</select>` + h.hint("Uses the real Discord icon and name for that game. Shown alongside your lyric status."))) +
+            h.row(h.label("Party size"), h.inline(h.number("game-presence-current",1,999,1) + h.muted("of") + h.number("game-presence-max",1,999,1) + h.muted("players (cosmetic)"))) +
+            h.row(h.label("Details"), h.field(h.input("game-presence-details","e.g. Competitive - Ranked (optional)"))) +
+            h.row(h.label("State"), h.field(h.input("game-presence-state","e.g. In a match (optional)"))) +
+        `</div>` +
+        h.divider() +
+        h.row("", h.field(`<span style="opacity:0.4;pointer-events:none">` + h.check("pc-enabled","\uD83C\uDFA8 Auto profile color from album art") + `</span>` + '<small class="hint" style="color:var(--amber)">&#9888; Permanently disabled in this build.</small>')) +
+        h.row(h.label("Accent hue shift"), h.inline(h.number("pc-accent-shift",-180,180,5) + h.muted("degrees (default 30)"))) +
+        h.indent(h.hint("How far the accent/secondary color shifts in hue from the base. 30 = subtle, 90 = vivid contrast.")),
+
+    restore: () =>
+        h.row("", h.field(h.check("restore-enabled","Enable status restore"))) +
+        h.row(h.label("Saved status"), `<div class="row-field" style="flex-direction:row;gap:8px;align-items:center"><span id="restore-status-display">Not set</span>${h.btn("btn-refresh-status","\u21BB Refresh")}${h.btn("btn-store-status","\u2713 Store")}</div>`) +
+        h.row(h.label("Restore delay"), h.inline(h.number("restore-delay-ms",0,60000,1000) + h.muted("seconds after song ends"))) +
+        h.indent(h.hint("15 seconds recommended to avoid rate limits on skips.")) +
+        h.divider() +
+        `<ul id="source-list"></ul>` +
+        h.row(h.label("Chinese text conversion"), h.field(
+            `<select id="chinese-conversion"><option value="off">Off</option><option value="toTraditional">Simplified \u2192 Traditional</option><option value="toSimplified">Traditional \u2192 Simplified</option></select>` +
+            h.hint("Converts Chinese lyrics at fetch time. Clear cache to reprocess existing songs.")
+        )) +
+        h.divider() +
+        h.divider() +
+        `<details><summary style="cursor:pointer;font-size:12px;color:var(--muted);margin:4px 0 8px">Advanced cache settings</summary>` +
+        h.row(h.label("Lyrics cache TTL"),  h.inline(h.number("cache-lyrics-ttl",1,365,1)   + h.muted("days"))) +
+        h.row(h.label("Empty result TTL"),  h.inline(h.number("cache-empty-ttl",1,90,1)     + h.muted("days"))) +
+        h.row(h.label("Error cache TTL"),   h.inline(h.number("cache-error-ttl",1,72,1)     + h.muted("hours"))) +
+        h.row(h.label("Max cache rows"),    h.inline(h.number("cache-max-rows",100,50000,100)+ h.muted("rows"))) +
+        `</details>` +
+        h.row(h.label("Cache path"),        h.field(h.input("cache-path","Default: cache/cache.db") + h.hint("Leave blank for default. Requires restart."))) +
+        h.divider() +
+        h.row("", h.field(h.check("enable-autoupdate","Automatic update checks"))),
+};
+
+function _safeBody(id) { try { return SECTION_BODIES[id](); } catch(e) { console.error("[panel] Section error:", id, e); return "<p style=\"color:var(--red,#e74c3c);padding:8px;font-size:12px\">Section render error (" + id + "): " + e.message + "</p>"; } }
+
+function renderSections() {
+    const container = document.getElementById("sections");
+    container.innerHTML = SECTION_DEFS.map(([icon, title, desc, id, open]) => `
+        <div class="section${open?" open":""}" data-section="${id}">
+            <div class="section-header" aria-expanded="${open}">
+                <div class="section-header-left">
+                    <div class="section-icon">${icon}</div>
+                    <div>
+                        <div class="section-title">${title}</div>
+                        <div class="section-desc">${desc}</div>
+                    </div>
+                </div>
+                <span class="section-chevron">&#x25BE;</span>
+            </div>
+            <div class="section-body">${_safeBody(id)}</div>
+        </div>
+    `).join("");
+    // UI-5: restore persisted open/close state
+    document.querySelectorAll(".section[data-section]").forEach(sec => {
+        const id = sec.dataset.section;
+        const stored = (() => { try { return localStorage.getItem("sec_" + id); } catch(_) { return null; } })();
+        if (stored === "1") sec.classList.add("open");
+        else if (stored === "0") sec.classList.remove("open");
+        const hdr = sec.querySelector(".section-header");
+        if (hdr) hdr.setAttribute("aria-expanded", sec.classList.contains("open"));
+    });
+    document.querySelectorAll(".section-header").forEach(hdr => {
+        hdr.addEventListener("click", () => {
+            const sec = hdr.closest(".section");
+            sec.classList.toggle("open");
+            const id = sec.dataset.section;
+            const isOpen = sec.classList.contains("open");
+            hdr.setAttribute("aria-expanded", isOpen);
+            try { localStorage.setItem("sec_" + id, isOpen ? "1" : "0"); } catch(_) {}
+        });
+    });
+}
+
+let _lastSourceSnapshot = null;
+function renderSourceList() {
+    const order = settings.sources?.sourceOrder || Object.keys(SOURCE_META);
+    const snapshot = order.join(",") + "|" + order.map(n => SOURCE_META[n] ? settings.sources[SOURCE_META[n].key] : "").join(",");
+    if (snapshot === _lastSourceSnapshot) return;
+    _lastSourceSnapshot = snapshot;
+    const ul = document.getElementById("source-list");
+    if (!ul) return;
+    ul.innerHTML = "";
+
+    for (const name of order) {
+        const meta = SOURCE_META[name]; if (!meta) continue;
+        const li = document.createElement("li");
+        li.dataset.source = name; li.draggable = true;
+        li.innerHTML = `<span class="drag-handle" style="pointer-events:none">\u2630</span><span class="source-name" style="pointer-events:none">${name}</span><span class="source-desc" style="pointer-events:none">${meta.desc}</span><span class="source-badge" style="pointer-events:none">${meta.badge}</span><input type="checkbox" ${settings.sources[meta.key]!==false?"checked":""} style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex-shrink:0">`;
+        ul.appendChild(li);
+    }
+
+    if (!ul.dataset.ulListenersAttached) {
+        ul.dataset.ulListenersAttached = "1";
+        const getLi = el => el.closest("li[data-source]");
+        const syncOrder = () => {
+            settings.sources.sourceOrder = [...ul.querySelectorAll("li")].map(el => el.dataset.source);
+            _lastSourceSnapshot = null;
+            save();
+        };
+        ul.addEventListener("change", e => {
+            if (e.target.type !== "checkbox") return;
+            e.stopPropagation();
+            const li = getLi(e.target); if (!li) return;
+            settings.sources[SOURCE_META[li.dataset.source]?.key] = e.target.checked;
+            _lastSourceSnapshot = null; save();
+        });
+        ul.addEventListener("dragstart", e => {
+            const li = getLi(e.target); if (!li) return;
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", li.dataset.source);
+            li.classList.add("dragging");
+        });
+        ul.addEventListener("dragend",  e => getLi(e.target)?.classList.remove("dragging"));
+        ul.addEventListener("dragover", e => { e.preventDefault(); getLi(e.target)?.classList.add("drag-over"); });
+        ul.addEventListener("dragleave",e => getLi(e.target)?.classList.remove("drag-over"));
+        ul.addEventListener("drop", e => {
+            e.preventDefault();
+            const from = e.dataTransfer.getData("text/plain"), target = getLi(e.target);
+            const fromEl = ul.querySelector(`li[data-source="${from}"]`);
+            if (!fromEl) return;
+            target ? ul.insertBefore(fromEl, target) : ul.appendChild(fromEl);
+            target?.classList.remove("drag-over");
+            syncOrder();
+        });
+    }
+}

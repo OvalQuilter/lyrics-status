@@ -1,885 +1,846 @@
-$(`
-<div id="menu-UI" class="act-anim">
-    <div class="settings-page">
-        <header class="settings-header">
-            <div class="settings-header-main">
-                <h1 class="settings-title">Lyrics Status Settings</h1>
-                <p class="settings-subtitle">Configure how Lyrics Status connects to Discord and displays your current song.</p>
-            </div>
-            <div class="settings-header-meta">
-                <span id="version" class="settings-version">v3</span>
-            </div>
-        </header>
-
-    <main id="menu-contents" class="settings-content">
-            <section id="settings-tab" class="tab-content act">
-
-                <section class="settings-section">
-                    <h2 class="settings-name">Authentication</h2>
-                    <p class="settings-description">These credentials are stored locally and used only to talk to Discord and Spotify on your behalf.</p>
-
-                    <div class="option form-row">
-                        <label class="form-label" for="user-token">Discord token</label>
-                        <div class="form-field">
-                            <div class="form-field-inline">
-                                <input type="text" id="user-token" class="text-input1 full-width-input" placeholder="Paste your Discord user token">
-                                <button id="check-token" class="button1"><span class="label">Check</span></button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="option form-row">
-                        <label class="form-label" for="client-id">Spotify client ID</label>
-                        <div class="form-field">
-                            <input type="text" id="client-id" class="text-input1" placeholder="Your Spotify application client ID">
-                        </div>
-                    </div>
-
-                    <div class="option form-row">
-                        <label class="form-label" for="client-secret">Spotify client secret</label>
-                        <div class="form-field">
-                            <input type="text" id="client-secret" class="text-input1" placeholder="Your Spotify application client secret">
-                        </div>
-                    </div>
-
-                    <div class="option form-row">
-                            <label class="form-label" for="custom-redirect-uri">Redirect URI</label>
-                            <div class="form-field">
-                                <input type="text" id="custom-redirect-uri" class="text-input1" placeholder="The redirect URI you added in your Spotify app settings">
-                                <small class="field-help">Must exactly match one of the redirect URIs configured in your Spotify application.</small>
-                            </div>
-                        </div>
-
-                    <div class="option form-row">
-                            <span class="form-label"></span>
-                            <div class="form-field auth-actions">
-                                <button id="authorize-spotify" class="button1 primary full-width-button">Authorize Spotify</button>
-                                <div class="auth-row-bottom">
-                                    <label class="checkbox-row" for="use-external-auth-server">
-                                        <input type="checkbox" id="use-external-auth-server">
-                                        <span>Use external auth server</span>
-                                    </label>
-                                    <div id="spotify-authorized-indicator" class="auth-indicator hid">Authorized!</div>
-                                </div>
-                            </div>
-                        </div>
-                </section>
-
-                <section class="settings-section">
-                    <h2 class="settings-name">Status preview</h2>
-                    <p class="settings-description">Choose what appears in your Discord custom status while music is playing.</p>
-
-                    <div class="option form-row">
-                            <label class="checkbox-row" for="enable-timestamp">
-                                <input type="checkbox" id="enable-timestamp" checked>
-                                <span>Show playback timestamp</span>
-                            </label>
-                        </div>
-
-                    <div class="option form-row">
-                            <label class="checkbox-row" for="enable-label">
-                                <input type="checkbox" id="enable-label" checked>
-                                <span>Show label before lyrics ("Song lyrics -")</span>
-                            </label>
-                        </div>
-
-                    <div class="option form-row">
-                            <div class="form-label">Live preview</div>
-                            <div class="form-field">
-                                <div id="status-preview" class="b-area">[2:17] Song lyrics - La-la-la</div>
-                            </div>
-                        </div>
-
-                    <div class="divider"></div>
-
-                    <div class="option form-row">
-                            <label class="checkbox-row" for="enable-advanced-swt">
-                                <input type="checkbox" id="enable-advanced-swt">
-                                <span>Enable advanced custom status template</span>
-                            </label>
-                        </div>
-
-                    <div id="advanced-swt" class="sub-settings hid">
-                        <div class="option form-row">
-                                <label class="form-label" for="custom-emoji">
-                                    Custom emoji
-                                    <img id="custom-emoji-help" class="clickable question-mark1" src="https://www.pngall.com/wp-content/uploads/5/Help-Question-Mark-PNG-Free-Download.png" height="15" alt="Help">
-                                </label>
-                                <input style="width: 60px;" maxlength="4" id="custom-emoji" class="text-input1" placeholder="🎶">
-                            </div>
-
-                        <div class="option form-row">
-                                <label class="form-label" for="custom-status">
-                                    Custom status template
-                                    <img id="custom-status-help" class="clickable question-mark1" src="https://www.pngall.com/wp-content/uploads/5/Help-Question-Mark-PNG-Free-Download.png" height="15" alt="Help">
-                                </label>
-                                <div class="form-field">
-                                    <textarea rows="3" cols="40" id="custom-status" class="text-input2" placeholder="[{timestamp}] Song lyrics - {lyrics}"></textarea>
-                                    <small class="field-help">Use placeholders like {lyrics}, {song_name}, {song_author}, {timestamp}. Your status will be cropped to 128 characters if needed.</small>
-                                </div>
-                            </div>
-                        </div>
-                </section>
-
-                <section class="settings-section">
-                    <h2 class="settings-name">Timing</h2>
-                    <p class="settings-description">Fine-tune how early or late your status changes compared to the actual lyrics.</p>
-
-                    <div class="option form-row">
-                            <label class="form-label" for="send-time-offset">Send time offset (ms)</label>
-                            <div class="form-field-inline">
-                                <input type="text" id="send-time-offset" class="text-input1" maxlength="4" value="500">
-                                <img id="send-time-offset-help" class="clickable question-mark1" src="https://www.pngall.com/wp-content/uploads/5/Help-Question-Mark-PNG-Free-Download.png" height="15" alt="Help">
-                            </div>
-                        </div>
-
-                    <div class="option form-row">
-                            <label class="checkbox-row" for="enable-autooffset">
-                                <input type="checkbox" id="enable-autooffset">
-                                <span>Enable Autooffset (auto-calculated delay)</span>
-                            </label>
-                        </div>
-
-                    <div class="option form-row">
-                            <label class="form-label" for="autooffset">Autooffset samples</label>
-                            <div class="form-field-inline">
-                                <input style="width: 60px;" id="autooffset" class="text-input1" type="text" maxlength="2">
-                                <span class="inline-text">requests</span>
-                                <img id="autooffset-help" class="clickable question-mark1" src="https://www.pngall.com/wp-content/uploads/5/Help-Question-Mark-PNG-Free-Download.png" height="15" style="left: 1px;" alt="Help">
-                            </div>
-                        </div>
-                </section>
-
-                <section class="settings-section">
-                    <h2 class="settings-name">Updates</h2>
-                    <p class="settings-description">Keep Lyrics Status up to date with the latest fixes and features.</p>
-
-                    <div class="option form-row">
-                            <label class="checkbox-row" for="enable-autoupdate">
-                                <input type="checkbox" id="enable-autoupdate">
-                                <span>Enable automatic update checks</span>
-                            </label>
-                        </div>
-                </section>
-            </section>
-        </main>
-    </div>
-
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
-
-        :root {
-            --alpha: .9;
-        }
-
-        /* Full-page layout */
-        #menu-UI {
-            position: fixed;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at top left, rgba(60, 63, 68, var(--alpha)), rgba(24, 26, 27, var(--alpha)));
-            z-index: 999;
-            overflow-y: auto;
-        }
-
-        #menu-UI * {
-            color: rgba(230, 230, 230, var(--alpha));
-            font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
-
-        .settings-page {
-            max-width: 900px;
-            margin: 32px auto 40px auto;
-            padding: 8px 24px 32px 24px;
-        }
-
-        .settings-header {
-            display: flex;
-            justify-content: space-between;
-            gap: 24px;
-            margin-bottom: 24px;
-            align-items: flex-end;
-        }
-
-        .settings-title {
-            margin: 0 0 4px 0;
-            font-size: 26px;
-            font-weight: 600;
-        }
-
-        .settings-subtitle {
-            margin: 0;
-            font-size: 14px;
-            color: rgba(200, 200, 200, var(--alpha));
-        }
-
-        .settings-version {
-            font-size: 12px;
-            padding: 4px 10px;
-            border-radius: 999px;
-            background: rgba(75, 85, 99, 0.8);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }
-
-        .settings-content {
-            display: block;
-        }
-
-        /* Settings list */
-        .settings-section {
-            padding: 16px 0 12px 0;
-            border-bottom: 1px solid rgba(50, 52, 55, var(--alpha));
-        }
-
-        .settings-section:last-of-type {
-            border-bottom: none;
-        }
-
-        .settings-name {
-            font-size: 18px;
-            font-weight: 600;
-            margin: 0 0 4px 0;
-        }
-
-        .settings-description {
-            margin: 0 0 12px 0;
-            font-size: 13px;
-            color: rgba(195, 195, 195, var(--alpha));
-        }
-
-        .option {
-            margin-top: 10px;
-        }
-
-        .form-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-        }
-
-        .form-label {
-            width: 160px;
-            font-size: 13px;
-            font-weight: 500;
-            padding-top: 4px;
-        }
-
-        .form-field {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .form-field-inline {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .full-width-input {
-            width: 100%;
-            max-width: 100%;
-        }
-
-        .field-help {
-            font-size: 11px;
-            color: rgba(180, 180, 180, var(--alpha));
-        }
-
-        .inline-text {
-            font-size: 12px;
-            color: rgba(210, 210, 210, var(--alpha));
-        }
-
-        .checkbox-row {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            cursor: pointer;
-        }
-
-        .auth-indicator {
-            font-size: 12px;
-            color: #22c55e !important; /* force bright green */
-            margin-top: 0;
-        }
-
-        .full-width-button {
-            width: 100%;
-            justify-content: center;
-        }
-
-        .auth-row-bottom {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 6px;
-        }
-
-        /* Inputs & buttons */
-        .text-input1,
-        .text-input2 {
-            border: 1px solid rgba(75, 75, 75, var(--alpha));
-            border-radius: 4px;
-            background: rgba(35, 37, 40, var(--alpha));
-            color: rgba(235, 235, 235, var(--alpha));
-            padding: 6px 10px;
-            font-size: 13px;
-            outline: none;
-            transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
-        }
-
-        .text-input1:focus,
-        .text-input2:focus {
-            border-color: rgba(88, 166, 255, 0.9);
-            box-shadow: 0 0 0 1px rgba(88, 166, 255, 0.4);
-            background: rgba(26, 28, 32, var(--alpha));
-        }
-
-        .text-input1:disabled,
-        .text-input2:disabled {
-            color: rgba(184, 184, 184, var(--alpha)) !important;
-            background: rgba(48, 48, 48, var(--alpha));
-        }
-
-        .text-input2 {
-            resize: vertical;
-            min-height: 70px;
-            line-height: 1.4;
-        }
-
-        .button1 {
-            min-width: 90px;
-            height: 32px;
-            padding: 0 12px;
-            font-size: 13px;
-            border: none;
-            border-radius: 4px;
-            background: rgba(75, 85, 99, 0.9);
-            color: white;
-            cursor: pointer;
-            transition: background 1s ease, transform 1s ease, box-shadow 1s ease;
-        }
-
-        .button1.primary {
-            background: rgba(56, 189, 248, 0.95);
-            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.35);
-        }
-
-        .button1:hover {
-            background: rgba(107, 114, 128, 0.95);
-        }
-
-        .button1.primary:hover {
-            background: rgba(14, 165, 233, 0.98);
-        }
-
-        .button1:active {
-            transform: translateY(1px);
-            box-shadow: none;
-        }
-
-        .button1.success {
-            background: rgba(34, 197, 94, 0.95);
-            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.35);
-        }
-
-        .button1.error {
-            background: rgba(239, 68, 68, 0.95);
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
-        }
-
-        .button1 .label {
-            display: inline-block;
-            transition: opacity 0.2s ease;
-        }
-
-        #check-token {
-            width: auto;
-        }
-
-        /* Preview badge */
-        .b-area {
-            border: 1px solid rgba(75, 85, 99, var(--alpha));
-            border-radius: 999px;
-            padding: 6px 16px;
-            background: rgba(24, 26, 27, var(--alpha));
-            font-family: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            font-size: 12px;
-            white-space: nowrap;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        /* Misc */
-        .divider {
-            height: 1px;
-            background: rgba(50, 52, 55, var(--alpha));
-            margin: 12px 0;
-        }
-
-        .sub-settings {
-            margin-left: 0;
-            margin-top: 6px;
-            padding: 10px 12px 12px 12px;
-            border-radius: 6px;
-            background: rgba(17, 19, 21, var(--alpha));
-            border: 1px dashed rgba(75, 85, 99, var(--alpha));
-        }
-
-        .clickable {
-            cursor: pointer;
-        }
-
-        .question-mark1 {
-            bottom: 0;
-            right: 0;
-            margin-right: 0;
-            filter: invert(70%) sepia(4%) saturate(459%) hue-rotate(173deg) brightness(90%) contrast(86%);
-            position: relative;
-        }
-
-        .fw-500 {
-            font-weight: 500;
-        }
-        .fw-700 {
-            font-weight: 700;
-        }
-
-        .act {
-            display: block;
-        }
-        .hid {
-            display: none;
-        }
-
-        /* Modal styles (kept, but visually aligned with new UI) */
-        .modal {
-            min-width: 300px;
-            min-height: 100px;
-            max-width: 700px;
-            max-height: 450px;
-            width: fit-content;
-            height: fit-content;
-            background: rgba(32, 34, 36, var(--alpha));
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border-radius: 8px;
-            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.65);
-            font-size: 14px;
-            z-index: 9999;
-            position: absolute;
-        }
-
-        .modal * {
-            user-select: none;
-        }
-
-        .modal > .top {
-            width: 100%;
-            height: 32px;
-            background: rgba(17, 24, 39, var(--alpha));
-            border-top-left-radius: 8px;
-            border-top-right-radius: 8px;
-            box-shadow: 0 1px 0 rgba(15, 23, 42, 0.9);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 8px;
-        }
-
-        .modal > .top > .title {
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        .modal > .top > .close {
-            width: 22px;
-            height: 22px;
-            background: rgba(239, 68, 68, var(--alpha));
-            border-radius: 999px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-        }
-
-        .modal > .top > .close > .closeMark {
-            position: relative;
-        }
-
-        .modal > .description {
-            padding: 10px 12px 12px 12px;
-            text-align: left;
-        }
-
-        @keyframes light {
-            from { filter: invert(39%) sepia(0%) saturate(0%) hue-rotate(339deg) brightness(94%) contrast(90%); }
-            to { filter: invert(82%) sepia(7%) saturate(0%) hue-rotate(154deg) brightness(82%) contrast(90%); }
-        }
-
-        /* Scrollbar styling */
-        #menu-UI::-webkit-scrollbar {
-            width: 10px;
-        }
-        #menu-UI::-webkit-scrollbar-thumb {
-            border-radius: 5px;
-            background: rgba(65, 65, 65, var(--alpha));
-        }
-        #menu-UI::-webkit-scrollbar-thumb:hover {
-            background: rgba(75, 75, 75, var(--alpha));
-        }
-    </style>
-</div>
-`).appendTo(document.body);
-// HTML and CSS
-
-let menu                    = $("#menu-UI"),
-    userTokenInput          = $("#user-token"),
-    checkTokenButton        = $("#check-token"),
-    clientIDInput           = $("#client-id"),
-    clientSecretInput       = $("#client-secret"),
-    customRedirectUriInput  = $("#custom-redirect-uri"),
-    useExternalAuthServer   = $("#use-external-auth-server"),
-    spotifyAuthorizedIndicator = $("#spotify-authorized-indicator"),
-    authorizeButton         = $("#authorize-spotify"),
-    enableTimestampCheckbox = $("#enable-timestamp"),
-    enableLabelCheckbox     = $("#enable-label"),
-    statusPreview           = $("#status-preview"),
-    advancedSWT             = $("#advanced-swt"),
-    enableAdvancedSWT       = $("#enable-advanced-swt"),
-    customEmojiHelp         = $("#custom-emoji-help"),
-    customEmoji             = $("#custom-emoji"),
-    customStatusHelp        = $("#custom-status-help"),
-    customStatus            = $("#custom-status"),
-    sendTimeOffset          = $("#send-time-offset"),
-    sendTimeOffsetHelp      = $("#send-time-offset-help"),
-    enableAutooffset        = $("#enable-autooffset"),
-    autooffset              = $("#autooffset"),
-    autooffsetHelp          = $("#autooffset-help"),
-    enableAutoupdate        = $("#enable-autoupdate");
-// Elements
-
-let settings = {
-    credentials: {
-        token: "",
-        cookies: "",
-        clientID: "",
-        clientSecret: "",
-        useExternalAuthServer: false,
-    code: "",
-    refreshToken: "",
-        uuid: "",
-        customRedirectUri: ""
-    },
-    view: {
-        timestamp: true,
-        label: true,
-        advanced: {
-            enabled: false,
-            customEmoji: "🎶",
-            customStatus: "[{timestamp}] Song lyrics - {lyrics}"
-        }
-    },
-    timings: {
-        sendTimeOffset: 500,
-        enableAutooffset: true,
-        autooffset: 3
-    },
-    update: {
-        enableAutoupdate: true
+const MASK_DOTS = "\u2022".repeat(20);
+function _maskField(el) {
+    if (el.readOnly || !el.value) return;
+    el.dataset.realValue = el.value;
+    el.value = MASK_DOTS;
+    el.readOnly = true;
+}
+function _unmaskField(el) {
+    if (!el.readOnly) return;
+    el.value = el.dataset.realValue || "";
+    delete el.dataset.realValue;
+    el.readOnly = false;
+}
+function initTokenMasking() {
+    const ids = ["user-token","spotify-web-token","musixmatch-token","spotify-cookies","client-secret"];
+    for (const id of ids) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        if (document.activeElement !== el) _maskField(el);
+        if (el._maskBound) continue;
+        el._maskBound = true;
+        el.addEventListener("focus", () => _unmaskField(el));
+        el.addEventListener("blur", () => { clearTimeout(el._maskTimer); _maskField(el); });
+        el.addEventListener("input", () => {
+            clearTimeout(el._maskTimer);
+            el._maskTimer = setTimeout(() => { el.blur(); }, 2000);
+        });
     }
 }
-// Settings
+﻿// panel.js — runtime core
+// Depends on: panel-data.js, panel-ui.js (loaded before this file)
 
-let settingsLoaded = false;
-// Misc, in-session variables
+const getPath = (obj, path) => path.split(".").reduce((o,k) => o != null ? o[k] : undefined, obj);
+function setPath(obj, path, val) {
+    const keys = path.split("."), last = keys.pop();
+    const t = keys.reduce((o,k) => o != null ? o[k] : null, obj);
+    if (t != null) t[last] = val; else console.warn("setPath: bad path", path);
+}
 
-$(".tab-button").each((i, tab) => {
-    tab = $(tab);
+let settings = JSON.parse(JSON.stringify(DEFAULTS));
+let loaded = false, ws = null, _pendingSave = false, _dirty = false;
 
-    tab.click(() => {
-        $(".tab-button").each((ti, ctab) => {
-            ctab = $(ctab);
+function mergeSettings(parsed) {
+    const s = { ...DEFAULTS, ...parsed };
+    s.credentials = { ...DEFAULTS.credentials, ...(parsed.credentials||{}) };
+    s.view        = { ...DEFAULTS.view,        ...(parsed.view||{}) };
+    s.view.advanced = { ...DEFAULTS.view.advanced, ...(parsed.view?.advanced||{}) };
+    s.timings     = { ...DEFAULTS.timings,     ...(parsed.timings||{}) };
+    s.update      = { ...DEFAULTS.update,      ...(parsed.update||{}) };
+    s.rateLimit   = { ...DEFAULTS.rateLimit,   ...(parsed.rateLimit||{}) };
+    s.sources     = { ...DEFAULTS.sources,     ...(parsed.sources||{}) };
+    if (Array.isArray(parsed.sources?.sourceOrder) && parsed.sources.sourceOrder.length)
+        s.sources.sourceOrder = parsed.sources.sourceOrder.slice();
+    s.restore     = { ...DEFAULTS.restore,     ...(parsed.restore||{}) };
+    s.gateway     = { ...DEFAULTS.gateway,     ...(parsed.gateway||{}) };
+    s.statusFlash = { ...DEFAULTS.statusFlash, ...(parsed.statusFlash||{}) };
+    s.statusFlash.states = Array.isArray(parsed.statusFlash?.states) && parsed.statusFlash.states.length
+        ? parsed.statusFlash.states.slice()
+        : DEFAULTS.statusFlash.states.slice();
+    s.richPresence = { ...DEFAULTS.richPresence, ...(parsed.richPresence||{}) };
+    s.cache        = { ...DEFAULTS.cache,        ...(parsed.cache||{}) };
+    s.spotifyParty = { ...DEFAULTS.spotifyParty, ...(parsed.spotifyParty||{}) };
+    s.profileColor = { ...DEFAULTS.profileColor, ...(parsed.profileColor||{}) };
+    s.idle         = { ...DEFAULTS.idle,         ...(parsed.idle||{}) };
+    return s;
+}
 
-            if(i === ti) {
+// BUG 1 fix: track save-indicator timer to cancel before rescheduling
+let _saveTimer = null;
+function setSaveStatus(state) {
+    const el = document.getElementById("save-indicator");
+    if (!el) return;
+    const lbl = el.querySelector(".si-label");
+    if (state === "pending") {
+        if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+        el.className = "pending";
+        if (lbl) lbl.textContent = "Unsaved";
+    } else if (state === "saved") {
+        el.className = "saved";
+        if (lbl) lbl.textContent = "Saved";
+        if (_saveTimer) clearTimeout(_saveTimer);
+        _saveTimer = setTimeout(() => { _saveTimer = null; el.className = ""; }, 2500);
+    }
+}
 
-                ctab.addClass("cur-tab");
-                $(".tab-content").each((ci, cc) => {
-                    cc = $(cc);
+function setWsStatus(state) {
+    const el = document.getElementById("status-dot");
+    if (!el) return;
+    const lbl = el.querySelector(".status-label");
+    el.className = "";
+    if (state === "connected")  { el.classList.add("connected"); if (lbl) lbl.textContent = "Connected"; }
+    else if (state === "error") { el.classList.add("error");     if (lbl) lbl.textContent = "Error"; }
+    else                        {                                 if (lbl) lbl.textContent = "Connecting\u2026"; }
+}
 
-                    if(ti === ci) {
-
-                        cc.removeClass("hid").addClass("act");
-                    } else {
-                        cc.removeClass("act").addClass("hid");
-                    }
-                });
-            } else {
-                ctab.removeClass("cur-tab");
+function updateNowPlaying(d) {
+    const bar = document.getElementById("np-bar");
+    const song = document.getElementById("np-song");
+    const badge = document.getElementById("np-status-badge");
+    const lyric = document.getElementById("np-lyric");
+    const author = document.getElementById("np-author");
+    const source = document.getElementById("np-source");
+    const progress = document.getElementById("np-progress");
+    const gw = document.getElementById("np-gw");
+    const send = document.getElementById("np-send");
+    if (!bar) return;
+    const playing = d.isPlaying;
+    bar.className = playing ? "" : "paused";
+    if (song) song.textContent = d.song || "Not playing";
+    if (badge) { badge.textContent = playing ? "\u25B6 Playing" : (d.song ? "\u23F8 Paused" : "Idle"); badge.className = "np-status-badge " + (playing ? "playing" : d.song ? "paused" : "idle"); } const pi=document.getElementById("np-play-icon"); if(pi){ pi.textContent = playing ? "\u25B6" : "\u23F8"; pi.classList.toggle("playing", playing); }
+    if (lyric) { lyric.style.display = d.lyric ? "" : "none"; lyric.textContent = d.lyric || ""; }
+    if (author) author.textContent = d.author || "\u2014";
+    if (source) source.textContent = d.source || "\u2014";
+    if (progress) progress.textContent = d.progress || "\u2014";
+    if (gw) {
+        if (!d.gwEnabled) { gw.textContent = "REST"; gw.className = "off"; }
+        else if (d.gwConnected) { gw.textContent = "GW " + (d.gwRate||0) + "/5"; gw.className = d.gwRate >= 4 ? "warn" : "ok"; }
+        else if (d.gwReconnecting) { gw.textContent = "GW reconnecting"; gw.className = "warn"; } else { gw.textContent = "GW \u2014"; gw.className = "err"; }
+    }
+    if (send) {
+        if (d.rateLimited) { send.textContent = "Rate limited " + d.rateLimited + "s"; send.className = "rate"; }
+        else if (!d.nextSend || d.nextSend <= 0) { send.textContent = "Ready"; send.className = "ready"; }
+        else { send.textContent = "Next: " + (d.nextSend/1000).toFixed(1) + "s"; send.className = ""; }
+    }
+    const art = document.getElementById("np-art");
+    if (art) { if (d.albumArt) { art.src = d.albumArt; art.classList.add("show"); } else { art.classList.remove("show"); art.src = ""; } }
+    applyAlbumTint(d.albumArt || "");
+}
+function connectWS() {
+    setWsStatus("connecting");
+    ws = new WebSocket("ws://localhost:8999/ws");
+    ws.onopen = () => { setWsStatus("connected"); };
+    ws.onmessage = ({ data }) => {
+        try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "status") { updateNowPlaying(parsed); return; }
+            if (parsed.type === "server_shutdown") return;
+            if (!_dirty) {
+                settings = mergeSettings(parsed);
+                applyToDom();
             }
+            if (_pendingSave) { _pendingSave = false; save(); }
+        } catch(e) { console.error("WS parse error:", e); }
+    };
+    ws.onerror = () => { setWsStatus("error"); _pendingSave = true; };
+    ws.onclose = () => { setWsStatus("connecting"); setTimeout(connectWS, 2000); if (!_disconnectToast) { _disconnectToast = setTimeout(() => { if (!ws || ws.readyState !== WebSocket.OPEN) toast("Panel disconnected â€” reconnecting\u2026", "error", 5000); _disconnectToast = null; }, 5000); } };
+}
+connectWS();
+
+function save() {
+    if (!loaded) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) { _pendingSave = true; setSaveStatus("pending"); return; }
+    try {
+        ws.send(JSON.stringify(settings));
+        _dirty = false;
+        setSaveStatus("saved");
+    } catch(e) { console.error("ws.send failed:", e); _pendingSave = true; setSaveStatus("pending"); }
+}
+
+function toast(msg, type="info", duration=2500) {
+    const icons = { success:"\u2713", error:"\u2717", info:"\u2139" };
+    const el = document.createElement("div");
+    el.className = `toast ${type}`;
+    el.innerHTML = `<span class="toast-icon">${icons[type]||""}</span><span>${msg}</span>`;
+    document.getElementById("toast-container").appendChild(el);
+    setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 250); }, duration);
+}
+
+const fmtTime = ms => { const s = Math.round(ms/1000); return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
+
+function syncAdvancedSwt(on) {
+    const advBox = document.getElementById("advanced-swt");
+    if (advBox) advBox.classList.toggle("show", on);
+    const ts = document.getElementById("enable-timestamp");
+    const lb = document.getElementById("enable-label");
+    if (ts) ts.disabled = on;
+    if (lb) lb.disabled = on;
+}
+
+function _localApplyStyle(text, style) {
+    if (!style || style === "none") return text;
+    if (style === "underline") return [...text].map(c => /\s/.test(c) ? c : c + "̲").join("");
+    if (style === "strikethrough") return [...text].map(c => /\s/.test(c) ? c : c + "̶").join("");
+    const S = {
+        bold: [0x1D41A-0x61, 0x1D400-0x41], italic: [0x1D44E-0x61, 0x1D434-0x41],
+        bold_italic: [0x1D482-0x61, 0x1D468-0x41], sans: [0x1D5BA-0x61, 0x1D5A0-0x41],
+        sans_bold: [0x1D5EE-0x61, 0x1D5D4-0x41], sans_italic: [0x1D622-0x61, 0x1D608-0x41],
+        sans_bold_italic: [0x1D656-0x61, 0x1D63C-0x41], double_struck: [0x1D552-0x61, 0x1D538-0x41],
+        fraktur: [0x1D51E-0x61, 0x1D504-0x41], fraktur_bold: [0x1D586-0x61, 0x1D56C-0x41],
+        script: [0x1D4B6-0x61, 0x1D49C-0x41], script_bold: [0x1D4EA-0x61, 0x1D4D0-0x41],
+        monospace: [0x1D68A-0x61, 0x1D670-0x41]
+    };
+    const s = S[style];
+    if (!s) return text;
+    return [...text].map(c => {
+        const cp = c.codePointAt(0);
+        if (cp >= 0x61 && cp <= 0x7A) return String.fromCodePoint(cp + s[0]);
+        if (cp >= 0x41 && cp <= 0x5A) return String.fromCodePoint(cp + s[1]);
+        return c;
+    }).join("");
+}
+function updatePreview() {
+    const el = document.getElementById("status-preview");
+    if (!el) return;
+    const adv = settings.view?.advanced || {};
+    const { timestamp, label } = settings.view || {};
+    let styled = "La-la-la";
+    const cm = (adv.styleCharMap || "").split(",").map(x=>x.trim()).filter(Boolean);
+    const wm = (adv.styleWordMap || "").split(",").map(x=>x.trim()).filter(Boolean);
+    const alRaw = adv.styleAlternateList || [adv.styleAlternateStyleA, adv.styleAlternateStyleB].filter(Boolean).join(",");
+    const al = alRaw.split(",").map(x=>x.trim()).filter(Boolean);
+    if (cm.length) {
+        let wi = 0;
+        styled = [...styled].map(c => /\s/.test(c) ? c : _localApplyStyle(c, cm[wi++ % cm.length])).join("");
+    } else if (wm.length) {
+        let wi = 0;
+        styled = styled.split(/([-\s]+)/).map(tok => /^[-\s]+$/.test(tok) ? tok : _localApplyStyle(tok, wm[wi++ % wm.length])).join("");
+    } else if (adv.styleAlternateEnabled && al.length) {
+        styled = _localApplyStyle(styled, al[0]);
+    } else if (adv.unicodeStyle && adv.unicodeStyle !== "none") {
+        styled = _localApplyStyle(styled, adv.unicodeStyle);
+    }
+    const brk = (adv.lyricsBrackets || "").split(",");
+    if (brk.length === 2 && brk[0]) styled = brk[0] + styled + brk[1];
+    el.textContent = `${timestamp?`[${fmtTime(137000)}] `:""}${label?"Song lyrics \u2014 ":""}${styled}`;
+}
+
+function updateRestoreDisplay() {
+    const el = document.getElementById("restore-status-display");
+    if (!el) return;
+    const s = settings.restore?.savedStatus;
+    if (s?.text) { el.style.color="var(--text)"; el.textContent=`${s.emoji_name?s.emoji_name+" ":""}${s.text}`; }
+    else { el.style.color="var(--muted)"; el.textContent="Not set"; }
+}
+
+function updateSpotifyTokenStatus() {
+    const el = document.getElementById("spotify-token-status");
+    if (!el) return;
+    const t = settings.credentials?.spotifyWebToken;
+    el.style.color = t?.trim() ? "var(--green)" : "var(--muted)";
+    el.textContent  = t?.trim() ? "\u2713 Set" : "Not set";
+}
+
+function updatePresenceToggle() {
+    const current = settings.gateway?.presenceStatus || "online";
+    document.querySelectorAll(".presence-btn").forEach(btn => {
+        btn.classList.toggle("presence-active", btn.dataset.value === current);
+    });
+}
+
+function updateFlashStateToggle() {
+    const states = settings.statusFlash?.states || [];
+    document.querySelectorAll(".flash-state-btn").forEach(btn => {
+        btn.classList.toggle("flash-state-active", states.includes(btn.dataset.value));
+    });
+}
+
+function updateFlashRestoreSelect() {
+    const el = document.getElementById("flash-restore-status");
+    if (!el) return;
+    el.value = settings.statusFlash?.restoreStatus || "";
+}
+
+function updateStyleAlternateIntervalVisibility() {
+    const row = document.getElementById("style-alternate-interval-row");
+    if (!row) return;
+    row.style.display = settings.view?.advanced?.styleAlternateEnabled ? "" : "none";
+}
+
+function updateRpGwWarn() {
+    const el = document.getElementById("rp-gw-warn");
+    if (!el) return;
+    el.style.display = (settings.richPresence?.enabled && !settings.gateway?.enabled) ? "" : "none";
+}
+
+function updateIntervalRows() {
+    const gw = settings.gateway?.enabled;
+    const gr = document.getElementById("gw-interval-row");
+    const rr = document.getElementById("rest-interval-row");
+    if (gr) gr.style.display = gw ? "" : "none";
+    if (rr) rr.style.display = gw ? "none" : "";
+    // Show effective interval hint when merge floor is active
+    const mergeActive = settings.rateLimit?.enableMergeLines;
+    const mergeWindow = settings.rateLimit?.mergeWindowMs || 0;
+    const gwRaw = settings.gateway?.minGwIntervalMs ?? 5000;
+    const restRaw = settings.rateLimit?.enableMinInterval ? (settings.rateLimit?.minIntervalMs || 5000) : 0;
+    const effectiveGw = mergeActive ? Math.max(gwRaw, mergeWindow) : gwRaw;
+    const effectiveRest = mergeActive ? Math.max(restRaw, mergeWindow) : restRaw;
+    let hint = document.getElementById("effective-interval-hint");
+    if (!hint) {
+        hint = document.createElement("div");
+        hint.id = "effective-interval-hint";
+        hint.style.cssText = "font-size:11px;color:var(--accent);margin-top:4px;padding-left:2px;";
+        const target = gw ? gr : rr;
+        if (target) target.appendChild(hint);
+    }
+    if (mergeActive && mergeWindow > 0) {
+        const effective = gw ? effectiveGw : effectiveRest;
+        const raw = gw ? gwRaw : restRaw;
+        hint.style.display = effective > raw ? "" : "none";
+        hint.textContent = effective > raw ? "⚡ Effective: " + effective + "ms (floored to merge window)" : "";
+    } else {
+        hint.style.display = "none";
+    }
+}
+
+function updateSpWarn() {
+    const w = document.getElementById("sp-rp-warn");
+    const f = document.getElementById("sp-fields");
+    if (w) w.style.display = (settings.spotifyParty?.enabled && !settings.richPresence?.enabled) ? "" : "none";
+    if (f) f.style.display = settings.spotifyParty?.enabled ? "" : "none";
+}
+
+function updateGamePresenceFields() {
+    const f = document.getElementById("game-presence-fields");
+    if (f) f.style.display = settings.gamePresence?.enabled ? "" : "none";
+}
+
+function updateRpAlbumArtRow() {
+    const row = document.getElementById("rp-album-art-url-row");
+    if (!row) return;
+    row.style.display = settings.richPresence?.showAlbumArt ? "none" : "";
+}
+
+function applyToDom() {
+    try {
+        for (const [sel, path, type] of BINDINGS) {
+            const el = document.querySelector(sel);
+            if (!el) continue;
+            const val = getPath(settings, path);
+            if (val == null) continue;
+            if (type === "checkbox") el.checked = !!val;
+            else if (type === "number") { if (!isNaN(val)) el.value = val; }
+            else el.value = val;
+        }
+        syncAdvancedSwt(!!settings.view?.advanced?.enabled);
+        const ok = document.getElementById("spotify-ok");
+        if (ok) ok.classList.toggle("show", !!(settings.credentials?.refreshToken||settings.credentials?.code));
+        updateSpotifyTokenStatus(); updateRestoreDisplay(); updatePreview(); updatePresenceToggle();
+        updateFlashStateToggle(); updateFlashRestoreSelect(); updateGamePresenceFields();
+        renderSourceList(); updateStyleAlternateIntervalVisibility(); initStyleAlternateChecks(); initWordStyleChecks(); initCharStyleChecks();
+        updateRpGwWarn();
+    updateSpWarn();
+        initTokenMasking();
+    updateIntervalRows(); updateRpAlbumArtRow();
+
+    // Restore delay: stored as ms internally, displayed as seconds
+    const rdEl = document.getElementById("restore-delay-ms");
+    if (rdEl) {
+        rdEl.min = 0; rdEl.max = 60; rdEl.step = 1;
+        rdEl.value = Math.round((settings.restore?.delayMs || 15000) / 1000);
+        rdEl.addEventListener("change", () => {
+            if (!settings.restore) settings.restore = {};
+            settings.restore.delayMs = (parseFloat(rdEl.value) || 0) * 1000;
+            _dirty = true; save();
+        });
+    }
+
+    } catch(e) { console.error("applyToDom:", e); }
+    loaded = true;
+}
+
+
+function initStyleAlternateChecks() {
+    const wrap = document.getElementById("style-alternate-checks");
+    if (!wrap) return;
+    const adv = settings.view?.advanced || {};
+    const listStr = adv.styleAlternateList || [adv.styleAlternateStyleA, adv.styleAlternateStyleB].filter(Boolean).join(",");
+    const active = listStr ? listStr.split(",").map(x=>x.trim()).filter(Boolean) : [];
+    const styles = [["underline","U̲n̲d̲e̲r̲l̲i̲n̲e̲"],["strikethrough","S̶t̶r̶i̶k̶e̶"],["bold","𝐁𝐨𝐥𝐝"],["italic","𝐼𝑡𝑎𝑙𝑖𝑐"],["bold_italic","𝒃𝒐𝒍𝒅 𝒊𝒕"],["sans","𝒂𝒆𝒗𝒔"],["sans_bold","𝗦𝗕"],["sans_italic","𝘚𝘪"],["sans_bold_italic","𝙜𝙘𝙗𝙜"],["double_struck","𝔻𝕌𝕊𝕍"],["fraktur","𝔉𝔶𝔞𝔮"],["fraktur_bold","𝚘𝚔𝚓𝚘"],["script","𝒮𝒸𝓇𝒾𝓅𝓉"],["script_bold","𝓢𝓬𝓻𝓲𝓹𝓽 𝓑𝓸𝓵𝓭"],["monospace","𝙼𝚘𝚗𝚘𝚜𝚙𝚊𝚌𝚎"]];
+    if (!wrap._bound) {
+        wrap.innerHTML = styles.map(([v,l]) =>
+            `<label style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;cursor:pointer"><input type="checkbox" value="${v}"> ${l}</label>`
+        ).join("");
+        wrap.addEventListener("change", () => {
+            const v = Array.from(wrap.querySelectorAll("input:checked")).map(x=>x.value).join(",");
+            if (!settings.view) settings.view = {};
+            if (!settings.view.advanced) settings.view.advanced = {};
+            settings.view.advanced.styleAlternateList = v;
+            const parts = v.split(",").filter(Boolean);
+            settings.view.advanced.styleAlternateStyleA = parts[0] || "bold";
+            settings.view.advanced.styleAlternateStyleB = parts[1] || "italic";
+            _dirty = true; save(); updatePreview();
+        });
+        wrap._bound = true;
+    }
+    for (const cb of wrap.querySelectorAll("input")) cb.checked = active.includes(cb.value);
+}
+function initWordStyleChecks() {
+    const wrap = document.getElementById("style-word-map-checks");
+    if (!wrap) return;
+    const current = (settings.view && settings.view.advanced && settings.view.advanced.styleWordMap) || "";
+    const active = current ? current.split(",").map(x=>x.trim()).filter(Boolean) : [];
+    const styles = [["underline","U̲n̲d̲e̲r̲l̲i̲n̲e̲"],["strikethrough","S̶t̶r̶i̶k̶e̶"],["bold","𝐁𝐨𝐥𝐝"],["italic","𝐼𝑡𝑎𝑙𝑖𝑐"],["bold_italic","𝒃𝒐𝒍𝒅 𝒊𝒕𝒂𝒍𝒊𝒄"],["sans","𝖲𝖺𝗇𝗌"],["sans_bold","𝗦𝗮𝗻𝘀 𝗕𝗼𝗹𝗱"],["sans_italic","𝘚𝘢𝘯𝘴 𝘐𝘵𝘢𝘭𝘪𝘤"],["sans_bold_italic","𝙎𝙖𝙣𝙨 𝘽𝙄"],["double_struck","𝔻𝕠𝕦𝕓𝕝𝕖"],["fraktur","𝔉𝔯𝔞𝔨𝔱𝔲𝔯"],["fraktur_bold","𝖋𝖗𝖆𝖐𝖙𝖚𝖗 𝕭𝖔𝖑𝖉"],["script","𝒮𝒸𝓇𝒾𝓅𝓉"],["script_bold","𝓢𝓬𝓻𝓲𝓹𝓽 𝓑𝓸𝓵𝓭"],["monospace","𝙼𝚘𝚗𝚘𝚜𝚙𝚊𝚌𝚎"]];
+    if (!wrap._bound) {
+        wrap.innerHTML = styles.map(([v,l]) =>
+            `<label style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;cursor:pointer"><input type="checkbox" value="${v}"> ${l}</label>`
+        ).join("");
+        wrap.addEventListener("change", () => {
+            const v = Array.from(wrap.querySelectorAll("input:checked")).map(x=>x.value).join(",");
+            if (!settings.view) settings.view = {};
+            if (!settings.view.advanced) settings.view.advanced = {};
+            settings.view.advanced.styleWordMap = v;
+            _dirty = true; save(); updatePreview();
+        });
+        wrap._bound = true;
+    }
+    for (const cb of wrap.querySelectorAll("input")) cb.checked = active.includes(cb.value);
+}
+function initCharStyleChecks() {
+    const wrap = document.getElementById("style-char-map-checks");
+    if (!wrap) return;
+    const current = (settings.view && settings.view.advanced && settings.view.advanced.styleCharMap) || "";
+    const active = current ? current.split(",").map(x=>x.trim()).filter(Boolean) : [];
+    const styles = [["underline","U̲n̲d̲e̲r̲l̲i̲n̲e̲"],["strikethrough","S̶t̶r̶i̶k̶e̶"],["bold","𝐁𝐨𝐥𝐝"],["italic","𝐼𝑡𝑎𝑙𝑖𝑐"],["bold_italic","𝒃𝒐𝒍𝒅 𝒊𝒕𝒂𝒍𝒊𝒄"],["sans","𝖲𝖺𝗇𝗌"],["sans_bold","𝗦𝗮𝗻𝘀 𝗕𝗼𝗹𝗱"],["sans_italic","𝘚𝘢𝘯𝘴 𝘐𝘵𝘢𝘭𝘪𝘤"],["sans_bold_italic","𝙎𝙖𝙣𝙨 𝘽𝙄"],["double_struck","𝔻𝕠𝕦𝕓𝕝𝕖"],["fraktur","𝔉𝔯𝔞𝔨𝔱𝔲𝔯"],["fraktur_bold","𝖋𝖗𝖆𝖐𝖙𝖚𝖗 𝕭𝖔𝖑𝖉"],["script","𝒮𝒸𝓇𝒾𝓅𝓉"],["script_bold","𝓢𝓬𝓻𝓲𝓹𝓽 𝓑𝓸𝓵𝓭"],["monospace","𝙼𝚘𝚗𝚘𝚜𝚙𝚊𝚌𝚎"]];
+    if (!wrap._bound) {
+        wrap.innerHTML = styles.map(([v,l]) =>
+            `<label style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;cursor:pointer"><input type="checkbox" value="${v}"> ${l}</label>`
+        ).join("");
+        wrap.addEventListener("change", () => {
+            const v = Array.from(wrap.querySelectorAll("input:checked")).map(x=>x.value).join(",");
+            if (!settings.view) settings.view = {};
+            if (!settings.view.advanced) settings.view.advanced = {};
+            settings.view.advanced.styleCharMap = v;
+            _dirty = true; save(); updatePreview();
+        });
+        wrap._bound = true;
+    }
+    for (const cb of wrap.querySelectorAll("input")) cb.checked = active.includes(cb.value);
+}
+function bindAll() {
+    for (const [sel, path, type] of BINDINGS) {
+        const el = document.querySelector(sel);
+        if (!el) continue;
+        if (type === "checkbox") {
+            el.addEventListener("change", () => {
+                setPath(settings, path, el.checked);
+                if (sel === "#enable-advanced-swt") syncAdvancedSwt(el.checked);
+                if (sel === "#style-alternate-enabled") { updateStyleAlternateIntervalVisibility(); updatePreview(); }
+                if (sel==="#enable-timestamp"||sel==="#enable-label") updatePreview();
+                if (sel==="#rp-enabled"||sel==="#gateway-enabled") updateRpGwWarn();
+                if (sel==="#gateway-enabled") updateIntervalRows();
+                if (sel==="#sp-enabled"||sel==="#rp-enabled") updateSpWarn();
+                if (sel==="#game-presence-enabled") updateGamePresenceFields();
+                if (sel==="#rp-show-album-art") updateRpAlbumArtRow();
+                if (sel==="#enable-merge-lines"||sel==="#merge-window-ms"||sel==="#gw-min-interval-ms"||sel==="#min-interval-ms") updateIntervalRows();
+                _dirty = true; save();
+            });
+        } else if (type === "select") {
+            el.addEventListener("change", () => { setPath(settings, path, el.value); _dirty = true; save(); if (sel==="#unicode-style"||sel==="#lyrics-brackets") updatePreview(); });
+        } else if (type === "number") {
+            el.addEventListener("input", () => {
+                let v = parseFloat(el.value);
+                if (isNaN(v)) return;
+                const mn = el.min !== "" ? parseFloat(el.min) : -Infinity;
+                const mx = el.max !== "" ? parseFloat(el.max) :  Infinity;
+                v = Math.min(mx, Math.max(mn, v));
+                setPath(settings, path, v); _dirty = true; save();
+            });
+        } else {
+            el.addEventListener(type==="textarea"?"input":"change", () => {
+                let v = el.value;
+                if (sel==="#user-token") v=v.replace(/"/g,"");
+                setPath(settings, path, v); _dirty = true; save();
+                if (sel==="#spotify-web-token") updateSpotifyTokenStatus();
+            });
+        }
+    }
+
+    document.getElementById("presence-toggle")?.addEventListener("click", e => {
+        const btn = e.target.closest(".presence-btn");
+        if (!btn) return;
+        if (!settings.gateway) settings.gateway = {};
+        settings.gateway.presenceStatus = btn.dataset.value;
+        updatePresenceToggle();
+        _dirty = true; save();
+        toast(`Presence set to ${btn.dataset.value}`, "success", 1500);
+    });
+
+    document.getElementById("flash-state-toggle")?.addEventListener("click", e => {
+        const btn = e.target.closest(".flash-state-btn");
+        if (!btn) return;
+        if (!settings.statusFlash) settings.statusFlash = { ...DEFAULTS.statusFlash };
+        const states = settings.statusFlash.states || [];
+        const val = btn.dataset.value;
+        const idx = states.indexOf(val);
+        if (idx === -1) {
+            states.push(val);
+        } else {
+            if (states.length <= 1) { toast("At least one state must be selected", "error", 2000); return; }
+            states.splice(idx, 1);
+        }
+        const ORDER = ["online","idle","dnd","invisible"];
+        settings.statusFlash.states = ORDER.filter(s => states.includes(s));
+        updateFlashStateToggle();
+        _dirty = true; save();
+    });
+
+    document.getElementById("flash-restore-status")?.addEventListener("change", e => {
+        if (!settings.statusFlash) settings.statusFlash = { ...DEFAULTS.statusFlash };
+        settings.statusFlash.restoreStatus = e.target.value || null;
+        _dirty = true; save();
+    });
+}
+
+function showModal(title, html) {
+    document.querySelectorAll(".modal-overlay").forEach(el => el.remove());
+    const m = document.createElement("div");
+    m.className = "modal-overlay";
+    m.innerHTML = `<div class="modal-box"><div class="modal-header"><span>${title}</span><span class="modal-close">\u2715</span></div><div class="modal-body">${html}</div></div>`;
+    m.addEventListener("click", e => { if (e.target===m) m.remove(); });
+    m.querySelector(".modal-close").addEventListener("click", () => m.remove());
+    document.body.appendChild(m);
+}
+
+function btnFlash(btn, orig, cls, text, ms=2000) {
+    btn.classList.remove("success","danger"); btn.classList.add(cls); btn.textContent=text;
+    setTimeout(()=>{ btn.classList.remove(cls); btn.textContent=orig; }, ms);
+}
+
+const withBtnSpinner = (btn, fn) => {
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = "\u2026";
+    fn(orig, () => { btn.disabled = false; btn.textContent = orig; });
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+    try { renderSections(); } catch(e) { console.error('[panel] renderSections failed:', e); }
+    try { bindAll(); } catch(e) { console.error('[panel] bindAll failed:', e); }
+    try { initTokenMasking(); } catch(e) { console.error('[panel] initTokenMasking failed:', e); }
+    const _pcEl = document.getElementById('pc-enabled'); if (_pcEl) { _pcEl.disabled = true; _pcEl.checked = false; }
+
+    for (const [sel, info] of Object.entries(HELP)) {
+        const el = document.querySelector(sel);
+        if (el) el.addEventListener("click", () => showModal(info.title, info.html));
+    }
+
+    document.getElementById("check-token")?.addEventListener("click", function() {
+        withBtnSpinner(this, (orig, reset) => {
+            fetch("https://discordapp.com/api/v8/users/@me", { headers:{ Authorization:settings.credentials.token } })
+                .then(r => { btnFlash(this,orig,r.ok?"success":"danger",r.ok?"\u2713 Valid":"\u2717 Invalid",3000); toast(r.ok?"Discord token is valid":"Discord token is invalid",r.ok?"success":"error"); })
+                .catch(()=>{ btnFlash(this,orig,"danger","\u2717 Error",3000); toast("Could not reach Discord","error"); });
+        });
+    });
+
+    document.getElementById("btn-authorize")?.addEventListener("click", () => {
+        const {clientID,customRedirectUri,uuid,useExternalAuthServer}=settings.credentials;
+        window.open(useExternalAuthServer
+            ?`https://rocky-quintessential-island.glitch.me/login/${uuid}`
+            :`https://accounts.spotify.com/authorize?client_id=${encodeURIComponent(clientID)}&response_type=code&redirect_uri=${encodeURIComponent(customRedirectUri)}&scope=${encodeURIComponent("user-read-playback-state user-read-currently-playing")}`,
+        "_blank");
+    });
+
+    document.getElementById("btn-refresh-status")?.addEventListener("click", function() {
+        const token=settings.credentials?.token;
+        if(!token){ toast("No Discord token set","error"); return; }
+        withBtnSpinner(this, (orig, reset) => {
+            fetch("https://discordapp.com/api/v8/users/@me/settings", { headers:{ Authorization:token } })
+                .then(r => { if(!r.ok) throw r.status; return r.json(); })
+                .then(j => {
+                    reset();
+                    const s = j?.custom_status;
+                    const disp = document.getElementById("restore-status-display");
+                    if (s?.text) {
+                        if (disp) { disp.style.color="var(--accent)"; disp.textContent=`${s.emoji_name?s.emoji_name+" ":""}${s.text} (unsaved \u2014 click Store)`; }
+                        document.getElementById("btn-store-status")._fetched = s;
+                        toast("Status fetched \u2014 click Store to save","info");
+                    } else {
+                        if (disp) { disp.style.color="var(--muted)"; disp.textContent="No custom status set"; }
+                        toast("No custom status active","info");
+                    }
+                })
+                .catch(() => { reset(); toast("Failed to fetch Discord status","error"); });
+        });
+    });
+
+    document.getElementById("btn-store-status")?.addEventListener("click", function() {
+        const origRef = this.textContent;
+        const persist = s => {
+            if (!settings.restore) settings.restore = {};
+            settings.restore.savedStatus = s?.text ? s : null;
+            this._fetched = null;
+            _dirty = true; save();
+            updateRestoreDisplay();
+            btnFlash(this, origRef, "success", "\u2713 Stored");
+            toast("Status saved","success");
+        };
+        const fetched = this._fetched;
+        if (fetched) { persist(fetched); return; }
+        const token = settings.credentials?.token;
+        if (!token) { toast("No Discord token set","error"); return; }
+        withBtnSpinner(this, (orig, reset) => {
+            fetch("https://discordapp.com/api/v8/users/@me/settings", { headers:{ Authorization:token } })
+                .then(r => { if(!r.ok) throw r.status; return r.json(); })
+                .then(j => persist(j?.custom_status))
+                .catch(() => { btnFlash(this,orig,"danger","\u2717 Failed"); toast("Failed to fetch status","error"); });
         });
     });
 });
-userTokenInput.change(() => {
-    settings.credentials.token = userTokenInput.val().replace(/"/g, "");
-    saveSettings();
-});
-checkTokenButton.click(() => {
-    const label = checkTokenButton.find(".label");
-    const originalText = label.text();
 
-    checkTokenButton.removeClass("success error");
+// -- Discord profile card + equalizer --------------------------------------
+(function() {
+    let _cardToken = null, _cardFetched = false, _songPollInterval = null;
 
-    label.css("opacity", 0);
+    function setEq(playing) {
+        document.querySelectorAll(".eq-bar").forEach(b => b.classList.toggle("paused", !playing));
+    }
 
-    let valid = checkToken(settings.credentials.token);
-
-    setTimeout(() => {
-        if (!valid) {
-            checkTokenButton.addClass("error");
-            label.text("✖");
+    function updateSongDisplay(songName, songAuthor, isPlaying) {
+        const notPlaying = document.getElementById("dc-not-playing");
+        const songEl     = document.getElementById("dc-song");
+        const songText   = document.getElementById("dc-song-text");
+        if (songName) {
+            if (notPlaying) notPlaying.style.display = "none";
+            if (songEl)    { songEl.style.display = "flex"; }
+            if (songText)  songText.textContent = (songAuthor ? songAuthor + " \u2014 " : "") + songName;
+            setEq(isPlaying);
         } else {
-            checkTokenButton.addClass("success");
-            label.text("✔");
+            if (notPlaying) notPlaying.style.display = "";
+            if (songEl)    songEl.style.display = "none";
+            setEq(false);
         }
-
-        label.css("opacity", 1);
-
-        setTimeout(() => {
-            label.css("opacity", 0);
-
-            setTimeout(() => {
-                label.text(originalText);
-                label.css("opacity", 1);
-                checkTokenButton.removeClass("success error");
-            }, 200);
-        }, 3000);
-    }, 200);
-});
-clientIDInput.change(() => {
-    settings.credentials.clientID = clientIDInput.val();
-    saveSettings();
-});
-clientSecretInput.change(() => {
-    settings.credentials.clientSecret = clientSecretInput.val();
-    saveSettings();
-});
-customRedirectUriInput.change(() => {
-    settings.credentials.customRedirectUri = customRedirectUriInput.val();
-    saveSettings();
-});
-authorizeButton.click(() => {
-    const clientId = settings.credentials.clientID;
-    const redirectUri = settings.credentials.customRedirectUri;
-    if (settings.credentials.useExternalAuthServer) {
-        window.open("https://rocky-quintessential-island.glitch.me/login/" + settings.credentials.uuid, "_blank")
-    } else {
-        window.open(`https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent("user-read-playback-state user-read-currently-playing")}`, '_blank');
-    }
-});
-useExternalAuthServer.click(() => {
-    settings.credentials.useExternalAuthServer = useExternalAuthServer.prop("checked");
-    saveSettings();
-})
-enableTimestampCheckbox.click(() => {
-    settings.view.timestamp = enableTimestampCheckbox.prop("checked");
-    saveSettings();
-
-    statusPreview.text(getStatusString("La-la-la", 137000));
-});
-enableLabelCheckbox.click(() => {
-    settings.view.label = enableLabelCheckbox.prop("checked");
-    saveSettings();
-
-    statusPreview.text(getStatusString("La-la-la", 137000));
-});
-enableAdvancedSWT.click(() => {
-    let state = enableAdvancedSWT.prop("checked");
-
-    settings.view.advanced.enabled = state;
-    saveSettings();
-
-    advancedSWT
-        .toggleClass("hid")
-        .toggleClass("act");
-    enableTimestampCheckbox.prop("disabled", state);
-    enableLabelCheckbox.prop("disabled", state);
-});
-customEmojiHelp.click(() => {
-    modal("Help", `
-    <strong>Custom emoji</strong> option allows you to add an emoji before your status.<br>
-    Use a unicode emoji. You can get it <a style="color: rgba(154, 154, 154, var(--alpha));" href="https://www.piliapp.com/emoji/list/">here</a>.
-    `);
-});
-customEmoji.on("input", (e) => {
-    e.preventDefault();
-    let value = customEmoji.val();
-
-    settings.view.advanced.customEmoji = value;
-    saveSettings();
-});
-customStatusHelp.click(() => {
-    modal("Help", `
-    <strong>Custom status</strong> option allows you to customise your status as you want.<br>
-    To display text such as lyrics or timestamp you need to put it in {} brackets.<br>List of all variables you can use (upper/lower attribute means uppercased/lowercased text):<br>
-    {lyrics}, {lyrics_upper}, {lyrics_lower}, {lyrics_letters_only}, {lyrics_upper_letters_only}, {lyrics_lower_letters_only} - These variables contains current synchronized lyrics. <strong>letters_only</strong> attribute means there's no punctuations like dots and commas.<br>
-    {song_name}, {song_name_upper}, {song_name_lower}, {song_name_cropped}, {song_name_upper_cropped}, {song_name_lower_cropped} - These variables contain current song name. <strong>cropped</strong> attribute means only song name without any other text.<br>
-    {song_author}, {song_author_upper}, {song_author_lower} - These variables contains song author.<br><br>
-    <strong>Note: Lyrics Status will automatically crop your status if it's too long. Discord not allowing statuses with length over 128 symbols.</strong>
-    `);
-});
-customStatus.on("input", (e) => {
-    e.preventDefault();
-    let value = customStatus.val();
-
-    settings.view.advanced.customStatus = value;
-    saveSettings();
-});
-sendTimeOffset.on("input", (e) => {
-    e.preventDefault();
-    let value = +sendTimeOffset.val();
-
-    if(isNaN(value)) {
-        sendTimeOffset.css("color", "rgba(200, 0, 0, var(--alpha))");
-        $("#send-time-offset-help").css({ animation: "light 2s infinite alternate" });
-
-        return;
-    } else {
-        sendTimeOffset.css("color", "inherit");
-        $("#send-time-offset-help").css({ animation: "" });
     }
 
-    settings.timings.sendTimeOffset = value;
-    saveSettings();
-});
-sendTimeOffsetHelp.click(() => modal("Help", `
-Offset makes status changes appear before the lyrics have changed to make them look more synchronized.<br>
-You can change it to your preference.<br>
-If you don't have Spotify Premium you can set it to -200 because NetEase Music and QQMusic lyrics can appear faster than the actual song's words, but still it may be song-dependent.<br>
-The offset time is defined in milliseconds. The default value is 500.
-`));
-enableAutooffset.click(() => {
-    let state = enableAutooffset.prop("checked");
+    function fetchDiscordProfile(token) {
+        if (!token || _cardFetched) return;
+        _cardFetched = true;
+        fetch("https://discordapp.com/api/v8/users/@me", { headers: { Authorization: token } })
+            .then(r => r.ok ? r.json() : null)
+            .then(u => {
+                if (!u) return;
+                const nameEl   = document.getElementById("dc-name");
+                const tagEl    = document.getElementById("dc-tag");
+                const avatarEl = document.getElementById("dc-avatar");
+                const avatarPh = document.getElementById("dc-avatar-ph");
+                if (nameEl) nameEl.textContent = u.global_name || u.username || "Unknown";
+                if (tagEl)  tagEl.textContent  = u.username ? "@" + u.username : "";
+                if (u.avatar && avatarEl) {
+                    avatarEl.src = "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + ".webp?size=128";
+                    avatarEl.style.display = "";
+                    if (avatarPh) avatarPh.style.display = "none";
+                }
+            })
+            .catch(() => { _cardFetched = false; });
 
-    settings.timings.enableAutooffset = state;
-    saveSettings();
-})
-autooffset.on("input", (e) => {
-    e.preventDefault();
-    let value = +autooffset.val();
-
-    if(isNaN(value)) {
-        autooffset.css("color", "rgba(200, 0, 0, var(--alpha))");
-
-        return;
-    } else {
-        autooffset.css("color", "inherit");
+        fetch("https://discordapp.com/api/v8/users/@me/settings", { headers: { Authorization: token } })
+            .then(r => r.ok ? r.json() : null)
+            .then(s => {
+                if (!s) return;
+                const pip    = document.getElementById("dc-pip");
+                const csEl   = document.getElementById("dc-custom-status");
+                const status = s.status || "online";
+                if (pip) { pip.className = "dc-status-pip " + status; }
+                if (csEl && s.custom_status?.text) {
+                    csEl.textContent = (s.custom_status.emoji_name ? s.custom_status.emoji_name + " " : "") + s.custom_status.text;
+                } else if (csEl) { csEl.textContent = ""; }
+            })
+            .catch(() => {});
     }
 
-    settings.timings.autooffset = value;
-    saveSettings();
-});
-autooffsetHelp.click(() => modal("Help", `
-Autooffset basically speaks for itself. Calculates average value depending on the time of status change + 100 ms (before Discord shows it).
-`));
-enableAutoupdate.click(() => {
-    let state = enableAutoupdate.prop("checked");
+    const _origApply = typeof applyToDom === "function" ? applyToDom : null;
 
-    settings.update.enableAutoupdate = state;
-    saveSettings();
-})
-// Events
-
-function formatSeconds(s) {
-    return (s - (s %= 60)) / 60 + (9 < s ? ':' : ':0' ) + s;
-}
-function getStatusString(lyrics, time) {
-    return `${settings.view.timestamp ? `[${formatSeconds((time / 1000).toFixed(0))}] ` : ""}${settings.view.label ? "Song lyrics - " : ""}${lyrics.replace("♪", "🎶")}`;
-}
-function checkToken(token) {
-    let success = true;
-
-    $.get({
-        url: "https://discordapp.com/api/v8/users/@me",
-        headers: {
-            "Authorization": token
-        },
-        async: false,
-        statusCode: {
-            401: () => success = false
+    function onSettingsUpdate() {
+        const token = settings?.credentials?.token;
+        if (token && token !== _cardToken) {
+            _cardToken = token;
+            _cardFetched = false;
+            fetchDiscordProfile(token);
         }
+    }
+
+    if (typeof window !== "undefined") {
+        const _orig = window.applyToDom;
+        if (typeof _orig === "function") {
+            window.applyToDom = function() { _orig.apply(this, arguments); onSettingsUpdate(); };
+        }
+    }
+
+    window._setNowPlaying = updateSongDisplay;
+
+    document.addEventListener("DOMContentLoaded", function() {
+        setTimeout(function poll() {
+            if (typeof settings !== "undefined") onSettingsUpdate();
+            setTimeout(poll, 5000);
+        }, 1000);
     });
+})();
 
-    return success;
+// -- Discord side panel --------------------------------------------------
+(function(){
+  function tok(){return settings&&settings.credentials&&settings.credentials.token;}
+  function api(path,cb){
+    var t=tok();if(!t){cb(null);return;}
+    fetch("https://discordapp.com/api/v9"+path,{headers:{Authorization:t}})
+      .then(function(r){return r.ok?r.json():null;}).then(cb).catch(function(){cb(null);});
+  }
+  function el(id){return document.getElementById(id);}
+  function kv(k,v){return '<div class="dside-kv"><b>'+k+'</b><span>'+v+'</span></div>';}
+  function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;");}
+
+  function fetchAvatars(){
+    var btn=el("dside-refresh");if(btn){btn.disabled=true;btn.textContent="Loading...";}
+    api("/users/@me",function(me){
+      api("/users/@me/avatars",function(d){
+        if(btn){btn.disabled=false;btn.textContent="Fetch";}
+        var out=el("dside-av-list");if(!out)return;
+        if(!d||!d.avatars||!d.avatars.length){out.innerHTML='<p class="dside-empty">No recent avatars.</p>';return;}
+        var uid=me&&me.id||"";var html='<div class="dside-avatars">';
+        d.avatars.forEach(function(av){
+          var hash=av.storage_hash||av.id;
+          var url=uid?"https://cdn.discordapp.com/avatars/"+uid+"/"+hash+".webp?size=128":"";
+          var label=av.description?esc(av.description.substring(0,20)):"";
+          var img=url?"<img src=\""+url+"\" onerror=\"this.style.display='none'\">":"<div style=\"width:48px;height:48px;border-radius:50%;background:var(--surface-hi);border:2px solid var(--border)\"></div>";
+          html+='<div class="dside-av-wrap" title="'+esc(av.description||"")+'">'+img+'<span>'+label+'</span></div>';
+        });
+        out.innerHTML=html+'</div>';
+      });
+    });
+  }
+
+  function fetchProfile(){
+    var btn=el("dside-profile-refresh");if(btn){btn.disabled=true;btn.textContent="Loading...";}
+    api("/users/@me",function(me){
+      if(btn){btn.disabled=false;btn.textContent="Fetch";}
+      var out=el("dside-profile-body");if(!out)return;
+      if(!me){out.innerHTML='<p class="dside-empty">Failed.</p>';return;}
+      api("/users/"+me.id+"/profile?with_mutual_guilds=true&with_mutual_friends_count=true",function(p){
+        var html='<div class="dside-section">Account</div>';
+        html+=kv("ID",esc(me.id));
+        html+=kv("Username",esc(me.username));
+        html+=kv("Global name",esc(me.global_name||"-"));
+        html+=kv("Email",esc(me.email||"-"));
+        html+=kv("Phone",esc(me.phone||"-"));
+        html+=kv("Verified",me.verified?"Yes":"No");
+        html+=kv("MFA",me.mfa_enabled?"Enabled":"Off");
+        html+=kv("Nitro",me.premium_type?"Type "+me.premium_type:"None");
+        if(p){
+          html+='<div class="dside-section">Profile</div>';
+          if(p.user&&p.user.bio)html+=kv("Bio",esc(p.user.bio));
+          if(p.user_profile&&p.user_profile.pronouns)html+=kv("Pronouns",esc(p.user_profile.pronouns));
+          if(p.mutual_guilds)html+=kv("Mutual servers",p.mutual_guilds.length);
+          if(p.mutual_friends_count!=null)html+=kv("Mutual friends",p.mutual_friends_count);
+          if(p.connected_accounts&&p.connected_accounts.length){
+            html+='<div class="dside-section">Connected</div>';
+            p.connected_accounts.forEach(function(a){html+='<span class="dside-badge">'+esc(a.type)+" "+esc(a.name)+'</span>';});
+          }
+        }
+        out.innerHTML=html;
+      });
+    });
+  }
+
+  function fetchSettings(){
+    var btn=el("dside-settings-refresh");if(btn){btn.disabled=true;btn.textContent="Loading...";}
+    api("/users/@me/settings",function(d){
+      if(btn){btn.disabled=false;btn.textContent="Fetch";}
+      var out=el("dside-settings-body");if(!out)return;
+      if(!d){out.innerHTML='<p class="dside-empty">Failed.</p>';return;}
+      var keys=["status","custom_status","locale","theme","explicit_content_filter","default_guilds_restricted","developer_mode","gif_auto_play","animate_emoji","message_display_compact","friend_source_flags","restricted_guilds"];
+      var html='<div class="dside-section">Key settings</div>';
+      keys.forEach(function(k){if(d[k]!=null)html+=kv(k,esc(typeof d[k]==="object"?JSON.stringify(d[k]):d[k]));});
+      html+='<div class="dside-section">Raw JSON</div><pre class="dside-json">'+esc(JSON.stringify(d,null,2))+'</pre>';
+      out.innerHTML=html;
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded",function(){
+    el("disc-toggle")&&el("disc-toggle").addEventListener("click",function(){
+      var s=el("disc-side");if(!s)return;s.classList.toggle("open");
+      this.style.right=s.classList.contains("open")?"300px":"0";
+    });
+    document.querySelectorAll(".dside-tab").forEach(function(tab){
+      tab.addEventListener("click",function(){
+        document.querySelectorAll(".dside-tab").forEach(function(t){t.classList.remove("active");});
+        document.querySelectorAll(".dside-body>div").forEach(function(d){d.classList.remove("active");});
+        tab.classList.add("active");
+        var target=el("dside-"+tab.dataset.tab);if(target)target.classList.add("active");
+      });
+    });
+    el("dside-refresh")&&el("dside-refresh").addEventListener("click",fetchAvatars);
+    el("dside-profile-refresh")&&el("dside-profile-refresh").addEventListener("click",fetchProfile);
+    el("dside-settings-refresh")&&el("dside-settings-refresh").addEventListener("click",fetchSettings);
+  });
+})();
+// -- Album art color tinting --
+let _lastAlbumArt = null;
+function applyAlbumTint(url) {
+    if (url === _lastAlbumArt) return;
+    _lastAlbumArt = url;
+    if (!url) { clearTint(); return; }
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+        try {
+            const c = document.createElement("canvas");
+            c.width = 8; c.height = 8;
+            const ctx = c.getContext("2d");
+            ctx.drawImage(img, 0, 0, 8, 8);
+            const d = ctx.getImageData(0, 0, 8, 8).data;
+            let r=0,g=0,b=0,n=0;
+            for (let i=0;i<d.length;i+=4){ r+=d[i];g+=d[i+1];b+=d[i+2];n++; }
+            r=Math.round(r/n); g=Math.round(g/n); b=Math.round(b/n);
+            // desaturate heavily so it's a vibe not a highlight
+            const gray = r*0.299+g*0.587+b*0.114;
+            const mix = 0.18;
+            r=Math.round(gray*(1-mix)+r*mix);
+            g=Math.round(gray*(1-mix)+g*mix);
+            b=Math.round(gray*(1-mix)+b*mix);
+            setTint(r,g,b);
+        } catch(e) { clearTint(); }
+    };
+    img.onerror = () => clearTint();
+    img.src = url;
 }
-function saveSettings() {
-    if (!settingsLoaded) return console.error("Can't save settings before they're loaded from server.")
-
-    ws.send(JSON.stringify(settings))
-}
-function loadSettings(settingsToLoad) {
-    settingsToLoad = JSON.parse(settingsToLoad);
-
-    settings = $.extend(true, settings, settingsToLoad);
-
-    try {
-        userTokenInput.val(settings.credentials.token);
-        clientIDInput.val(settings.credentials.clientID);
-        clientSecretInput.val(settings.credentials.clientSecret);
-        customRedirectUriInput.val(settings.credentials.customRedirectUri);
-        useExternalAuthServer.prop("checked", settings.credentials.useExternalAuthServer)
-        enableTimestampCheckbox.prop("checked", settings.view.timestamp);
-        enableLabelCheckbox.prop("checked", settings.view.label);
-        settings.view.advanced.enabled ? enableAdvancedSWT.click() : null;
-        customEmoji.val(settings.view.advanced.customEmoji);
-        customStatus.html(settings.view.advanced.customStatus);
-        statusPreview.text(getStatusString("La-la-la", 137000));
-        sendTimeOffset.val(settings.timings.sendTimeOffset);
-        enableAutooffset.prop("checked", settings.timings.enableAutooffset);
-        autooffset.val(settings.timings.autooffset);
-    enableAutoupdate.prop("checked", settings.update.enableAutoupdate)
-
-    const authorized = !!(settings.credentials && (settings.credentials.refreshToken || settings.credentials.code));
-    spotifyAuthorizedIndicator.toggleClass("hid", !authorized).toggleClass("act", authorized);
-
-    settingsLoaded = true
-    } catch(e) {
-        console.log(e)
+function setTint(r,g,b) {
+    const root = document.documentElement;
+    const bright = r*0.299 + g*0.587 + b*0.114;
+    const dark = bright < 80;
+    const bgMul  = dark ? 0.30 : 0.82;
+    const surMul = dark ? 0.42 : 0.88;
+    const hiMul  = dark ? 0.52 : 0.93;
+    root.style.setProperty("--bg",         `rgb(${Math.round(r*bgMul)},${Math.round(g*bgMul)},${Math.round(b*bgMul)})`);
+    root.style.setProperty("--surface",    `rgb(${Math.round(r*surMul)},${Math.round(g*surMul)},${Math.round(b*surMul)})`);
+    root.style.setProperty("--surface-hi", `rgb(${Math.round(r*hiMul)},${Math.round(g*hiMul)},${Math.round(b*hiMul)})`);
+    if (!dark) {
+        root.style.setProperty("--text",      "#0a0b0c");
+        root.style.setProperty("--text-soft", "#111316");
+        root.style.setProperty("--muted",     "#333640");
+        root.style.setProperty("--border",    "rgba(0,0,0,0.15)");
+    } else {
+        root.style.removeProperty("--text");
+        root.style.removeProperty("--text-soft");
+        root.style.removeProperty("--muted");
+        root.style.removeProperty("--border");
     }
 }
-function modal(title, description, styles = {}) {
-    let modalWindow = $(`
-    <div class="modal">
-        <div class="top">
-            <span class="title" style="color: ${styles.titleTextColor || "white"};">${title}</span>
-            <div class="close">
-                <img class="closeMark" src="https://www.nicepng.com/png/full/61-612286_clip-art-check-mark-close-x-icon-png.png" height="14">
-            </div>
-        </div>
-        <div class="description" style="color: ${styles.descriptionTextColor || "white"};">
-            ${description}
-        </div>
-    </div>
-    `);
-
-    modalWindow.appendTo(document.body);
-
-    for (let e of $(".close")) {
-        e.parentNode.parentNode === modalWindow[0] ? $(e).click(() => { modalWindow.remove(); }) : null;
-    }
+function clearTint() {
+    const root = document.documentElement;
+    root.style.removeProperty("--bg");
+    root.style.removeProperty("--surface");
+    root.style.removeProperty("--surface-hi");
+    root.style.removeProperty("--text");
+    root.style.removeProperty("--text-soft");
+    root.style.removeProperty("--muted");
+    root.style.removeProperty("--border");
 }
-// Util functions
-
-const ws = new WebSocket("ws://localhost:8999/ws")
-
-ws.onmessage = (message) => {
-    loadSettings(message.data)
-}
-// Init

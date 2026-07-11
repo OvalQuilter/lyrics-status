@@ -1,0 +1,19 @@
+ANALYSIS: rate-limit delay vs stale merge decision -> NOT A BUG, confirmed.
+No payload buffering exists; each changeStatus() tick recomputes anchor/_staticWindow/merge
+fresh from current songProgress. If send is rate-limited, that tick's computed payload is
+simply dropped (not queued/sent later). Next tick re-scans from _scanIndex with current
+songProgress and naturally picks the correct (possibly newer) anchor. No stale-data path.
+Closed, no fix needed.
+
+FIXES APPLIED (this session):
+1. Forward pass break->continue on already-sent lines (StatusChangerBase.js buildMergedLines):
+   previously one already-sent line halted the entire forward merge scan; now it's skipped,
+   later unsent lines within win still merge in. lastTime now advances every visited line
+   (sent or not) so gap-window stays anchored to real timestamps.
+2. Backward catchup multiplier: hardcoded win*3 -> Settings.rateLimit?.catchupWindowMultiplier
+   ?? 3 (same default, now tunable).
+3. Removed now-redundant duplicate `lastTime = ln.time` at forward push site (dead code from #1).
+
+REMAINING OPEN ITEMS (not yet fixed):
+4. Asymmetric backwardMax/forward split: floor((maxLines-1)/2) reserved for backward regardless
+   of whether backward candidates exist; unused reservation not reclaimed by forward pass.

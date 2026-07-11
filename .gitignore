@@ -6,3 +6,53 @@
 /src/backup/
 /log.txt
 **/.DS_Store
+/dist/*_patch.txt
+/rpc/
+/CONTEXT.md
+/session.json
+
+# dev artifacts
+*.tmp
+*.ps1
+patch.js
+fixes.txt
+cache-overhaul.md
+REFACTOR_PLAN.txt
+REFACTOR_RECOMMENDATIONS.txt
+lyrics-status-SKILL.md
+_at_new.txt
+_dp_new.txt
+
+# static dev helpers
+/static/_help_css_snippet.txt
+
+# dist scratch files
+/dist/_check.js
+/dist/_fix.js
+/dist/_fix2.js
+/dist/_fix3.js
+/dist/instrument.js
+STARTUP_PERF.txt
+
+# runtime/local artifacts
+/.lock
+/build_number.json
+/settings.json.bak
+
+# scratch/patch scripts
+_patch_*.js
+_verify*.js
+_dump*.js
+_dump*.txt
+_clean*.js
+_fix_*.js
+_getbuild.js
+_run_patch.js
+*.bak
+AUDIT_*.txt
+PLAN*.txt
+FIX_GUIDE.txt
+MERGEREFACTOR.TXT
+discord-presence-plan.txt
+panel_dump.txt
+AudD_PLAN.txt

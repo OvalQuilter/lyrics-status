@@ -1,76 +1,41 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NetEaseMusicSource = void 0;
-const BaseSource_1 = require("./BaseSource");
-class NetEaseMusicSource extends BaseSource_1.BaseSource {
-    request(url) {
-        return fetch(url, {
-            method: "POST",
-            headers: {
-                "Referer": "https://music.163.com",
-                "Cookie": "appver=2.0.2",
-                "X-Real-IP": "202.96.0.0"
-            }
-        });
+const NE_RE = /\[(\d\d):((\d\d)\.(\d\d?\d?))]/;
+const NE_HEADERS = { "Referer": "https://music.163.com", "Cookie": "appver=2.0.2", "X-Real-IP": "202.96.0.0" };
+const JUNK_RE = /^\s*(作词|作曲|编曲|制作人|录音|混音|母带|出品|发行|OP|SP|制作)\s*[：:]|^\s*\[(verse|chorus|bridge|intro|outro|hook|pre-chorus|refrain|interlude|drop|build|break|skit|spoken|rap|instrumental|ad.?lib)\s*\d*\]\s*$/iu;
+
+class NetEaseMusicSource {
+    _req(url) { return fetch(url, { method: "POST", headers: NE_HEADERS }); }
+    async getSongId(name, artist) {
+        const r = await this._req(`https://music.163.com/api/search/get?s=${encodeURIComponent(`${name}-${artist}`)}&type=1&offset=0&sub=false&limit=5`);
+        const j = await r.json();
+        if (!j?.result?.songs?.length) throw new Error("NetEase: song not found");
+        return j.result.songs[0].id;
     }
-    getSongId(name, artist) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const request = yield this.request(`https://music.163.com/api/search/get?s=${encodeURIComponent(`${name}-${artist}`)}&type=1&offset=0&sub=false&limit=5
-            `);
-            const json = yield request.json();
-            if (json.result.songCount <= 0)
-                throw "Song not found";
-            return json.result.songs[0].id;
-        });
-    }
-    getLyrics(name, artist) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const songId = yield this.getSongId(name, artist);
-            const request = yield this.request(`https://music.163.com/api/song/lyric?tv=-1&kv=-1&lv=-1&os=pc&id=${songId}`);
-            const json = yield request.json();
-            if (!json.lrc || !json.lrc.lyric)
-                throw "Lyrics not found";
-            return this.parseLyrics(json.lrc.lyric);
-        });
+    async getLyrics(name, artist) {
+        const id = await this.getSongId(name, artist);
+        const r = await this._req(`https://music.163.com/api/song/lyric?tv=-1&kv=-1&lv=-1&os=pc&id=${id}`);
+        const j = await r.json();
+        if (!j.lrc?.lyric) throw new Error("NetEase: no lyrics");
+        return this.parseLyrics(j.lrc.lyric);
     }
     parseLyrics(lyrics) {
-        const lines = lyrics.split("\n");
-        const result = {
-            lines: []
-        };
-        const regexp = /\[(\d\d):((\d\d)\.(\d\d?\d?))]/;
-        for (let line of lines) {
-            if (!line)
-                continue;
-            const timestamps = [];
-            for (let match = line.match(regexp); match; match = line.match(regexp)) {
-                const m = +match[1];
-                const s = +match[3];
-                const ms = +match[4];
-                line = line.replace(regexp, "");
-                timestamps.push((60 * m + s) * 1000 + ms);
+        const lines = [];
+        for (let line of lyrics.split("\n")) {
+            if (!line || JUNK_RE.test(line)) continue;
+            const times = [];
+            for (let m = line.match(NE_RE); m; m = line.match(NE_RE)) {
+                times.push((60 * +m[1] + +m[3]) * 1000 + (m[4] ? parseInt(String(m[4]).padEnd(3, "0")) : 0));
+                line = line.replace(NE_RE, "");
             }
-            for (const timestamp of timestamps) {
-                result.lines.push({
-                    time: timestamp,
-                    text: line
-                });
-            }
+            // Bug 7 fix: skip lines with no timestamp instead of pushing time:0
+            // (avoids spurious status at t=0 from non-timestamped metadata that passed JUNK_RE)
+            if (!times.length) continue;
+            const text = line.trim(); if (text) for (const time of times) lines.push({ time, text });
         }
-        result.lines.sort((a, b) => a.time - b.time);
-        return result;
+        return { lines: lines.sort((a, b) => a.time - b.time) };
     }
-    getAppName() {
-        return "NetEase Music";
-    }
+    getAppName() { return "NetEase Music"; }
 }
 exports.NetEaseMusicSource = NetEaseMusicSource;

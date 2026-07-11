@@ -1,92 +1,128 @@
-# LyricsStatus V3
+<div align="center">
 
-## What is it?
+# lyrics-status
 
-LyricsStatus is a tool that changes your Discord status to lyrics of songs you listen to on Spotify!
+**Real-time Spotify lyrics → Discord custom status**
 
-It is written in TypeScript and runs on Node.js.
+[![Version](https://img.shields.io/badge/version-3.5.0-blue?style=flat-square)](https://github.com/RamenFighter03/lyrics-status)
+[![Node](https://img.shields.io/badge/node-v17%2B-green?style=flat-square)](https://nodejs.org)
+[![License](https://img.shields.io/badge/license-MIT-purple?style=flat-square)](LICENSE)
 
-## Precautions
+Fork of [OvalQuilter/lyrics-status](https://github.com/OvalQuilter/lyrics-status) — actively maintained continuation.
 
-Before you proceed to [Setup](#Setup) please read those precautions.
+![Terminal preview](res/screenie2.png)
 
-This tool is provided "AS IS" and doesn't have any warranty that it will work on your machine.
+</div>
 
-I, creator of the LyricsStatus, am not responsible for any consequences that LyricsStatus can lead to.
+---
 
-By using it, you agree with the statements above.
+## What it does
+
+Syncs your Discord custom status to live Spotify lyrics, line by line. Configured entirely through a browser panel at `localhost:8999` — no config files to edit.
+
+![Panel](res/panel.png)
+
+---
+
+## Features
+
+| Feature | Details |
+|---|---|
+| **6 lyric sources** | Spotify, Musixmatch, LrcLib, NetEase, QQ Music, Genius |
+| **Source ordering** | Toggle and reorder sources from the panel; changes apply live |
+| **Gateway mode** | Sends via Discord WebSocket (op3) — eliminates REST rate limits |
+| **Dealer mode** | Push-based Spotify playback events via WebSocket; no polling |
+| **Status restore** | Saves and restores your pre-lyrics Discord status after playback ends |
+| **Rich presence** | Shows lyrics as a "Listening to" activity with album art and progress bar |
+| **Status flash** | Cycles presence orb colour on a configurable interval |
+| **Fake mobile** | Identifies as Discord Android to show the mobile presence indicator |
+| **Template engine** | Fully custom status format with variables (see below) |
+| **Unicode styles** | Bold, italic, sans, fraktur, double-struck — optionally alternating on a timer |
+| **Smart truncation** | Drops whole lines before cutting words; emoji and Unicode safe |
+| **Line merging** | Joins nearby lines into one update to reduce API calls |
+| **Chinese conversion** | Optional Simplified ↔ Traditional conversion via opencc-js |
+| **Web panel** | Live status dashboard with lyric preview, rate-limit indicator, and source status |
+
+### Template variables
+
+```
+{lyrics}        {lyrics_upper}      {lyrics_lower}      {lyrics_title_case}
+{song_name}     {song_author}       {source}            {timestamp}
+{progress}      {duration}          {line_number}
+```
+
+Append `_upper`, `_lower`, `_title_case`, `_letters_only`, or `_cropped` to any variable.
+
+---
+
+## Requirements
+
+- **Node.js** v17 or later
+- **Spotify** account (free or premium)
+- **Discord** account
+
+---
+
+## Installation
+
+```bash
+git clone --single-branch --branch v3 https://github.com/RamenFighter03/lyrics-status
+cd lyrics-status
+npm install
+npm start
+```
+
+Windows users: after the first `npm install`, you can also just double-click **start.bat** to launch -- it auto-installs/updates dependencies for you automatically, including after future updates.
+
+> **Downloaded a zip?** GitHub's auto-generated archives may omit pre-built files. Always use `git clone`.
+
+Open **http://localhost:8999** to configure.
+
+---
 
 ## Setup
 
-### Node.js
+### 1. Discord token
 
-Firstly, you need to [download](https://nodejs.org/en) Node.js.
+Paste your Discord user token into the **Authentication** section and click **Verify**.
 
-LyricsStatus needs version 17.x.x or higher.
+> ⚠️ Never share your token. Using self-bots is against Discord's ToS — use at your own risk.
 
-### Downloading LyricsStatus
+### 2. Spotify credentials
 
-You can download it using Git or going to [Releases](https://github.com/OvalQuilter/lyrics-status/releases) and downloading source code archive. Then unpack it to the place you want.
+**Option A — Cookies (recommended, enables Dealer mode)**
+1. Open [open.spotify.com](https://open.spotify.com) while logged in
+2. `F12` → **Application** → **Cookies** → `https://open.spotify.com`
+3. Copy the value of `sp_dc` and paste it into **Spotify cookies** in the panel
 
-For Git, use this command:
+**Option B — OAuth**
+Use the OAuth flow in the panel with your own Spotify app credentials (Client ID + Secret).
 
-```
-git clone --single-branch --branch v3 https://github.com/OvalQuilter/lyrics-status
-```
+### 3. Gateway (optional, recommended)
 
-### Locating to LyricsStatus
+Enable **Gateway** in the panel. Status updates go via WebSocket instead of REST — no rate limiting. Falls back to REST automatically if the connection drops.
 
-#### Windows & Linux
+### 4. Musixmatch (optional)
 
-Copy the path to the LyricsStatus folder, often found on top of your File Explorer (`C:\Users\your_profile_name\path\to\LyricsStatus` or `/usr/name/path/to/LyricsStatus` for example).
+Tokens are fetched automatically. To use your own: `F12` → **Application** → **Cookies** → `musixmatch.com` → copy `musixmatchUserToken`.
 
-For Windows, press `Win + R` and type `cmd`, then press `Run`.
+---
 
-For Linux, you need to manually open Terminal from your start menu.
+## Troubleshooting
 
-In the opened window type `cd paste_path_you_copied` and press `Enter`.
+| Symptom | Fix |
+|---|---|
+| `npm start` exits immediately | Check `log.txt` — most likely a Node/`better-sqlite3` version mismatch. Run `npm rebuild` |
+| No lyrics showing | Verify `sp_dc` cookie is fresh and a lyrics-enabled track is playing |
+| `RBAC: access denied` | Re-paste a fresh `sp_dc` from DevTools |
+| Status not updating | Re-verify your Discord token in the panel |
+| HTTP 429 rate limited | Enable Gateway or increase the minimum send interval |
+| Musixmatch not working | Known bot-detection issue — set LrcLib as primary fallback in source order |
+| Source changes have no effect | Restart the app after reordering or toggling sources |
+| Dealer mode not connecting | Ensure `sp_dc` is set; check `log.txt` for auth errors |
 
-### Installing modules
+---
 
-Now, you need to install modules. In the command prompt, run the following command:
+## Disclaimer
 
-```
-npm install
-```
-
-Then wait for modules to install.
-
-### Running and configuring
-
-Run `npm run start` to start LyricsStatus.
-
-Now you need to configure it. Open `localhost:8999` in your browser, you should see a menu with various settings.
-
-First, you need to get your Discord token. [Here's](https://www.youtube.com/watch?v=LnBnm_tZlyU) a nice video on how to do it.
-
-After getting your token you need to paste it, head back to the menu and paste it in the `Token` input field. Remove quotes if there are any.
-
-Second, you need to get your Spotify cookies. Open [Spotify](https://open.spotify.com/) in your browser, then press `F12` or `Ctrl + Alt + I`, depending on your browser.
-
-Head to the `Network` tab or similar, you should see something like this:
-
-![Network Tab](res/network_tab.png)
-
-Now reload the page, wait for it to load, and search for something like `open.spotify.com` (often it's appear on top):
-
-![Request](res/request.png)
-
-Click on it, in the opened window search for `Cookie:`, it's your cookies. Copy and paste them in `Cookie` input field in the menu.
-
-Start some song in Spotify, if it has lyrics, you should see current lyrics in your command prompt as well as in your Discord status.
-
-### Troubleshooting
-
-#### Windows
-
-Try running command line with administrator privileges or disabling your firewall.
-
-#### Linux
-
-Try running Terminal from `su` user.
-
+Provided "AS IS" with no warranty. The original author and this fork's maintainer accept no responsibility for consequences of use, including Discord account actions.

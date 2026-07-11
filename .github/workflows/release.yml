@@ -1,0 +1,42 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+jobs:
+  release:
+    runs-on: self-hosted
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build release zip
+        shell: powershell
+        run: |
+          $VERSION = $env:GITHUB_REF_NAME
+          $ZIP_NAME = "lyrics-status-$VERSION.zip"
+          $STAGING = "staging-$VERSION"
+
+          New-Item -ItemType Directory -Path $STAGING -Force | Out-Null
+          foreach ($item in @("dist","src","static","res","package.json","tsconfig.json","README.md","CHANGELOG.txt","VERSION")) {
+            if (Test-Path $item) { Copy-Item -Recurse $item -Destination $STAGING }
+          }
+
+          Remove-Item "$STAGING\dist\_check.js","$STAGING\dist\instrument.js" -ErrorAction SilentlyContinue
+          Remove-Item "$STAGING\dist\_fix*.js" -ErrorAction SilentlyContinue
+          Remove-Item "$STAGING\dist\*_patch.txt" -ErrorAction SilentlyContinue
+
+          Compress-Archive -Path "$STAGING\*" -DestinationPath $ZIP_NAME -Force
+          Remove-Item -Recurse -Force $STAGING
+
+          "ZIP_NAME=$ZIP_NAME" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP_NAME }}
+          generate_release_notes: true
