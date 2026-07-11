@@ -289,10 +289,20 @@ class GatewayClient {
         if (!this.connected) return false;
         this._lastPayloadKey = "";
         if (!this._lastActivity) {
+            const now = Date.now();
+            if (now - (this._connectedAt || 0) < (this._postReadyHold || 3000)) { Debug_1.Debug.write(`[GatewayClient] post-READY hold`); return false; }
+            const minGwInterval = Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000;
+            let _pstActive = 0;
+            for (let _i = 0; _i < this._pstCount; _i++) { const _t = this._pst[(this._pstHead - 1 - _i + 5) % 5]; if (now - _t <= 20000) _pstActive++; }
+            const _gwJitteredFloor = minGwInterval + (this._gwSendJitterMs || 0);
+            if (_gwJitteredFloor > 0 && this._lastGwSentAt > 0 && now - this._lastGwSentAt < _gwJitteredFloor) { Debug_1.Debug.write("[GatewayClient] op3 min interval not elapsed — skipping"); return false; }
+            if (_pstActive >= 5) { Debug_1.Debug.write(`[GatewayClient] op3 rate limit (5/20s) — skipping`); return false; }
+            this._pst[this._pstHead] = now; this._pstHead = (this._pstHead + 1) % 5; this._pstCount = Math.min(this._pstCount + 1, 5); this._lastGwSentAt = now;
+            this._gwSendJitterMs = minGwInterval > 0 ? Math.random() * 0.20 * minGwInterval : 0;
             const pref = Settings_1.Settings.gateway?.presenceStatus || "online";
             const status = this._flashStatus || (pref === "mobile" ? "online" : pref === "off" ? "online" : pref === "invisible" ? "invisible" : pref);
             const activities = [this._lastRichPresenceActivity, this._lastGameActivity].filter(Boolean);
-            this._send({ op: 3, d: { since: status === "idle" ? Date.now() : 0, afk: status === "idle", status, activities } });
+            this._send({ op: 3, d: { since: status === "idle" ? now : 0, afk: status === "idle", status, activities } });
             return true;
         }
         return this.setCustomStatus(this._lastActivity.state || "", this._lastActivity.emoji?.name || null);
@@ -314,10 +324,11 @@ class GatewayClient {
         const built = this._buildGameActivity();
         const key = built ? JSON.stringify(built) : "";
         if (key === this._lastGameActivityKey) return false;
-        this._lastGameActivityKey = key;
         this._lastGameActivity = built;
         if (!built) this._gameActivityCreatedAt = null;
-        return this.refreshPresenceStatus();
+        const sent = this.refreshPresenceStatus();
+        if (sent) this._lastGameActivityKey = key; // only commit the key once it actually went out — retry on next poll tick otherwise (e.g. gateway not yet connected)
+        return sent;
     }
     clearLastActivity() { this._lastActivity = null; this._lastRichPresenceActivity = null; this._lastPayloadKey = ""; }
 
