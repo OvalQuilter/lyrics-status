@@ -107,6 +107,7 @@ async function init() {
         const p = _identityPref(raw);
         if (p !== _lastIdentityPref) { _lastIdentityPref = p; _lastRawPref = raw; Debug_1.Debug.write("[init] presenceStatus identity changed — forcing fresh gateway IDENTIFY"); gatewayClient.forceReconnect(); }
         else if (raw !== _lastRawPref) { _lastRawPref = raw; Debug_1.Debug.write("[init] presenceStatus changed — refreshing presence"); gatewayClient.refreshPresenceStatus(); }
+        gatewayClient.refreshGameActivity();
     }, 2000);
     setInterval(() => { if (!Settings_1.Settings.gateway?.enabled) return; const stuck = !gatewayClient.connected && !gatewayClient._reconnecting && gatewayClient._ws === null && !_idleDisconnected; if (stuck) { if (!_gwStuckSince) _gwStuckSince = Date.now(); else if (Date.now() - _gwStuckSince > 15000) { Debug_1.Debug.write("[init] Watchdog: gateway stuck disconnected 15s -- forcing connect"); gatewayClient.connect(); _gwStuckSince = 0; } } else _gwStuckSince = 0; }, 5000);
     if (_tokenValid && Settings_1.Settings.gateway?.enabled) gatewayClient.connect();

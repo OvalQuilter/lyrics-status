@@ -98,6 +98,12 @@ const BINDINGS = [
     ["#sp-party-max",            "spotifyParty.partyMax",             "number"],
     ["#sp-sync-id",              "spotifyParty.syncId",               "text"],
     ["#sp-flags",                "spotifyParty.flags",                "number"],
+    ["#game-presence-enabled",   "gamePresence.enabled",              "checkbox"],
+    ["#game-presence-select",    "gamePresence.game",                 "text"],
+    ["#game-presence-current",   "gamePresence.partyCurrent",         "number"],
+    ["#game-presence-max",       "gamePresence.partyMax",             "number"],
+    ["#game-presence-details",   "gamePresence.details",              "text"],
+    ["#game-presence-state",     "gamePresence.state",                "text"],
     // Profile Color
     ["#pc-enabled",              "profileColor.enabled",              "checkbox"],
     ["#pc-accent-shift",         "profileColor.accentShift",          "number"],

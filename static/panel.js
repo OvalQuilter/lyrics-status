@@ -311,6 +311,11 @@ function updateSpWarn() {
     if (f) f.style.display = settings.spotifyParty?.enabled ? "" : "none";
 }
 
+function updateGamePresenceFields() {
+    const f = document.getElementById("game-presence-fields");
+    if (f) f.style.display = settings.gamePresence?.enabled ? "" : "none";
+}
+
 function updateRpAlbumArtRow() {
     const row = document.getElementById("rp-album-art-url-row");
     if (!row) return;
@@ -332,7 +337,7 @@ function applyToDom() {
         const ok = document.getElementById("spotify-ok");
         if (ok) ok.classList.toggle("show", !!(settings.credentials?.refreshToken||settings.credentials?.code));
         updateSpotifyTokenStatus(); updateRestoreDisplay(); updatePreview(); updatePresenceToggle();
-        updateFlashStateToggle(); updateFlashRestoreSelect();
+        updateFlashStateToggle(); updateFlashRestoreSelect(); updateGamePresenceFields();
         renderSourceList(); updateStyleAlternateIntervalVisibility(); initStyleAlternateChecks(); initWordStyleChecks(); initCharStyleChecks();
         updateRpGwWarn();
     updateSpWarn();
@@ -436,6 +441,7 @@ function bindAll() {
                 if (sel==="#rp-enabled"||sel==="#gateway-enabled") updateRpGwWarn();
                 if (sel==="#gateway-enabled") updateIntervalRows();
                 if (sel==="#sp-enabled"||sel==="#rp-enabled") updateSpWarn();
+                if (sel==="#game-presence-enabled") updateGamePresenceFields();
                 if (sel==="#rp-show-album-art") updateRpAlbumArtRow();
                 if (sel==="#enable-merge-lines"||sel==="#merge-window-ms"||sel==="#gw-min-interval-ms"||sel==="#min-interval-ms") updateIntervalRows();
                 _dirty = true; save();

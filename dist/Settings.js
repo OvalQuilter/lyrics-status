@@ -58,7 +58,7 @@ class Settings {
 }
 Settings._saveTimer = null;
 process.on("exit", () => { if (Settings._saveTimer) { clearTimeout(Settings._saveTimer); Settings._flushSave(); } });
-Settings._KEYS = ["credentials","view","timings","update","rateLimit","sources","cache","chineseConversion","restore","gateway","statusFlash","richPresence","spotifyParty","profileColor","idle"];
+Settings._KEYS = ["credentials","view","timings","update","rateLimit","sources","cache","chineseConversion","restore","gateway","statusFlash","richPresence","spotifyParty","profileColor","idle","gamePresence"];
 exports.Settings = Settings;
 Settings.credentials = { token:"", cookies:"", musixmatchToken:"", spotifyWebToken:"", spotifyWebTokenExpiry:0, oauthTokenExpiry:0, clientID:"", clientSecret:"", useExternalAuthServer:"", code:"", refreshToken:"", uuid:"", customRedirectUri:"", useDealer:true, useDiscordPresence:false };
 Settings._viewAdvancedDefaults = { enabled:false, customEmoji:"\uD83C\uDFB6", customStatus:"[{timestamp}] [{lyrics}]", unicodeStyle:"none", styleAlternateEnabled:false, styleAlternateIntervalMs:3000, styleAlternateStyleA:"bold", styleAlternateStyleB:"italic", styleWordMap:"", styleCharMap:"", styleAlternateList:"", styleAlternateRandom:false, styleWordMapMarquee:false, lyricsBrackets:"", moodHeartsEnabled:false };
@@ -77,3 +77,4 @@ Settings.richPresence = { enabled:false, appName:"Spotify", showAlbumArt:true, a
 Settings.spotifyParty = { enabled:false, partyId:"", partySize:1, partyMax:10, syncId:"", flags:48 };
 Settings.profileColor = { enabled:false, accentShift:30 };
 Settings.idle = { enabled:true, timeoutSec:300 };
+Settings.gamePresence = { enabled:false, game:"valorant", partyCurrent:1, partyMax:5, details:"", state:"" };

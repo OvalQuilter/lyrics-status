@@ -141,6 +141,14 @@ const SECTION_BODIES = {
             h.row(h.label("Party sync flags"), h.inline(h.number("sp-flags",0,63,1) + h.muted("48=sync+join, 32=sync only, 16=join only, 0=none"))) +
         `</div>` +
         h.divider() +
+        h.row("", h.check("game-presence-enabled","Show as playing a game (fake party status)")) +
+        `<div id="game-presence-fields">` +
+            h.row(h.label("Game"), h.field(`<select id="game-presence-select">${_GAME_OPTIONS}</select>` + h.hint("Uses the real Discord icon and name for that game. Shown alongside your lyric status."))) +
+            h.row(h.label("Party size"), h.inline(h.number("game-presence-current",1,999,1) + h.muted("of") + h.number("game-presence-max",1,999,1) + h.muted("players (cosmetic)"))) +
+            h.row(h.label("Details"), h.field(h.input("game-presence-details","e.g. Competitive - Ranked (optional)"))) +
+            h.row(h.label("State"), h.field(h.input("game-presence-state","e.g. In a match (optional)"))) +
+        `</div>` +
+        h.divider() +
         h.row("", h.field(`<span style="opacity:0.4;pointer-events:none">` + h.check("pc-enabled","\uD83C\uDFA8 Auto profile color from album art") + `</span>` + '<small class="hint" style="color:var(--amber)">&#9888; Permanently disabled in this build.</small>')) +
         h.row(h.label("Accent hue shift"), h.inline(h.number("pc-accent-shift",-180,180,5) + h.muted("degrees (default 30)"))) +
         h.indent(h.hint("How far the accent/secondary color shifts in hue from the base. 30 = subtle, 90 = vivid contrast.")),

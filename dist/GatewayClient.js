@@ -10,6 +10,20 @@ const fs = require("fs");
 const path = require("path");
 
 const GATEWAY_URL = "wss://gateway.discord.gg/?v=10&encoding=json";
+const GAME_TEMPLATES = {
+    valorant: { name: "VALORANT", id: "700136079562375258", defaultMax: 5 },
+    minecraft: { name: "Minecraft", id: "1402418491272986635", defaultMax: 8 },
+    fortnite: { name: "Fortnite", id: "1402418703554842694", defaultMax: 4 },
+    lol: { name: "League of Legends", id: "1402418696126992445", defaultMax: 5 },
+    apex: { name: "Apex Legends", id: "542075586886107149", defaultMax: 3 },
+    cs2: { name: "Counter-Strike 2", id: "1158877933042143272", defaultMax: 5 },
+    gta5: { name: "Grand Theft Auto V", id: "1402418714716143646", defaultMax: 4 },
+    amongus: { name: "Among Us", id: "1402418440685486130", defaultMax: 10 },
+    warzone: { name: "Call of Duty: Warzone", id: "1500967742772215959", defaultMax: 4 },
+    r6siege: { name: "Rainbow Six Siege", id: "356876590342340608", defaultMax: 5 },
+    fallguys: { name: "Fall Guys", id: "742897755160313986", defaultMax: 4 },
+    rocketleague: { name: "Rocket League", id: "356877880938070016", defaultMax: 4 },
+};
 const FATAL_CODES = new Set([4004, 4010, 4011, 4012, 4013, 4014, 4021]);
 const NO_RESUME_CODES = new Set([4002, 4007, 4009]);
 const SESSION_PATH = path.resolve(__dirname, "../session.json");
@@ -47,6 +61,9 @@ class GatewayClient {
         this._destroyed = false; this._ackReceived = false;
         this._wsInstance = 0; this._hbGeneration = 0; this._lastActivity = null; this._flashStatus = null;
         this._lastRichPresenceActivity = null;
+        this._lastGameActivity = null;
+        this._lastGameActivityKey = "";
+        this._gameActivityCreatedAt = null;
         this._reconnectDelay = 1000;
         this._reconnectAttempts = 0;
         this._lastIdentifyAt = 0;
@@ -262,13 +279,35 @@ class GatewayClient {
         } else if (text == null && this._lastActivity) {
             type4 = this._lastActivity;
         }
-        const activities = [type4, this._lastRichPresenceActivity].filter(Boolean);
+        const activities = [type4, this._lastRichPresenceActivity, this._lastGameActivity].filter(Boolean);
         this._send({ op: 3, d: { since: status === "idle" ? Date.now() : 0, afk: status === "idle", status, activities } });
         Debug_1.Debug.write("[GatewayClient] flashPresence " + status + " | " + (type4 ? type4.state : "none"));
         return true;
     }
     clearFlashStatus() { this._flashStatus = null; this._lastPayloadKey = ""; }
     refreshPresenceStatus() { if (!this.connected) return false; this._lastPayloadKey = ""; return this.setCustomStatus(this._lastActivity?.state || "", this._lastActivity?.emoji?.name || null); }
+    _buildGameActivity() {
+        const gp = Settings_1.Settings.gamePresence;
+        if (!gp || !gp.enabled) return null;
+        const tmpl = GAME_TEMPLATES[gp.game];
+        if (!tmpl) return null;
+        const max = Math.max(1, Number(gp.partyMax) || tmpl.defaultMax);
+        const current = Math.max(1, Math.min(Number(gp.partyCurrent) || 1, max));
+        if (!this._gameActivityCreatedAt) this._gameActivityCreatedAt = Date.now();
+        const activity = { id: "game", type: 0, name: tmpl.name, application_id: tmpl.id, party: { id: "party_" + tmpl.id, size: [current, max] }, created_at: this._gameActivityCreatedAt };
+        if (gp.details) activity.details = gp.details;
+        if (gp.state) activity.state = gp.state;
+        return activity;
+    }
+    refreshGameActivity() {
+        const built = this._buildGameActivity();
+        const key = built ? JSON.stringify(built) : "";
+        if (key === this._lastGameActivityKey) return false;
+        this._lastGameActivityKey = key;
+        this._lastGameActivity = built;
+        if (!built) this._gameActivityCreatedAt = null;
+        return this.refreshPresenceStatus();
+    }
     clearLastActivity() { this._lastActivity = null; this._lastRichPresenceActivity = null; this._lastPayloadKey = ""; }
 
     setCustomStatus(text, emoji) {
@@ -276,7 +315,7 @@ class GatewayClient {
         const now = Date.now(); if (now - (this._connectedAt || 0) < (this._postReadyHold || 3000)) { Debug_1.Debug.write(`[GatewayClient] post-READY hold`); return "hold"; }
         const _pref0 = Settings_1.Settings.gateway?.presenceStatus || "online";
         const _status0 = this._flashStatus || (_pref0 === 'mobile' ? 'online' : _pref0 === 'off' ? 'online' : _pref0 === 'invisible' ? 'invisible' : _pref0);
-        const _payloadKeyEarly = _status0 + "|" + (text || "") + "|" + (emoji || "") + "|" + (this._lastRichPresenceActivity ? JSON.stringify(this._lastRichPresenceActivity) : "");
+        const _payloadKeyEarly = _status0 + "|" + (text || "") + "|" + (emoji || "") + "|" + (this._lastRichPresenceActivity ? JSON.stringify(this._lastRichPresenceActivity) : "") + "|" + this._lastGameActivityKey;
         if (_payloadKeyEarly === this._lastPayloadKey) { Debug_1.Debug.write("[GatewayClient] op3 payload unchanged (pre-check) \u2014 skipping"); return false; }
         const minGwInterval = Settings_1.Settings.gateway?.minGwIntervalMs ?? 5000;
         // RL-14: prune via circular buffer â€” count entries within 20s window
@@ -293,8 +332,8 @@ class GatewayClient {
         if (_newState !== this._lastType4State) { this._type4CreatedAt = now; this._lastType4State = _newState; }
         const type4 = { id: "custom", type: 4, name: "Custom Status", state: text || "", emoji: emoji ? { name: emoji } : null, created_at: this._type4CreatedAt };
         this._lastActivity = type4;
-        const activities = [type4, this._lastRichPresenceActivity].filter(Boolean);
-        const _payloadKey = status + "|" + (text || "") + "|" + (emoji || "") + "|" + (this._lastRichPresenceActivity ? JSON.stringify(this._lastRichPresenceActivity) : "");
+        const activities = [type4, this._lastRichPresenceActivity, this._lastGameActivity].filter(Boolean);
+        const _payloadKey = status + "|" + (text || "") + "|" + (emoji || "") + "|" + (this._lastRichPresenceActivity ? JSON.stringify(this._lastRichPresenceActivity) : "") + "|" + this._lastGameActivityKey;
         if (_payloadKey === this._lastPayloadKey) { Debug_1.Debug.write("[GatewayClient] op3 payload unchanged â€” skipping"); return false; }
         this._lastPayloadKey = _payloadKey;
         this._send({ op: 3, d: { since: status === 'idle' ? now : 0, afk: status === 'idle', status, activities } });
